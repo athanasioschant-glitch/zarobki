@@ -413,7 +413,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 19:59</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:03</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1276,8 +1276,9 @@ function inBreakdown(T, H, isRev) {
     const o = expand(OTHER).filter(x => catOf(x) === s.id && x.got && (period === "all" || x.month === period));
     return {name: s.name, n: o.length, v: o.reduce((a, x) => a + (+x.rev || 0) - (isRev ? 0 : +x.cost || 0), 0)};
   }).filter(r => r.v);
-  if (SRC === "all" || SRC === "kako") { const n = T.sold.filter(x => payState(x).st === "in").length; rows.unshift({name: "Kako", n, v: H.inn - rows.reduce((a, r) => a + r.v, 0), kako: 1}); }
-  return `<div class="list" style="margin-top:12px">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${r.kako ? r.n + " szt. sprzedanych, pieniądze na koncie" : r.n + (r.n === 1 ? " wpis otrzymany" : " wpisy otrzymane")}</div></div><span class="amt">${zl(r.v, 2)}</span></div>`).join("") || `<div class="empty">Na razie nic.</div>`}</div>`;
+  const kIn = [...T.sold.filter(x => payState(x).st === "in"), ...(period === "all" ? derive().gone.map(x => ({...x, status: "oddane"})) : [])].sort((a, b) => String(b.sold || "").localeCompare(String(a.sold || "")));
+  if (SRC === "all" || SRC === "kako") rows.unshift({name: "Kako", n: kIn.filter(x => x.status !== "oddane").length, v: H.inn - rows.reduce((a, r) => a + r.v, 0), kako: 1});
+  return `<div class="list" style="margin-top:12px">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${r.kako ? r.n + " szt. sprzedanych, pieniądze na koncie" : r.n + (r.n === 1 ? " wpis otrzymany" : " wpisy otrzymane")}</div></div><span class="amt">${zl(r.v, 2)}</span></div>`).join("") || `<div class="empty">Na razie nic.</div>`}</div>${kIn.length && (SRC === "all" || SRC === "kako") ? `<div class="small muted" style="font-weight:600;margin:14px 0 6px">Sprzedaże Kako na koncie · ${period === "all" ? "od początku" : mLabel(period)}</div><div class="list">${kIn.map(x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc(x.status === "oddane" ? [cleanColor(x.color), "oddane za darmo" + (x.recipient ? " (" + x.recipient + ")" : "") + " · strata to koszt"].filter(Boolean).join(" · ") : [cleanColor(x.color), (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt ${(isRev ? x.price : x.profit) < 0 ? "neg" : ""}">${zl(isRev ? x.price || 0 : x.profit, 2)}</span></div>`).join("")}</div>` : ""}`;
 }
 function srcTotals(id, p, T) {
   if (id === "kako") return {rev: T.kRev, profit: T.kProfit};
@@ -1548,9 +1549,7 @@ function renderZrodlo(id) {
   $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3><div class="sub">${E.length} wpisów · przychody i koszty z opisem</div></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
       <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
-    <div class="card s5 todo-box">${todoHTML(s.id)}</div>
-    ${E.some(o => o.recurring) ? `<div class="card s12" id="recur-src"></div>` : ""}`;
-  if (E.some(o => o.recurring)) renderRecurring($("#recur-src"), s.id);
+    <div class="card s5 todo-box">${todoHTML(s.id)}</div>`;
   bindEntryForm($("#src-page"), () => keepView(() => renderZrodlo(id)));
   bindTgl($("#src-page"), () => keepView(() => renderZrodlo(id)));
   const sp = $("#sm-prev"), sn = $("#sm-next");
