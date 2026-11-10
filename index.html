@@ -409,6 +409,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <span class="lbl">Inne</span>
     <a href="#zadania" data-v="zadania"><svg class="i"><use href="#i-check"/></svg>Wszystkie zadania</a>
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
+    <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
   <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut</div>
 </nav>
@@ -1113,12 +1114,13 @@ function renderStartInner() {
   const isRev = heroMode === "przychod";
   const H = isRev ? {lab: "Przychód", total: T.rev, inn: T.revIn, pen: T.revPen, wal: T.revWal, exp: T.revExp, prev: P && P.rev, color: rv, key: "rev", icon: "wallet", cls: "b"} : {lab: "Zysk", total: T.profit, inn: T.profitIn, pen: T.profitPen, wal: T.profitWal, exp: T.profitExp, prev: P && P.profit, color: ac, key: "profit", icon: "trend", cls: "a"};
   const fam = SRC === "all" || SRC === "rodzina" ? srcTotals("rodzina", period, T) : {got: 0, wait: 0};
-  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : SRC === "all" ? "Biznesy – na koncie" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy – otrzymane"], [H.wal, "#b18cff", "Zamrożone (portfel Vinted)"], [H.pen, css("--warn"), "W drodze (sprzedaż)"], [H.exp, css("--faint"), "Stałe wpływy – oczekiwane"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
+  H.total = H.inn + H.pen; if (P) H.prev = isRev ? P.revIn + P.revPen : P.profitIn + P.profitPen;
+  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy"], [H.pen, css("--warn"), "W drodze (sprzedaż)"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button><button data-h="przychod" aria-pressed="${isRev}">Przychód</button></div>${ic(H.icon, H.cls)}</div>
     <div class="sub small muted" style="margin-top:12px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
-    <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
+    <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>${isRev && SRC !== "rodzina" && H.total > 0 ? `<div class="small muted" style="margin-top:4px">marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b> · zysk ${zl(T.profitIn + T.profitPen)}</div>` : ""}
     <div class="stack" style="margin:16px 0 10px">${segs.map(([v, c]) => v > 0 ? `<i style="width:${v / hs * 100}%;background:${c}"></i>` : "").join("")}</div>
-    <div class="hsplit">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 3 ? `<button class="link hs" id="go-transit" style="color:inherit">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 3 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}</div>
+    <div class="hsplit">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${T.revWal > 0 && SRC !== "rodzina" ? `<div class="small muted" style="margin-top:8px;display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#b18cff;display:inline-block"></i>+${zl(T.revWal, 2)} zamrożone (portfel Vinted) · niewliczone w ${H.lab.toLowerCase()}, tylko w majątku</div>` : ""}
     <div class="row1">${P ? deltaHTML(H.total, H.prev) : `<span class="delta up">${T.n} szt. sprzedanych</span><span>${isRev ? "średnio " + zl(T.n ? T.kRev / T.n : null) + " za sztukę" : "średnio " + (T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia") + " od wystawienia do sprzedaży"}</span>`}</div>
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
   $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero", heroMode); renderStart(); });
@@ -1149,9 +1151,9 @@ function renderStartInner() {
   const wn = css("--warn");
   $("#money").innerHTML = `<div class="ch"><div><h3>Pieniądze</h3><div class="sub">${period === "all" ? "Od początku" : cap(mLabel(period))} · kapitał zawsze od początku</div></div></div>
     <div class="money">
-      <div class="mcol"><div class="mh">${ic("trend", "a")}Zysk łącznie</div><div class="mv ${T.profit < 0 ? "neg" : ""}">${zl(T.profit)}</div>${pBar(T.profitIn, T.profitPen, ac, wn)}
+      <div class="mcol"><div class="mh">${ic("trend", "a")}Zysk łącznie</div><div class="mv ${T.profitIn + T.profitPen < 0 ? "neg" : ""}">${zl(T.profitIn + T.profitPen)}</div>${pBar(T.profitIn, T.profitPen, ac, wn)}
         <div class="mline"><span><i style="background:var(--accent)"></i>Otrzymany</span><b>${zl(T.profitIn)}</b></div><div class="mline"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.profitPen)}</b></div></div>
-      <div class="mcol"><div class="mh">${ic("wallet", "b")}Przychód łącznie</div><div class="mv">${zl(T.rev)}</div>${pBar(T.revIn, T.revPen, rv, wn)}
+      <div class="mcol"><div class="mh">${ic("wallet", "b")}Przychód łącznie</div><div class="mv">${zl(T.revIn + T.revPen)}</div>${pBar(T.revIn, T.revPen, rv, wn)}
         <div class="mline"><span><i style="background:var(--rev)"></i>Na koncie</span><b>${zl(T.revIn)}</b></div><div class="mline"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.revPen)}</b></div></div>
       <div class="mcol"><div class="mh">${ic("box", "w")}Włożone łącznie</div><div class="mv">${zl(spentAll)}</div>${pBar(recCost, active, fa, wn)}
         <div class="mline"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div>
@@ -1161,6 +1163,7 @@ function renderStartInner() {
     <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b> · pieniądze na koncie ÷ wszystko włożone</span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
       <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
       <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
+  const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; keepView(renderStart); };
   const gt = $("#go-transit"); if (gt) gt.onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
   renderTransit(D);
   if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
@@ -1195,8 +1198,8 @@ function renderStartInner() {
 
   const rec = D.sold.slice().sort((a, b) => (b.sold || "").localeCompare(a.sold || "")).slice(0, 5);
   $("#recent").innerHTML = `<div class="ch"><div><h3>Ostatnie sprzedaże</h3><div class="sub">Z arkusza Kako</div></div><button class="link" id="go-sales">Wszystkie ${svg("arrow", 14)}</button></div>
-    <div class="list">${rec.map(s => `<div class="row"><div class="av">${esc(sz(s.size))}</div>
-      <div class="main"><div class="t">${esc(s.product)}</div><div class="s">${[cleanColor(s.color), s.platform + (s.account ? " · " + s.account : ""), s.order ? "zam. " + s.order : ""].filter(Boolean).map(esc).join(" · ")}</div></div>
+    <div class="list">${rec.map(s => `<div class="row">${pav(s)}
+      <div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.platform + (s.account ? " · " + s.account : ""), s.order ? "zam. " + s.order : ""].filter(Boolean).map(esc).join(" · ")}</div></div>
       <div class="end"><span class="amt pos">+${zl(s.profit)}</span><span class="s">${dShort(s.sold)}</span></div></div>`).join("") || `<div class="empty">Jeszcze nic nie sprzedano.</div>`}</div>`;
   $("#go-sales").onclick = () => { kakoTab = "sprz"; salesFilter = "sprzedane"; location.hash = "kako"; };
 
@@ -1218,7 +1221,7 @@ function renderTransit(D) {
   const sum = pend.reduce((a, s) => a + s.price, 0), prof = pend.reduce((a, s) => a + s.profit, 0);
   const byAcc = {}; pend.forEach(s => { const k = (s.platform || "Inne") + " · " + (s.account || "konto główne"); byAcc[k] = (byAcc[k] || 0) + s.price; });
   const row = (s, st) => { const d = daysAgo(s.sold); const p = payState(s);
-    return drow(`<div class="row tr"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${esc((s.platform || "Inne") + " · " + (s.account || "konto główne"))} · ${s.sold ? "sprzedane " + dShort(s.sold) + (d != null ? " · " + (d === 0 ? "dziś" : d === 1 ? "wczoraj" : d + " dni temu") : "") : "bez daty sprzedaży"}${st === "in" && p.src === "auto" ? " · uznane za otrzymane po " + AUTO_DAYS + " dniach" : ""}</div></div>
+    return drow(`<div class="row tr">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${esc((s.platform || "Inne") + " · " + (s.account || "konto główne"))} · ${s.sold ? "sprzedane " + dShort(s.sold) + (d != null ? " · " + (d === 0 ? "dziś" : d === 1 ? "wczoraj" : d + " dni temu") : "") : "bez daty sprzedaży"}${st === "in" && p.src === "auto" ? " · uznane za otrzymane po " + AUTO_DAYS + " dniach" : ""}</div></div>
       <div class="end"><span class="amt">${zl(s.price, 2)}${s.est ? ' <span class="small muted" style="font-weight:500">szac.</span>' : ""}</span><span class="s ${st === "in" ? "" : "pos"}">zysk ${zl(s.profit)}</span></div>
       ${pay3HTML(s)}</div>`, s); };
   $("#transit").innerHTML = `<div class="ch"><div style="display:flex;gap:12px;align-items:center">${ic("wallet", "w")}<div><h3>Pieniądze w drodze</h3><div class="sub">Sprzedane, ale jeszcze nie na Twoim koncie</div></div></div><div style="text-align:right;flex:none"><div class="amt" style="font-size:20px;font-weight:800;color:var(--warn);white-space:nowrap">${zl(sum)}</div><div class="small muted">w tym zysk ${zl(prof, 2)}</div></div></div>
@@ -1233,6 +1236,15 @@ function renderTransit(D) {
 }
 const SOURCES = [{id: "kako", name: "Kako", icon: "box", cls: "a", desc: "odsprzedaż z Kakobuy · liczy się z arkusza"}, {id: "dropshipping", name: "Dropshipping", icon: "cart", cls: "b", desc: "sklep i reklamy"}, {id: "fiszki", name: "Fiszki", icon: "tag", cls: "w", desc: "sprzedaż fiszek"}, {id: "premie", name: "Premie bankowe", icon: "shield", cls: "b", desc: "premie za konta i promocje banków"}, {id: "revolut", name: "Revolut", icon: "pct", cls: "a", desc: "zarobki i promocje w Revolut"}, {id: "inne", name: "Inne dochody", icon: "wallet", cls: "", desc: "praca, zlecenia, inne dochody"}, {id: "rodzina", name: "Stałe wpływy", icon: "user", cls: "", desc: "np. rodzina, wynajem, kieszonkowe"}];
 const catOf = o => o.cat || "inne";
+let heroIn = false;
+function inBreakdown(T, H, isRev) {
+  const rows = SOURCES.filter(s => s.id !== "kako" && (SRC === "all" || SRC === s.id)).map(s => {
+    const o = expand(OTHER).filter(x => catOf(x) === s.id && x.got && (period === "all" || x.month === period));
+    return {name: s.name, n: o.length, v: o.reduce((a, x) => a + (+x.rev || 0) - (isRev ? 0 : +x.cost || 0), 0)};
+  }).filter(r => r.v);
+  if (SRC === "all" || SRC === "kako") { const n = T.sold.filter(x => payState(x).st === "in").length; rows.unshift({name: "Kako", n, v: H.inn - rows.reduce((a, r) => a + r.v, 0), kako: 1}); }
+  return `<div class="list" style="margin-top:12px">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${r.kako ? r.n + " szt. sprzedanych, pieniądze na koncie" : r.n + (r.n === 1 ? " wpis otrzymany" : " wpisy otrzymane")}</div></div><span class="amt">${zl(r.v, 2)}</span></div>`).join("") || `<div class="empty">Na razie nic.</div>`}</div>`;
+}
 function srcTotals(id, p, T) {
   if (id === "kako") return {rev: T.kRev, profit: T.kProfit};
   const o = expand(OTHER).filter(x => catOf(x) === id && (p === "all" || x.month === p));
@@ -1250,7 +1262,30 @@ function entryForm(cat) {
     <label class="full" style="flex-direction:row;align-items:center;gap:10px"><input name="rec" type="checkbox" style="width:22px;height:22px"> Powtarza się co miesiąc (od wybranego miesiąca)</label>
     <div class="full actions"><button class="primary" type="submit">Zapisz</button><button type="button" class="ghost" data-cancel>Anuluj</button></div></form>`;
 }
+let editEntry = null;
+function editForm(o, inst, rr) {
+  const own = o.recurring && rr.amt != null;
+  return `<form class="form edit-form" data-id="${o.id}" data-inst="${esc(inst)}" style="flex:1 1 100%;margin-top:12px">
+    <label class="full">Opis<input name="desc" value="${esc(o.desc || o.name || "")}" required></label>
+    ${o.recurring ? "" : `<label>Miesiąc<input name="month" type="month" required value="${esc(o.month || nowKey())}"></label>`}
+    <label${o.recurring ? ' class="full"' : ""}>${o.recurring ? "Kwota co miesiąc (zł)" : "Przychód (zł)"}<input name="rev" type="number" step="0.01" inputmode="decimal" value="${own ? rr.amt : +o.rev || 0}"></label>
+    ${o.recurring ? `<label class="full">Zmień<select name="scope"><option value="all"${own ? "" : " selected"}>we wszystkich miesiącach</option><option value="one"${own ? " selected" : ""}>tylko w tym miesiącu</option></select></label>` : ""}
+    <label class="full">Koszty (zł)<input name="cost" type="number" step="0.01" inputmode="decimal" value="${+o.cost || 0}"></label>
+    <div class="full actions"><button class="primary" type="submit">Zapisz</button><button type="button" data-cancel-edit>Anuluj</button></div>
+  </form>`;
+}
 function bindEntryForm(root, after) {
+  root.querySelectorAll("[data-edit]").forEach(b => b.onclick = e => { e.stopPropagation(); editEntry = editEntry === b.dataset.edit ? null : b.dataset.edit; after(); });
+  root.querySelectorAll("[data-cancel-edit]").forEach(b => b.onclick = () => { editEntry = null; after(); });
+  root.querySelectorAll(".edit-form").forEach(f => f.onsubmit = async e => {
+    e.preventDefault(); const d = new FormData(f), o = OTHER.find(x => x.id === f.dataset.id); if (!o) return;
+    const v = Math.max(0, +d.get("rev") || 0);
+    o.desc = String(d.get("desc") || "").trim() || o.desc; o.cost = Math.max(0, +d.get("cost") || 0);
+    if (d.get("month")) o.month = d.get("month");
+    if (o.recurring && d.get("scope") === "one") { RECV[f.dataset.inst] = {...(RECV[f.dataset.inst] || {}), amt: v}; await store.save("recv", RECV); }
+    else { o.rev = v; if (o.recurring && RECV[f.dataset.inst] && RECV[f.dataset.inst].amt != null) { delete RECV[f.dataset.inst].amt; await store.save("recv", RECV); } }
+    await store.save("income", OTHER); editEntry = null; toast("Zapisano"); after();
+  });
   root.querySelectorAll("[data-addentry]").forEach(b => b.onclick = () => { const f = root.querySelector(".src-form"); f.hidden = !f.hidden; if (!f.hidden) f.querySelector("[name=desc]").focus(); });
   root.querySelectorAll(".src-form").forEach(f => { f.querySelector("[data-cancel]").onclick = () => f.hidden = true; f.onsubmit = async e => { e.preventDefault(); const d = new FormData(f), cat = f.dataset.cat || d.get("cat"); OTHER.push({id: uid(), cat, name: (SOURCES.find(s => s.id === cat) || {}).name || "Inne", desc: String(d.get("desc")).trim(), month: d.get("month"), rev: +d.get("rev") || 0, cost: +d.get("cost") || 0, recurring: !!d.get("rec")}); await store.save("income", OTHER); toast("Dodano"); after(); }; });
   root.querySelectorAll("[data-del]").forEach(b => b.onclick = async e => { e.stopPropagation(); OTHER = OTHER.filter(o => o.id !== b.dataset.del); await store.save("income", OTHER); toast("Usunięto"); after(); });
@@ -1478,7 +1513,7 @@ function renderZrodlo(id) {
   const stepper = hasRec ? `<div class="card s12" style="padding:12px 16px;display:flex;align-items:center;gap:12px"><button class="iconbtn" id="sm-prev" aria-label="Poprzedni miesiąc" ${sel <= first ? "disabled" : ""}>‹</button><div style="flex:1;text-align:center"><div style="font-weight:700;font-size:16px">${esc(cap(mLabel(sel)))}</div><div class="small muted">${sel > nowKey() ? "zaznaczasz z wyprzedzeniem" : sel === nowKey() ? "bieżący miesiąc" : "miesiąc miniony"}</div></div><button class="iconbtn" id="sm-next" aria-label="Następny miesiąc" ${sel >= last ? "disabled" : ""}>›</button></div>` : "";
   $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3><div class="sub">${E.length} wpisów · przychody i koszty z opisem</div></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
-      <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div></div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
+      <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>
     ${E.some(o => o.recurring) ? `<div class="card s12" id="recur-src"></div>` : ""}`;
   if (E.some(o => o.recurring)) renderRecurring($("#recur-src"), s.id);
@@ -1539,6 +1574,19 @@ async function addPhoto(product, color, file) {
 }
 const thumb = (product, color, size = 56) => { const u = photoOf(product, color); return u ? `<img src="${esc(u)}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:12px;flex:none;background:var(--surface2)">` : `<label class="av" style="width:${size}px;height:${size}px;cursor:pointer;flex-direction:column;font-size:10.5px;gap:2px;text-align:center" title="Dodaj zdjęcie">${svg("plus", 16)}<span>zdjęcie</span><input type="file" accept="image/*" hidden data-photo="${esc(product)}|${esc(cleanColor(color || ""))}"></label>`; };
 const bindPhotos = root => root.querySelectorAll("[data-photo]").forEach(inp => inp.onchange = e => { const [p, c] = inp.dataset.photo.split("|"); if (e.target.files[0]) addPhoto(p, c, e.target.files[0]).catch(() => toast("Nie udało się dodać zdjęcia")); });
+
+const pname = s => s.product + (s.size ? " · rozm. " + s.size : "");
+const pav = s => { const k = esc(s.product) + "|" + esc(cleanColor(s.color || "")), u = photoOf(s.product, s.color);
+  return u ? `<span class="pav" style="position:relative;flex:none"><button type="button" class="av" data-pavmenu style="padding:0;overflow:hidden;cursor:pointer" title="Zdjęcie – zmień lub usuń"><img src="${esc(u)}" alt="" style="width:100%;height:100%;object-fit:cover"></button><span class="pav-menu card" hidden style="position:absolute;z-index:20;top:calc(100% + 6px);left:0;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:150px"><label class="sm" style="cursor:pointer;padding:8px 10px;border-radius:8px">Zmień zdjęcie<input type="file" accept="image/*" hidden data-pav="${k}"></label><button type="button" class="sm" data-pavdel="${k}" style="justify-content:flex-start">Usuń zdjęcie</button></span></span>`
+    : `<label class="av pav" style="cursor:pointer;flex:none" title="Dodaj zdjęcie">${esc(sz(s.size))}<input type="file" accept="image/*" hidden data-pav="${k}"></label>`; };
+async function delPhoto(key) { const [p, c] = key.split("|"), k = pkeyOf(p, c), slot = PHOTO_IDX[k]; delete PHOTO_URL[k]; delete PHOTO_IDX[k]; if (slot) await store.save(slot, []); await store.save("photos", PHOTO_IDX); toast("Zdjęcie usunięte"); rerender(); }
+document.addEventListener("click", e => {
+  const el = e.target.closest(".pav"); document.querySelectorAll(".pav-menu").forEach(m => { if (!el || !el.contains(m)) m.hidden = true; });
+  if (!el) return; e.stopPropagation();
+  const mb = e.target.closest("[data-pavmenu]"); if (mb) { const m = el.querySelector(".pav-menu"); m.hidden = !m.hidden; }
+  const db = e.target.closest("[data-pavdel]"); if (db) { const key = db.dataset.pavdel; if (confirm("Usunąć zdjęcie tego produktu?")) delPhoto(key).catch(() => toast("Nie udało się usunąć")); }
+}, true);
+document.addEventListener("change", e => { const inp = e.target.closest("[data-pav]"); if (!inp || !inp.files[0]) return; const [p, c] = inp.dataset.pav.split("|"); addPhoto(p, c, inp.files[0]).catch(() => toast("Nie udało się dodać zdjęcia")); });
 
 /* MAGAZYN */
 let invFilter = "all", invMode = "stan";
@@ -1686,7 +1734,7 @@ function renderKako() {
   const pSum = pSheet ? M.summaries[pSheet].filter(([l]) => l.toUpperCase().includes(pkey)) : [];
   $("#k-sprz").innerHTML = `<div class="card s8"><div class="ch"><div><h3>Sprzedaż</h3><div class="sub">${list.length} pozycji · numer zamówienia i konto przy każdej</div></div></div>
     <div class="seg in" style="margin-bottom:14px">${fl.map(([k, l, n]) => `<button data-f="${k}" aria-pressed="${k === salesFilter}">${l} ${n}</button>`).join("")}</div>
-    <div class="list">${list.map(s => drow(`<div class="row"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${[cleanColor(s.color), s.order ? "zam. " + s.order + "-sprzedaż" : "inne", s.platform && s.platform !== "Prywatnie" ? s.platform + " · " + (s.account || "konto główne") : s.recipient, s.presale ? "presale" + (s.buyer ? ": " + s.buyer : "") : s.note, s.partner && "wspólnie: " + s.partner].filter(Boolean).map(esc).join(" · ")}</div></div>
+    <div class="list">${list.map(s => drow(`<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.order ? "zam. " + s.order + "-sprzedaż" : "inne", s.platform && s.platform !== "Prywatnie" ? s.platform + " · " + (s.account || "konto główne") : s.recipient, s.presale ? "presale" + (s.buyer ? ": " + s.buyer : "") : s.note, s.partner && "wspólnie: " + s.partner].filter(Boolean).map(esc).join(" · ")}</div></div>
       <div class="end">${s.status === "sprzedane" ? payBtn(s) : `<span class="pill p-${s.status}">${STATUS[s.status]}</span>`}<span class="amt ${s.profit != null ? sgn(s.profit) : ""}">${s.profit != null ? (s.profit > 0 ? "+" : "") + zl(s.profit) : s.price ? zl(s.price) : zl(s.cost)}</span><span class="s">${s.sold ? dShort(s.sold) : s.price && s.status !== "sprzedane" ? "cena wystawienia" : "koszt"}</span></div></div>`, s)).join("") || `<div class="empty">Nic w tej grupie.</div>`}</div></div>
     <div class="card s4">${pSum.length ? `<div class="ch"><div><h3>Rozliczenie: ${esc(partner)}</h3><div class="sub">${esc(pSheet)}, wartości z arkusza</div></div></div><div class="list">${pSum.map(([l, v]) => `<div class="row"><div class="main"><div class="t" style="font-weight:500;font-size:13px">${esc(cap(l.toLowerCase()))}</div></div><span class="amt">${zl(v, 2)}</span></div>`).join("")}</div><p class="note">Arkusz wlicza do przychodu także wystawione, jeszcze niesprzedane rzeczy.</p>` : `<div class="empty">Brak rozliczeń.</div>`}</div>`;
   $("#k-zam").querySelectorAll("[data-arr]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setArrived(b.dataset.arr, b.dataset.n === "" ? null : +b.dataset.n); });
@@ -1765,7 +1813,7 @@ function renderKako() {
       <div class="kv">${k("Wspólnie zainwestowane", zl(cost))}${k("Wkład " + esc(who) + " (½)", zl(cost / 2))}${k("Przychód ze sprzedanych", zl(rev))}${k("Zysk razem", zl(prof), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2), "pos")}${k("Zysk " + esc(who) + " (½)", zl(prof / 2))}${k("Do oddania " + esc(who), zl(rev / 2), "wrn")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
       ${pSum.length ? `<div class="small muted" style="font-weight:600;margin:18px 0 8px">Z arkusza (${esc(pSheet)})</div><div class="kv">${pSum.map(([l, v]) => k(esc(cap(l.toLowerCase())), zl(v, 2))).join("")}</div>` : ""}
       <p class="note">„Do oddania” = jego połowa przychodu ze sprzedanych (zwrot wkładu + połowa zysku). Kwota z arkusza może się różnić, jeśli część już mu przekazałeś.</p></div>
-      <div class="card s12"><div class="ch"><div><h3>Produkty wspólne</h3><div class="sub">${P.length} szt.</div></div></div><div class="list">${P.map(s => drow(`<div class="row"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${[cleanColor(s.color), s.platform && s.platform + " · " + (s.account || "konto główne"), s.sheetStatus].filter(Boolean).map(esc).join(" · ")}</div></div><div class="end"><span class="pill p-${s.status}">${STATUS[s.status]}</span><span class="amt">${s.status === "sprzedane" ? "zysk " + zl(s.profit / 2) + " / " + zl(s.profit) : "koszt ½ " + zl((s.cost || 0) / 2)}</span></div></div>`, s)).join("")}</div></div>` : `<div class="card s12 empty">Brak produktów wspólnych (z dopiskiem „- Imię” w nazwie produktu).</div>`; }
+      <div class="card s12"><div class="ch"><div><h3>Produkty wspólne</h3><div class="sub">${P.length} szt.</div></div></div><div class="list">${P.map(s => drow(`<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.platform && s.platform + " · " + (s.account || "konto główne"), s.sheetStatus].filter(Boolean).map(esc).join(" · ")}</div></div><div class="end"><span class="pill p-${s.status}">${STATUS[s.status]}</span><span class="amt">${s.status === "sprzedane" ? "zysk " + zl(s.profit / 2) + " / " + zl(s.profit) : "koszt ½ " + zl((s.cost || 0) / 2)}</span></div></div>`, s)).join("")}</div></div>` : `<div class="card s12 empty">Brak produktów wspólnych (z dopiskiem „- Imię” w nazwie produktu).</div>`; }
 
   $("#k-plan").innerHTML = `<div class="card s7"><div class="ch"><div><h3>Do rozważenia</h3><div class="sub">Pomysły z arkusza</div></div></div><div class="list">${M.wishlist.map(w => `<div class="row"><div class="main"><div class="t">${esc(w.product)}</div><div class="s">${w.buy ? "kupno " + zl(w.buy) : "bez ceny"}${w.sell ? " · sprzedaż ok. " + zl(w.sell) : ""}</div></div><button class="sm" data-calc="${esc(JSON.stringify({buy: w.buy || 0, sell: w.sell || 0}))}">${svg("calc", 14)}Przelicz</button></div>`).join("") || `<div class="empty">Pusto.</div>`}</div></div>
     <div class="card s5"><div class="ch"><div><h3>Sprawdzeni sprzedawcy</h3></div></div><div class="list">${M.sellers.map(s => `<div class="row"><div class="av">${esc(s.brand.slice(0, 2))}</div><div class="main"><div class="t">${esc(cap(s.brand.toLowerCase()))}</div><div class="s">${s.items.map(esc).join(", ")}</div></div></div>`).join("") || `<div class="empty">Brak.</div>`}</div></div>`;
@@ -1789,7 +1837,7 @@ function renderWystaw() {
   $("#gen-pick").value = prev;
   $("#gen-pick").onchange = e => { const s = items[e.target.value]; if (!s) return; setTimeout(renderPhotoPlan); $("#gen-prod").value = s.product; $("#gen-color").value = cleanColor(s.color); $("#gen-size").value = s.size || ""; $("#gen-price").value = s.price || ""; };
   $("#w-count").textContent = items.length + " szt. czeka na sprzedaż";
-  $("#w-list").innerHTML = items.map((s, i) => `<div class="row"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${[cleanColor(s.color), STATUS[s.status]].filter(Boolean).map(esc).join(" · ")}</div></div><button class="sm" data-gen="${i}">${svg("pen", 14)}Opis</button></div>`).join("") || `<div class="empty">Wszystko sprzedane.</div>`;
+  $("#w-list").innerHTML = items.map((s, i) => `<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), STATUS[s.status]].filter(Boolean).map(esc).join(" · ")}</div></div><button class="sm" data-gen="${i}">${svg("pen", 14)}Opis</button></div>`).join("") || `<div class="empty">Wszystko sprzedane.</div>`;
   $("#w-list").querySelectorAll("[data-gen]").forEach(b => b.onclick = () => { $("#gen-pick").value = b.dataset.gen; $("#gen-pick").onchange({target: $("#gen-pick")}); $("#gen-form").scrollIntoView({behavior: "smooth", block: "start"}); });
 }
 let PHOTOS = [];
@@ -2025,6 +2073,33 @@ const USD_PLN = 3.7, PRICE = {input: 4, output: 20, cache_read: 0.2, cache_write
 function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, m = u && u[nowKey()]; if (!m) return ""; const usd = (m.input * PRICE.input + m.output * PRICE.output + m.cache_read * PRICE.cache_read + m.cache_write * PRICE.cache_write) / 1e6; return `W tym miesiącu: ${m.calls} pytań · ok. ${(usd * USD_PLN).toFixed(2).replace(".", ",")} zł`; }
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
+/* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
+const MOVE_KEYS = ["accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+async function openMove() {
+  let box = $("#move-box"); if (box) box.remove();
+  box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
+  box.innerHTML = `<div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow:auto"><div class="ch"><div><h3>Przenieś dane</h3><div class="sub">Wpisy, zaznaczenia, salda, długi, pomysły i zadania. Bez zdjęć.</div></div><button class="iconbtn flat" data-x aria-label="Zamknij">${svg("x", 16)}</button></div>
+    <p class="small muted" style="margin:0 0 10px">1. W wersji, <b>z której</b> przenosisz: „Skopiuj moje dane”.<br>2. W wersji, <b>do której</b> przenosisz: wklej w pole i „Wczytaj”. To zastąpi tam zapisane dane.</p>
+    <div class="actions" style="margin-bottom:10px"><button class="primary" data-copy>Skopiuj moje dane</button><span class="small muted" data-msg></span></div>
+    <textarea data-txt rows="6" style="width:100%;font:12px/1.4 ui-monospace,monospace" placeholder="Tu wklej skopiowane dane"></textarea>
+    <div class="actions" style="margin-top:10px"><button data-load>Wczytaj</button></div></div>`;
+  document.body.append(box);
+  const q = s => box.querySelector(s), msg = q("[data-msg]");
+  q("[data-x]").onclick = () => box.remove(); box.onclick = e => { if (e.target === box) box.remove(); };
+  q("[data-copy]").onclick = async () => {
+    const out = {}; for (const k of MOVE_KEYS) { const v = await store.load(k, null); if (v != null) out[k] = v; }
+    const s = JSON.stringify({kd: 1, at: new Date().toISOString(), data: out}); q("[data-txt]").value = s; q("[data-txt]").select();
+    try { await navigator.clipboard.writeText(s); msg.textContent = "Skopiowane do schowka."; } catch { msg.textContent = "Zaznaczone poniżej – skopiuj (Cmd+C)."; }
+  };
+  q("[data-load]").onclick = async () => {
+    let j; try { j = JSON.parse(q("[data-txt]").value); } catch { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
+    if (!j || j.kd !== 1 || !j.data) { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
+    if (!confirm("Zastąpić dane w tej wersji danymi z " + String(j.at || "").slice(0, 10) + "?")) return;
+    for (const [k, v] of Object.entries(j.data)) if (MOVE_KEYS.includes(k)) await store.save(k, v);
+    toast("Dane wczytane"); setTimeout(() => location.reload(), 600);
+  };
+}
+document.querySelectorAll("[data-move]").forEach(el => el.onclick = e => { e.preventDefault(); openMove(); });
 document.querySelectorAll("[data-chat]").forEach(el => el.onclick = e => { e.preventDefault(); openChat(); });
 $("#chat-x").onclick = () => { $("#chat").hidden = true; $("#fab").hidden = false; };
 $("#chat-form").onsubmit = e => { e.preventDefault(); ask($("#chat-in").value); };

@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 /**
  * Zarobki – most między Twoim arkuszem Google a aplikacją na telefonie.
  *
