@@ -166,6 +166,12 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .gauge .gv{position:absolute;left:0;right:0;bottom:2px;text-align:center}
 .gauge .gv b{display:block;font:800 30px/1 var(--f);letter-spacing:-.03em}
 .gauge .gv span{font-size:12px;color:var(--muted)}
+.hsplit{display:grid;grid-template-columns:1fr;gap:6px;font-size:13px;color:var(--muted)}
+@media(min-width:700px){.hsplit{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
+.hsplit .hs b{margin-left:auto}
+.hsplit .hs{display:flex;align-items:center;gap:8px;font:inherit;color:var(--muted);text-align:left;width:100%;height:auto;padding:2px 0}
+.hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
+.hsplit i{width:8px;height:8px;border-radius:50%;flex:none}
 .splitrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
 .splitrow b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
 .splitrow i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
@@ -183,6 +189,7 @@ details.drow>summary .row{border-top:0}
 .tgl{display:inline-flex;padding:3px;border-radius:12px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);flex:none}
 .tgl button{height:30px;padding:0 12px;border-radius:9px;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600}
 .tgl button[aria-pressed="true"][data-v="0"]{background:var(--warn-soft);color:var(--warn)}
+.tgl button[aria-pressed="true"][data-v="2"]{background:var(--rev-soft);color:var(--rev)}
 .tgl button[aria-pressed="true"][data-v="1"]{background:var(--accent);color:var(--accent-fg)}
 .paybtn{height:28px;padding:0 10px;border-radius:999px;font-size:11.5px}
 .money{display:grid;grid-template-columns:1fr;gap:0}
@@ -236,7 +243,7 @@ td a{color:var(--fg);text-decoration-color:var(--faint);text-underline-offset:3p
 .stack{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:3px;margin:2px 0 16px}
 .stack i{display:block;height:100%;border-radius:99px}
 .pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
-.p-sprzedane{background:var(--good-soft);color:var(--good)} .p-wystawione{background:var(--rev-soft);color:var(--rev)} .p-rezerwacja{background:var(--warn-soft);color:var(--warn)} .p-magazyn{background:var(--surface2);color:var(--muted)} .p-oddane{background:var(--loss-soft);color:var(--loss)} .p-wycofane{background:var(--surface2);color:var(--faint);box-shadow:inset 0 0 0 1px var(--line2)} .p-presale{background:var(--good-soft);color:var(--good);box-shadow:inset 0 0 0 1px currentColor}
+.p-sprzedane{background:var(--good-soft);color:var(--good)} .p-wystawione{background:var(--rev-soft);color:var(--rev)} .p-rezerwacja{background:var(--warn-soft);color:var(--warn)} .p-magazyn{background:var(--surface2);color:var(--muted)} .p-oddane{background:var(--loss-soft);color:var(--loss)} .p-negocjacje{background:var(--warn-soft);color:var(--warn)} .p-wycofane{background:var(--surface2);color:var(--faint);box-shadow:inset 0 0 0 1px var(--line2)} .p-presale{background:var(--good-soft);color:var(--good);box-shadow:inset 0 0 0 1px currentColor}
 details>summary{cursor:pointer;list-style:none}
 details>summary::-webkit-details-marker{display:none}
 .chev{color:var(--faint);transition:transform .2s;flex:none;width:18px;height:18px}
@@ -719,7 +726,7 @@ function parseKako(XLSX, wb) {
       if (accCol && accCol !== '-' && platform !== 'Prywatnie') account = accCol;
       // text in the price column ("Imię(mess)", "imię - 520zł(Olx)") = sold before arrival; "rezerwacja …" = only held
       let presale = false, buyer = null;
-      if (note && !/rezerw|wycofan/i.test(note)) {
+      if (note && !/rezerw|wycofan|negocj/i.test(note)) {
         presale = true;
         const tag = ((note.match(/\(([^)]+)\)?/) || [])[1] || '');
         if (!platform) platform = platName(tag) || (/wiki/i.test(tag) ? 'Vinted' : null);
@@ -731,6 +738,7 @@ function parseKako(XLSX, wb) {
       let status;
       if ((note && /wycofan/i.test(note)) || /wycofan/i.test(plRaw)) status = 'wycofane';
       else if (presale) status = price > 0 ? 'sprzedane' : 'presale';
+      else if (note && /negocj/i.test(note)) status = 'negocjacje';
       else if (note) status = 'rezerwacja';
       else if (price === 0 && platform) status = 'oddane';
       else if (price > 0 && soldDate) status = 'sprzedane';
@@ -754,7 +762,7 @@ function parseKako(XLSX, wb) {
   const ps = wb.SheetNames.find(n => /^\s*presale\s*$/i.test(n));
   if (ps) {
     const R = rows(wb.Sheets[ps]), h = R[0] || [];
-    const cp = col(h, 'PRODUKT'), cw = col(h, 'GDZIE'), ca = col(h, 'JAKIE KONTO', 'KONTO');
+    const cp = col(h, 'PRODUKT'), cw = col(h, 'GDZIE'), ca = col(h, 'JAKIE KONTO', 'KONTO'), cc = col(h, 'CENA');
     for (let i = 1; i < R.length; i++) {
       const r = R[i], prod = r[cp] == null ? '' : String(r[cp]).trim();
       if (!prod) continue;
@@ -765,10 +773,11 @@ function parseKako(XLSX, wb) {
       const platform = platName(where);
       const buyer = cleanBuyer(where.replace(/^[^-]*?(vinted|olx|facebook|fb|allegro)\s*-\s*/i, ''));
       const account = accRaw && accRaw !== '-' ? accRaw.toLowerCase() : null;
+      const pprice = cc >= 0 ? num(r[cc]) : null;
       const words = base.toLowerCase().split(/\s+/).filter(w => w.length > 2);
       const match = model.sales.find(s => s.status === 'magazyn' && !s.presaleSheet && String(s.size) === String(size) &&
         (!color || (s.color || '').toLowerCase().includes(color.toLowerCase())) && words.every(w => s.product.toLowerCase().includes(w)));
-      if (match) Object.assign(match, {status: 'presale', presale: true, presaleSheet: true, platform, account, buyer, note: where.replace(/\+?\d[\d\s-]{5,}\d/g, '').trim()});
+      if (match) Object.assign(match, {status: pprice > 0 ? 'sprzedane' : 'presale', price: pprice > 0 ? pprice : match.price, profit: pprice > 0 ? r2(pprice - (match.cost || 0)) : null, presale: true, presaleSheet: true, platform, account, buyer, note: where.replace(/\+?\d[\d\s-]{5,}\d/g, '').trim()});
       else {
         const same = model.sales.filter(s => !s.future && words.every(w => s.product.toLowerCase().includes(w)));
         const canon = same[0] ? same[0].product : (base || prod);
@@ -881,12 +890,15 @@ function saleKeys() { const seen = {}; M.sales.forEach(s => { const b = [s.sheet
 function payState(s) {
   if (s.received === true) return {st: "in", src: "arkusz"};
   if (s.received === false) return {st: "pending", src: "arkusz"};
-  const p = PAID[s._k]; if (p) return {st: p.s, src: "ty", at: p.at};
+  const p = PAID[s._k]; if (p) return {st: p.s === "in" || p.s === "wallet" ? p.s : "pending", src: "ty", at: p.at};
   const d = daysAgo(s.sold); return d != null && d > AUTO_DAYS ? {st: "in", src: "auto"} : {st: "pending", src: "auto"};
 }
-async function setPaid(k, st) { PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10)}; await store.save("paid", PAID); toast(st === "in" ? "Przeniesiono na konto" : "Oznaczono: w drodze"); rerender(); }
+async function setPaid(k, st) { PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10)}; await store.save("paid", PAID); toast(st === "in" ? "Na koncie" : st === "wallet" ? "W portfelu platformy" : "W drodze"); rerender(); }
+const PAY3 = [["pending", "W drodze"], ["wallet", "W portfelu"], ["in", "Na koncie"]];
+const pay3HTML = s => { const st = payState(s).st; return `<div class="tgl" role="group" aria-label="Gdzie są pieniądze">${PAY3.map(([k, l]) => `<button data-pay="${esc(s._k)}" data-st="${k}" data-v="${k === "in" ? 1 : k === "wallet" ? 2 : 0}" aria-pressed="${k === st}">${l}</button>`).join("")}</div>`; };
 function rerender() { const v = location.hash.slice(1) || "start"; if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else renderStart(); }
-const payBtn = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
+const payBtn = s => pay3HTML(s);
+const payBtnOld = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
 const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.pay, b.dataset.st); });
 
 /* goods paid but not yet in the sales sheets = still on the way from China */
@@ -921,7 +933,7 @@ const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.spli
 const drow = (inner, s) => `<details class="drow"><summary>${inner}</summary>${detailKV(s)}</details>`;
 
 /* numbers */
-const STATUS = {sprzedane: "Sprzedane", presale: "Presale bez ceny", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", oddane: "Oddane"};
+const STATUS = {sprzedane: "Sprzedane", presale: "Presale bez ceny", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
 /* recurring entries (family support, pocket money, garage…) expand into one instance per month */
 let RECV = {}, LIVING = [], NW = {assets: [], debts: []}, TRANSFERS = {};
 const monthsFrom = (a, b) => { const out = []; if (!a) return out; let [y, m] = a.split("-").map(Number); const [by, bm] = b.split("-").map(Number); while ((y < by || (y === by && m <= bm)) && out.length < 240) { out.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } } return out; };
@@ -932,9 +944,9 @@ function derive() {
   const real = M.sales.filter(s => s.status === "sprzedane"), avgP = {};
   real.forEach(s => (avgP[s.product] ||= []).push(s.price));
   const est = M.sales.filter(s => s.status === "presale").map(s => { const a = avgP[s.product]; if (!a) return null; const price = Math.round(a.reduce((x, y) => x + y, 0) / a.length), cost = s.cost ?? s.estCost ?? 0; return {...s, price, cost, profit: Math.round((price - cost) * 100) / 100, est: true}; }).filter(Boolean);
-  const sold = [...real, ...est];
+  const sold = real;
   const gone = M.sales.filter(s => s.status === "oddane");
-  const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane"].includes(s.status));
+  const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
   const months = {};
   const bump = (k, f, v) => { if (!k) return; (months[k] ||= {rev: 0, profit: 0, spent: 0})[f] += v; };
   sold.forEach(s => { const k = smonth(s); bump(k, "rev", s.price); bump(k, "profit", s.profit); });
@@ -957,9 +969,10 @@ function totals(D, p) {
   const living = expand(LIVING).filter(x => inP(x.month)).reduce((a, x) => a + (+x.amount || 0), 0);
   const spent = p === "all" ? M.orders.reduce((a, x) => a + (x.spent || 0), 0) + oCost : (D.months[p] ? D.months[p].spent : 0);
   const days = s.filter(x => x.listed && x.sold).map(x => (new Date(x.sold) - new Date(x.listed)) / 864e5);
-  const pen = s.filter(x => payState(x).st !== "in");
+  const pen = s.filter(x => payState(x).st === "pending"), wal = s.filter(x => payState(x).st === "wallet");
   const revPen = pen.reduce((a, x) => a + x.price, 0), profitPen = pen.reduce((a, x) => a + x.profit, 0);
-  return {pen, living, oPend, revPen: revPen + oRevPen, profitPen: profitPen + oProfPen, revIn: kRev + oRev - revPen - oRevPen, profitIn: kProfit + oRev - oCost - profitPen - oProfPen, sold: s, kRev, kProfit, kCost, oRev, rev: kRev + oRev, profit: kProfit + oRev - oCost, cost: kCost + oCost, spent, n: s.reduce((a, x) => a + (x.qty || 1), 0), days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null};
+  const revWal = wal.reduce((a, x) => a + x.price, 0), profitWal = wal.reduce((a, x) => a + x.profit, 0);
+  return {pen, wal, living, oPend, revPen, profitPen, revWal, profitWal, revExp: oRevPen, profitExp: oProfPen, revIn: kRev + oRev - revPen - revWal - oRevPen, profitIn: kProfit + oRev - oCost - profitPen - profitWal - oProfPen, sold: s, kRev, kProfit, kCost, oRev, rev: kRev + oRev, profit: kProfit + oRev - oCost, cost: kCost + oCost, spent, n: s.reduce((a, x) => a + (x.qty || 1), 0), days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null};
 }
 const deltaHTML = (cur, prev) => {
   if (prev == null || !isFinite(prev) || prev === 0) return `<span>brak danych z poprz. miesiąca</span>`;
@@ -1063,17 +1076,20 @@ function renderStartInner() {
   const ac = css("--accent"), rv = css("--rev"), fa = css("--faint");
 
   const isRev = heroMode === "przychod";
-  const H = isRev ? {lab: "Przychód", total: T.rev, inn: T.revIn, pen: T.revPen, prev: P && P.rev, color: rv, key: "rev", icon: "wallet", cls: "b"} : {lab: "Zysk", total: T.profit, inn: T.profitIn, pen: T.profitPen, prev: P && P.profit, color: ac, key: "profit", icon: "trend", cls: "a"};
-  const hs = Math.max(1, Math.max(0, H.inn) + Math.max(0, H.pen));
+  const H = isRev ? {lab: "Przychód", total: T.rev, inn: T.revIn, pen: T.revPen, wal: T.revWal, exp: T.revExp, prev: P && P.rev, color: rv, key: "rev", icon: "wallet", cls: "b"} : {lab: "Zysk", total: T.profit, inn: T.profitIn, pen: T.profitPen, wal: T.profitWal, exp: T.profitExp, prev: P && P.profit, color: ac, key: "profit", icon: "trend", cls: "a"};
+  const fam = SRC === "all" || SRC === "rodzina" ? srcTotals("rodzina", period, T) : {got: 0, wait: 0};
+  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Biznesy – na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy – otrzymane"], [H.wal, "#b18cff", "W portfelu platform"], [H.pen, css("--warn"), "W drodze (sprzedaż)"], [H.exp, css("--faint"), "Stałe wpływy – oczekiwane"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button><button data-h="przychod" aria-pressed="${isRev}">Przychód</button></div>${ic(H.icon, H.cls)}</div>
     <div class="sub small muted" style="margin-top:12px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
-    <div class="stack" style="margin:16px 0 10px">${H.total > 0 ? `<i style="width:${Math.max(0, H.inn) / hs * 100}%;background:${H.color}"></i><i style="width:${Math.max(0, H.pen) / hs * 100}%;background:${css("--warn")}"></i>` : ""}</div>
-    <div class="splitrow"><span><i style="background:${H.color}"></i>Na koncie <b>${zl(H.inn, 2)}</b></span><button class="link" id="go-transit" style="color:var(--warn)"><i style="background:var(--warn)"></i>W drodze <b style="color:var(--warn)">${zl(H.pen, 2)}</b> ${svg("arrow", 13)}</button></div>
+    <div class="stack" style="margin:16px 0 10px">${segs.map(([v, c]) => v > 0 ? `<i style="width:${v / hs * 100}%;background:${c}"></i>` : "").join("")}</div>
+    <div class="hsplit">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 3 ? `<button class="link hs" id="go-transit" style="color:inherit">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 3 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}</div>
     <div class="row1">${P ? deltaHTML(H.total, H.prev) : `<span class="delta up">${T.n} szt. sprzedanych</span><span>${isRev ? "średnio " + zl(T.n ? T.kRev / T.n : null) + " za sztukę" : "średnio " + (T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia") + " od wystawienia do sprzedaży"}</span>`}</div>
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
   $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero", heroMode); renderStart(); });
-  chart("ch-spark", {type: "line", data: {labels: D.keys.map(mShort), datasets: [{label: H.lab, data: D.keys.map(k => D.months[k][H.key]), borderColor: H.color, backgroundColor: fade(H.color, .28), fill: true, cubicInterpolationMode: "monotone", borderWidth: 2.5,
+  const famM = k => expand(OTHER).filter(o => catOf(o) === "rodzina" && o.month === k).reduce((a, o) => a + (+o.rev || 0), 0);
+  const famSeries = SRC === "all" && D.keys.some(k => famM(k)) ? [{label: "w tym stałe wpływy", data: D.keys.map(famM), borderColor: css("--rev"), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false, cubicInterpolationMode: "monotone"}] : [];
+  chart("ch-spark", {type: "line", data: {labels: D.keys.map(mShort), datasets: [...famSeries, {label: H.lab, data: D.keys.map(k => D.months[k][H.key]), borderColor: H.color, backgroundColor: fade(H.color, .28), fill: true, cubicInterpolationMode: "monotone", borderWidth: 2.5,
     pointRadius: D.keys.map(k => k === period ? 5 : 0), pointBackgroundColor: H.color, pointBorderColor: css("--surface"), pointBorderWidth: 2, pointHoverRadius: 5}]},
     options: {scales: {x: {grid: {display: false}, border: {display: false}, ticks: {color: fa}}, y: {display: true, beginAtZero: true, grid: {color: css("--line"), drawTicks: false}, border: {display: false}, ticks: {color: fa, padding: 6, maxTicksLimit: 4, callback: v => new Intl.NumberFormat("pl-PL").format(v) + " zł"}}}, layout: {padding: {top: 8, left: 0, right: 6}}}});
 
@@ -1110,7 +1126,7 @@ function renderStartInner() {
     <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b> · pieniądze na koncie ÷ wszystko włożone</span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
       <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
       <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
-  $("#go-transit").onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
+  const gt = $("#go-transit"); if (gt) gt.onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
   renderTransit(D);
   if (SRC === "all") { renderLife(T); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
   const avgSell = {}; D.sold.forEach(s => { const k = s.product; (avgSell[k] ||= []).push(s.price); });
@@ -1159,17 +1175,19 @@ function renderStartInner() {
   renderSources(T);
 }
 function renderTransit(D) {
-  const pend = D.sold.filter(s => payState(s).st !== "in").sort((a, b) => (a.sold || "").localeCompare(b.sold || ""));
+  const pend = D.sold.filter(s => payState(s).st === "pending").sort((a, b) => (a.sold || "").localeCompare(b.sold || ""));
+  const wal = D.sold.filter(s => payState(s).st === "wallet"), walSum = wal.reduce((a, s) => a + s.price, 0);
   const recv = D.sold.filter(s => payState(s).st === "in").sort((a, b) => ((PAID[b._k] || {}).at || b.sold || "").localeCompare((PAID[a._k] || {}).at || a.sold || "")).slice(0, 6);
   const sum = pend.reduce((a, s) => a + s.price, 0), prof = pend.reduce((a, s) => a + s.profit, 0);
   const byAcc = {}; pend.forEach(s => { const k = (s.platform || "Inne") + " · " + (s.account || "konto główne"); byAcc[k] = (byAcc[k] || 0) + s.price; });
   const row = (s, st) => { const d = daysAgo(s.sold); const p = payState(s);
     return drow(`<div class="row tr"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${esc((s.platform || "Inne") + " · " + (s.account || "konto główne"))} · ${s.sold ? "sprzedane " + dShort(s.sold) + (d != null ? " · " + (d === 0 ? "dziś" : d === 1 ? "wczoraj" : d + " dni temu") : "") : "bez daty sprzedaży"}${st === "in" && p.src === "auto" ? " · uznane za otrzymane po " + AUTO_DAYS + " dniach" : ""}</div></div>
       <div class="end"><span class="amt">${zl(s.price, 2)}${s.est ? ' <span class="small muted" style="font-weight:500">szac.</span>' : ""}</span><span class="s ${st === "in" ? "" : "pos"}">zysk ${zl(s.profit)}</span></div>
-      ${st === "in" ? `<button class="sm ghost" data-pay="${esc(s._k)}" data-st="pending">Cofnij</button>` : `<button class="sm primary" data-pay="${esc(s._k)}" data-st="in">${svg("check", 14)}Otrzymałem</button>`}</div>`, s); };
+      ${pay3HTML(s)}</div>`, s); };
   $("#transit").innerHTML = `<div class="ch"><div style="display:flex;gap:12px;align-items:center">${ic("wallet", "w")}<div><h3>Pieniądze w drodze</h3><div class="sub">Sprzedane, ale jeszcze nie na Twoim koncie</div></div></div><div style="text-align:right;flex:none"><div class="amt" style="font-size:20px;font-weight:800;color:var(--warn);white-space:nowrap">${zl(sum)}</div><div class="small muted">w tym zysk ${zl(prof, 2)}</div></div></div>
     ${Object.keys(byAcc).length ? `<div class="chips" style="margin-bottom:14px">${Object.entries(byAcc).map(([k, v]) => `<span class="chip" style="display:inline-flex;align-items:center">${esc(k)}: <b style="color:var(--fg);margin-left:4px">${zl(v)}</b></span>`).join("")}</div>` : ""}
-    <div class="list">${pend.map(s => row(s, "pending")).join("") || `<div class="empty" style="padding:12px">Wszystko jest już na koncie.</div>`}</div>
+    <div class="list">${pend.map(s => row(s, "pending")).join("") || `<div class="empty" style="padding:12px">Nic nie jest w drodze.</div>`}</div>
+    ${wal.length ? `<div class="mline" style="margin-top:16px"><span><b style="color:var(--fg)">W portfelu platform</b> · trzeba wypłacić</span><b style="color:var(--rev)">${zl(walSum)}</b></div><div class="list">${wal.map(s => row(s, "wallet")).join("")}</div>` : ""}
     <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="link" id="toggle-paid">${showPaid ? "Ukryj otrzymane" : "Pokaż ostatnio otrzymane"}</button><span class="small muted">Sprzedaż starsza niż ${AUTO_DAYS} dni liczy się jako otrzymana, chyba że oznaczysz inaczej.</span></div>
     ${showPaid ? `<div class="list" style="margin-top:12px">${recv.map(s => row(s, "in")).join("")}</div>` : ""}`;
   $("#toggle-paid").onclick = () => { showPaid = !showPaid; renderTransit(derive()); };
@@ -1181,7 +1199,8 @@ function srcTotals(id, p, T) {
   if (id === "kako") return {rev: T.kRev, profit: T.kProfit};
   const o = expand(OTHER).filter(x => catOf(x) === id && (p === "all" || x.month === p));
   const rev = o.reduce((a, x) => a + (+x.rev || 0), 0), cost = o.reduce((a, x) => a + (+x.cost || 0), 0);
-  return {rev, profit: rev - cost, n: o.length};
+  const got = o.filter(x => x.got).reduce((a, x) => a + (+x.rev || 0), 0);
+  return {rev, profit: rev - cost, n: o.length, got, wait: rev - got};
 }
 function entryForm(cat) {
   return `<form class="form src-form" data-cat="${cat || ""}" hidden style="margin-bottom:16px">
@@ -1252,7 +1271,7 @@ function renderLife(T) {
 /* net worth */
 let nwEdit = false;
 function renderNetWorth(D, A_, incCost) {
-  const el = $("#networth"), inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0), pend = A_.revPen;
+  const el = $("#networth"), inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0), pend = A_.revPen + A_.revWal;
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c)[0]; })();
   const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
   const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = NW.debts.reduce((a, x) => a + (+x.amount || 0), 0) + (owe || 0);
@@ -1380,19 +1399,31 @@ function renderZrodla() {
     return `<a class="card s6" href="#${s.id === "kako" ? "start-kako" : "zrodlo-" + s.id}" style="text-decoration:none;display:block"><div class="ch" style="margin-bottom:14px"><div style="display:flex;gap:12px;align-items:center">${ic(s.icon, s.cls)}<div><h3>${s.name}</h3><div class="sub">${s.desc}</div></div></div>${svg("arrow", 16)}</div>
       <div class="kv" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><div class="l">Zysk w tym miesiącu</div><div class="v ${sgn(m.profit)}">${zl(m.profit)}</div></div><div><div class="l">Zysk łącznie</div><div class="v">${zl(a.profit)}</div></div><div><div class="l">Do zrobienia</div><div class="v">${open}</div></div></div></a>`; }).join("");
 }
+let srcMonth = null;
+const addMonths = (k, n) => { const [y, m] = k.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
 function renderZrodlo(id) {
   const s = SOURCES.find(x => x.id === id) || SOURCES[SOURCES.length - 1], T = totals(derive(), "all");
   const E = OTHER.filter(o => catOf(o) === s.id).sort((a, b) => (b.recurring - a.recurring) || b.month.localeCompare(a.month));
-  const a = srcTotals(s.id, "all", T), m = srcTotals(s.id, nowKey(), T);
+  const sel = srcMonth || nowKey(), first = E.reduce((a, o) => o.month < a ? o.month : a, nowKey()), last = addMonths(nowKey(), 12);
+  // the selected month, computed directly so future months can be ticked in advance
+  const inMonth = E.filter(o => o.recurring ? o.month <= sel : o.month === sel).map(o => { const r = o.recurring ? RECV[o.id + "|" + sel] || {} : {}; return {o, rev: r.amt != null ? r.amt : +o.rev || 0, cost: +o.cost || 0, got: o.recurring ? !!r.got : true}; });
+  const mRev = inMonth.reduce((x, e) => x + e.rev, 0), mGot = inMonth.filter(e => e.got).reduce((x, e) => x + e.rev, 0);
+  const m = {rev: mRev, got: mGot, wait: mRev - mGot};
+  const a = srcTotals(s.id, "all", T);
   const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat s3"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#src-page").innerHTML = st("trend", "a", "Zysk w tym miesiącu", zl(m.profit), cap(mLabel(nowKey())), sgn(m.profit)) + st("wallet", "b", "Przychód w tym miesiącu", zl(m.rev), "") + st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "w", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód") +
+  const hasRec = E.some(o => o.recurring);
+  const stepper = hasRec ? `<div class="card s12" style="padding:12px 16px;display:flex;align-items:center;gap:12px"><button class="iconbtn" id="sm-prev" aria-label="Poprzedni miesiąc" ${sel <= first ? "disabled" : ""}>‹</button><div style="flex:1;text-align:center"><div style="font-weight:700;font-size:16px">${esc(cap(mLabel(sel)))}</div><div class="small muted">${sel > nowKey() ? "zaznaczasz z wyprzedzeniem" : sel === nowKey() ? "bieżący miesiąc" : "miesiąc miniony"}</div></div><button class="iconbtn" id="sm-next" aria-label="Następny miesiąc" ${sel >= last ? "disabled" : ""}>›</button></div>` : "";
+  $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Jeszcze nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód") +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3><div class="sub">${E.length} wpisów · przychody i koszty z opisem</div></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
-      <div class="list">${E.map(o => { const p = (+o.rev || 0) - (+o.cost || 0), inst = o.id + "|" + nowKey(), got = !!(RECV[inst] || {}).got; return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(nowKey())) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div></div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
+      <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div></div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>
     ${E.some(o => o.recurring) ? `<div class="card s12" id="recur-src"></div>` : ""}`;
   if (E.some(o => o.recurring)) renderRecurring($("#recur-src"), s.id);
   bindEntryForm($("#src-page"), () => renderZrodlo(id));
   bindTgl($("#src-page"), () => renderZrodlo(id));
+  const sp = $("#sm-prev"), sn = $("#sm-next");
+  if (sp) sp.onclick = () => { srcMonth = addMonths(sel, -1); renderZrodlo(id); };
+  if (sn) sn.onclick = () => { srcMonth = addMonths(sel, 1); renderZrodlo(id); };
   bindTodo($("#src-page").querySelector(".todo-box"), s.id);
 }
 /* sales channels */
@@ -1463,7 +1494,7 @@ function renderProducts() {
   const big = (l, v, cls = "") => `<div><div class="l">${l}</div><div class="v ${cls}" style="font-size:20px;font-weight:800;letter-spacing:-.02em">${v}</div></div>`;
   const rows = Object.entries(G).map(([name, it]) => {
     const sold = it.filter(s => s.status === "sprzedane"), pre = it.filter(s => s.status === "presale"), listed = it.filter(s => s.status === "wystawione");
-    const stock = it.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane"].includes(s.status));
+    const stock = it.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
     const nt = toks(name), inc = INC.filter(x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); }).reduce((a, x) => a + x.qty, 0);
     const rev = sold.reduce((a, s) => a + s.price, 0), prof = sold.reduce((a, s) => a + s.profit, 0), costSold = sold.reduce((a, s) => a + s.cost, 0);
     const days = sold.filter(s => s.listed && s.sold).map(s => (new Date(s.sold) - new Date(s.listed)) / 864e5);
@@ -1662,7 +1693,7 @@ let sample = null;
 function renderWystaw() {
   renderKakoNav("wystaw", "wystaw");
   $("#gen-prod").oninput = renderPhotoPlan; setTimeout(renderPhotoPlan);
-  const items = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane"].includes(s.status));
+  const items = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
   const prev = $("#gen-pick").value;
   $("#gen-pick").innerHTML = `<option value="">Wpiszę ręcznie</option>` + items.map((s, i) => `<option value="${i}">${esc([s.product, cleanColor(s.color), s.size].filter(Boolean).join(" · "))}</option>`).join("");
   $("#gen-pick").value = prev;
@@ -1858,7 +1889,7 @@ function summary() {
   const recCost = M.sales.filter(s => ["sprzedane", "oddane", "presale"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
   const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0);
   const r = v => v == null ? null : Math.round(v);
-  const prods = {}; M.sales.forEach(s => { const p = prods[s.product] ||= {sprzedane: 0, na_stanie: 0, przychod: 0, zysk: 0, ceny_sprzedazy: [], koszt_szt: []}; if (s.status === "sprzedane") { p.sprzedane++; p.przychod += s.price; p.zysk += s.profit; p.ceny_sprzedazy.push(r(s.price)); } else if (["wystawione", "magazyn", "rezerwacja", "wycofane"].includes(s.status)) p.na_stanie++; if (s.cost) p.koszt_szt.push(r(s.cost)); });
+  const prods = {}; M.sales.forEach(s => { const p = prods[s.product] ||= {sprzedane: 0, na_stanie: 0, przychod: 0, zysk: 0, ceny_sprzedazy: [], koszt_szt: []}; if (s.status === "sprzedane") { p.sprzedane++; p.przychod += s.price; p.zysk += s.profit; p.ceny_sprzedazy.push(r(s.price)); } else if (["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status)) p.na_stanie++; if (s.cost) p.koszt_szt.push(r(s.cost)); });
   Object.values(prods).forEach(p => { p.przychod = r(p.przychod); p.zysk = r(p.zysk); p.sr_koszt = p.koszt_szt.length ? r(p.koszt_szt.reduce((a, b) => a + b, 0) / p.koszt_szt.length) : null; delete p.koszt_szt; });
   return {dzis: new Date().toISOString().slice(0, 10), waluta: "zł",
     calosc: {zysk: r(A_.profit), zysk_otrzymany: r(A_.profitIn), zysk_w_drodze: r(A_.profitPen), przychod: r(A_.rev), przychod_na_koncie: r(A_.revIn), przychod_w_drodze: r(A_.revPen), wlozone_lacznie: r(spentAll), aktywnie_zainwestowane: r(Math.max(0, spentAll - recCost)), towar_w_magazynie_koszt: r(inv), sprzedanych_szt: A_.n},
