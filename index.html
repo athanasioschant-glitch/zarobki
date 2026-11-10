@@ -172,12 +172,14 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .gauge .gv{position:absolute;left:0;right:0;bottom:2px;text-align:center}
 .gauge .gv b{display:block;font:800 30px/1 var(--f);letter-spacing:-.03em}
 .gauge .gv span{font-size:12px;color:var(--muted)}
-.hsplit{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12.5px;color:var(--muted)}
+.hsplit{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;font-size:12.5px;color:var(--muted)}
 @media(min-width:700px){.hsplit{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 .hsplit .hs b{grid-column:1/-1;margin:2px 0 0;font-size:19px;letter-spacing:-.01em}.hsplit .hs svg{position:absolute;top:13px;right:12px;opacity:.6}
 .hsplit .hs{position:relative;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 8px;font:inherit;color:var(--muted);text-align:left;width:100%;height:auto;padding:12px 14px;border-radius:14px;background:var(--surface2)}
 .hsplit button.hs:hover{box-shadow:inset 0 0 0 1px var(--line)}
 .hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
+.hsplit .hs.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--line2);border:0}.hsplit .hs.ghost b{color:var(--muted)}.hsplit .hs small{grid-column:1/-1;font-size:11.5px;color:var(--faint)}
+.hmeta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px;font-size:13px;color:var(--muted)}.hmeta b{color:var(--fg);font-weight:600}.hmeta .sep{color:var(--faint)}
 .hsplit i{width:8px;height:8px;border-radius:50%;flex:none}
 .splitrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
 .splitrow b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
@@ -423,7 +425,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:36</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:39</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1205,11 +1207,10 @@ function renderStartInner() {
   H.total = H.inn + H.pen; if (P) H.prev = isRev ? P.revIn + P.revPen : P.profitIn + P.profitPen;
   const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy"], [H.pen, css("--warn"), "W drodze (sprzedaż)"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="przychod" aria-pressed="${isRev}">Przychód</button><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button></div><div id="goal" style="margin-left:auto"></div></div>
-    <div class="sub small muted" style="margin-top:12px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
-    <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>${isRev && SRC !== "rodzina" && H.total > 0 ? `<div class="small muted" style="margin-top:4px">marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b> · zysk ${zl(T.profitIn + T.profitPen)}</div>` : ""}
-    <div class="stack" style="margin:16px 0 10px">${segs.map(([v, c]) => v > 0 ? `<i style="width:${v / hs * 100}%;background:${c}"></i>` : "").join("")}</div>
-    <div class="hsplit">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${H.wal > 0 && SRC !== "rodzina" ? `<div class="small muted" style="margin-top:8px;display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#b18cff;display:inline-block"></i>+${zl(H.wal, 2)} zamrożone (portfel Vinted) · niewliczone w ${H.lab.toLowerCase()}, tylko w majątku</div>` : ""}
-    <div class="row1">${P ? deltaHTML(H.total, H.prev) : `<span class="delta up">${T.n} szt. sprzedanych</span><span>${isRev ? "średnio " + zl(T.n ? T.kRev / T.n : null) + " za sztukę" : "średnio " + (T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia") + " od wystawienia do sprzedaży"}</span>`}</div>
+    <div class="sub small muted" style="margin-top:14px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
+    <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
+    <div class="hmeta">${[isRev && SRC !== "rodzina" && H.total > 0 ? `marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b>` : "", isRev && SRC !== "rodzina" ? `zysk <b>${zl(T.profitIn + T.profitPen)}</b>` : "", P ? deltaHTML(H.total, H.prev) : "", T.n ? `<b>${T.n}</b> szt. sprzedanych` : "", T.n ? (isRev ? `śr. <b>${zl(T.kRev / T.n)}</b> za sztukę` : (T.days == null ? "" : `śr. <b>${T.days.toFixed(1).replace(".", ",")} dnia</b> do sprzedaży`)) : ""].filter(Boolean).map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>')}</div>
+    <div class="hsplit" style="margin-top:18px">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}${H.wal > 0 && SRC !== "rodzina" ? `<span class="hs ghost" title="Niewliczone w ${H.lab.toLowerCase()} – liczy się tylko do majątku"><i style="background:#b18cff"></i>Zamrożone <b>${zl(H.wal, 2)}</b><small>poza sumą · w majątku</small></span>` : ""}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
   $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero2", heroMode); renderStart(); });
   const famM = k => expand(OTHER).filter(o => catOf(o) === "rodzina" && o.month === k).reduce((a, o) => a + (+o.rev || 0), 0);
@@ -1728,7 +1729,7 @@ function renderProducts() {
   $("#inv-prod").innerHTML = summary + rows.map((r, i) => {
     const firstColor = r.colors[0] && r.colors[0].raw;
     const parts = [["Kupno", r.buy, css("--rev")], ["Fracht", r.fr, css("--warn")], ["Wysyłka", r.ship, css("--accent")]].filter(x => x[1] > 0), ptot = parts.reduce((a, x) => a + x[1], 0);
-    return `<details class="card s6" ${i === 0 ? "open" : ""}><summary><div style="display:flex;gap:14px;align-items:center">${thumb(r.name, "", 52)}<div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(r.name)}</h3>
+    return `<details class="card s6"><summary><div style="display:flex;gap:14px;align-items:center">${thumb(r.name, "", 52)}<div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(r.name)}</h3>
       <div class="chips" style="margin-top:6px">${r.sold.length + r.pre.length ? `<span class="pill p-sprzedane">${r.sold.length + r.pre.length} sprzedane</span>` : ""}${r.stock.length ? `<span class="pill p-wystawione">${r.stock.length} na stanie</span>` : ""}${r.inc ? `<span class="pill p-rezerwacja">${r.inc} w drodze z Chin</span>` : ""}</div></div><svg class="i chev"><use href="#i-down"/></svg></div></summary>
       ${r.sold.length ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr))">${big("Śr. cena sprzedaży", zl(r.sell))}${big("Śr. zysk / szt", zl(r.prof / r.sold.length), "pos")}${big("Marża", pct(r.rev ? r.prof / r.rev : null))}</div><div class="small muted" style="margin-top:6px">ROI ${mult(r.costSold ? r.rev / r.costSold : null)} · marża = zysk ÷ cena sprzedaży</div>` : `<p class="small muted" style="margin:16px 0 0">Jeszcze nic nie sprzedane${r.pre.length ? ` (${r.pre.length} presale bez ceny – dopisz cenę w arkuszu)` : ""}.</p>`}
       ${r.stock.length + r.inc ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr));padding:14px;border-radius:12px;background:var(--surface2)"><div><div class="l">Towar kupiony za</div><div class="v">${zl(r.buyVal)}</div></div><div><div class="l">Szac. wartość</div><div class="v">${zl(r.estVal)}</div></div><div><div class="l">Potencjalny zysk</div><div class="v ${sgn(r.estVal - r.buyVal)}">${zl(r.estVal - r.buyVal)}</div></div></div>` : ""}
@@ -1805,7 +1806,7 @@ function renderKako() {
     const steps = [["Zamówione", o.orderDateText], ["Wysyłka opłacona", o.shipDate && o.shipDate.split("-").reverse().join(".")], ["Odebrane", o.received || ((M.orderItems[String(o.n)] || []).length && !INCk.some(x => x.order === o.n) ? "wszystko dotarło" : null)]];
     const inc = INCk.filter(x => x.order === o.n), incQ = inc.reduce((a, x) => a + x.qty, 0), ordQ = items.reduce((a, i) => a + (i.qty || 0), 0);
     const roi = s.soldCost ? s.soldRev / s.soldCost : null, roiL = null;
-    return `<details class="card s12" ${idx === 0 || idx === M.orders.length - 1 ? "open" : ""}><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${o.n}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(o.name)}</h3><div class="small muted">${zl(o.spent)} · ${o.weight ?? "—"} kg${(ordQ || s.n) ? " · sprzedane " + s.soldN + " z " + Math.max(ordQ, s.n) : ""}</div></div>
+    return `<details class="card s12"><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${o.n}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(o.name)}</h3><div class="small muted">${zl(o.spent)} · ${o.weight ?? "—"} kg${(ordQ || s.n) ? " · sprzedane " + s.soldN + " z " + Math.max(ordQ, s.n) : ""}</div></div>
       <span class="pill ${incQ && incQ === ordQ ? "p-rezerwacja" : incQ ? "p-rezerwacja" : s.soldN && s.soldN === s.n ? "p-sprzedane" : s.soldN ? "p-wystawione" : "p-magazyn"}">${incQ && incQ === ordQ ? "W drodze z Chin" : incQ ? "Część w drodze" : s.soldN && s.soldN === s.n ? "Wyprzedane" : s.soldN ? "Sprzedaje się" : "W magazynie"}</span><svg class="i chev"><use href="#i-down"/></svg></div>
       <div class="steps">${steps.map(([l, v]) => `<span class="step ${v ? "done" : ""}"><b>${l}</b>${v ? esc(/^\d{4}-/.test(v) ? v.split("-").reverse().join(".") : v) : "—"}</span>`).join("")}</div></summary>
       ${ordQ ? `<div style="margin-top:18px"><div class="mline" style="padding-top:0"><span>Dotarło do Ciebie</span><b>${ordQ - incQ} z ${ordQ} szt.</b></div><div class="bar ${incQ ? "w" : ""}"><i style="width:${(ordQ - incQ) / ordQ * 100}%"></i></div>
