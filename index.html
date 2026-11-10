@@ -413,7 +413,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:11</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:13</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1597,6 +1597,7 @@ function renderZrodlo(id) {
 }
 /* sales channels */
 const CHANNEL_SEED = [
+  {id: "hemly", name: "Hemly", url: "https://hemly.pl", status: "sprawdzic", auto: "nie", fee: "5% (min. 2 zł) do 30.11.2026, od 1.12.2026 10%; wystawienie za darmo", note: "Nowy polski serwis z odzieżą i butami (Tarnów), jak Vinted. Sprzedają osoby prywatne i firmy, limit 25 aktywnych ogłoszeń. Brak API i brak publicznych danych o sprzedaży – ruch prawdopodobnie jeszcze mały. Warto wystawić kilka par na próbę, bo konkurencja mała."},
   {id: "vinted", name: "Vinted", url: "https://www.vinted.pl", status: "uzywam", auto: "nie", fee: "0 zł dla sprzedającego (kupujący płaci opłatę za ochronę)", note: "Oficjalne API tylko dla wybranych firm (Vinted Pro, po zgłoszeniu). Boty i nieoficjalne narzędzia grożą blokadą konta."},
   {id: "olx", name: "OLX", url: "https://www.olx.pl", status: "uzywam", auto: "czesciowo", fee: "zależy od kategorii i limitu darmowych ogłoszeń; promowanie płatne", note: "Partner API (developer.olx.pl) pozwala wystawiać ogłoszenia i czytać wiadomości po uzyskaniu dostępu."},
   {id: "fbm", name: "Facebook Marketplace", url: "https://www.facebook.com/marketplace", status: "uzywam", auto: "nie", fee: "0 zł przy odbiorze osobistym", note: "Brak API dla kont prywatnych. Ogłoszenia lokalne – ważne miasto i szybka odpowiedź."},
@@ -2266,7 +2267,7 @@ renderAll();
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
   PROFILES = profiles || []; applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
-  if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
+  if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; if (CHANNELS && !CHANNELS.some(c => c.id === "hemly")) CHANNELS = [CHANNEL_SEED.find(c => c.id === "hemly"), ...CHANNELS]; ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
   if (goal && goal[0] != null) { GOAL = +goal[0]; ls.set("kd_goal_10k", GOAL); }
   try { await loadPhotos(); } catch {}
   
