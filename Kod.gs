@@ -3,6 +3,7 @@
  * Zarobki – most między Twoim arkuszem Google a aplikacją na telefonie.
  *
  * CZYTA wszystkie zakładki arkusza (nic w nich nie zmienia).
+ * ZMIENIA tylko komórkę STATUS sprzedanej rzeczy, gdy klikniesz przełącznik w aplikacji.
  * ZAPISUJE tylko w jednej zakładce „Dashboard – zapis” (zaznaczenia: otrzymane pieniądze, dostawy, cel, konta, pomysły).
  * PYTA Claude (czat i generator opisów) – klucz API zostaje tutaj, w ustawieniach skryptu, nigdy na stronie.
  *
@@ -30,10 +31,39 @@ function handle_(q) {
     if (q.a === 'data') return json_({sheets: readSheets_(), state: readState_(), at: Date.now()});
     if (q.a === 'set') { writeState_(String(q.k), q.v); return json_({ok: true}); }
     if (q.a === 'ask') return json_(askClaude_(q));
+    if (q.a === 'status') return json_(setStatus_(q));
     return json_({error: 'unknown_action'});
   } catch (err) {
     return json_({error: String(err && err.message || err)});
   }
+}
+
+/* ---------- zmiana STATUSU sprzedaży: tylko jedna komórka w kolumnie STATUS, nic więcej ---------- */
+function setStatus_(b) {
+  const want = String(b.want || ''), pat = {in: /zako[nń]czon/i, wallet: /portfel/i, paying: /pieni[aą]dze w drodze/i, pending: /pieni[aą]dze w drodze/i, shipped: /wys[łl]an/i}[want];
+  if (!pat) throw new Error('zły status');
+  const sh = SpreadsheetApp.getActive().getSheets().find(s => s.getName().trim() === String(b.sheet || '').trim());
+  if (!sh || !/sprzeda/i.test(sh.getName()) || sh.getName() === STATE_SHEET) throw new Error('nie ma takiej zakładki sprzedaży');
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(h => String(h).toUpperCase());
+  const sc = head.findIndex(h => h.indexOf('STATUS') >= 0), pc = head.findIndex(h => h.indexOf('PRODUKT') >= 0);
+  if (sc < 0 || pc < 0) throw new Error('brak kolumny STATUS');
+  const row = Math.floor(+b.row);
+  if (!(row >= 2 && row <= sh.getLastRow())) throw new Error('zły wiersz');
+  const prod = String(sh.getRange(row, pc + 1).getDisplayValue()).trim().toLowerCase();
+  if (!b.product || prod !== String(b.product).trim().toLowerCase()) throw new Error('wiersz się nie zgadza, odśwież dane');
+  const cell = sh.getRange(row, sc + 1);
+  let opts = [];
+  const dv = cell.getDataValidation();
+  if (dv) {
+    const ty = dv.getCriteriaType(), v = dv.getCriteriaValues(), C = SpreadsheetApp.DataValidationCriteria;
+    if (ty === C.VALUE_IN_LIST) opts = v[0] || [];
+    else if (ty === C.VALUE_IN_RANGE && v[0]) opts = [].concat.apply([], v[0].getDisplayValues());
+  }
+  const def = {in: 'Sprzedaż zakończona', wallet: 'Pieniądze w portfelu Vinted', paying: 'Sprzedane - pieniądze w drodze', pending: 'Sprzedane - pieniądze w drodze', shipped: 'Sprzedane - wysłane'}[want];
+  const value = opts.filter(String).find(o => pat.test(o)) || def;
+  const old = cell.getDisplayValue();
+  if (old !== value) cell.setValue(value);
+  return {ok: true, old: old, value: value};
 }
 
 /* ---------- odczyt arkusza (tylko odczyt) ---------- */
