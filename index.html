@@ -895,7 +895,8 @@ const store = (() => {
     try { const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]); if (db && user) { const id = await user.id(); if (id) ref = k => db.collection("data/users/" + id).doc(k); } } catch {}
   })();
   return {
-    async load(k, d) { await ready; if (ref) { try { const s = await ref(k).get(); if (s.exists) return s.data().items; } catch {} } return ls.get("kd_" + k, d); },
+    // db snapshots are frozen – return a plain editable copy, otherwise later changes are silently lost
+    async load(k, d) { await ready; if (ref) { try { const s = await ref(k).get(); if (s.exists) { const v = s.data().items; return v == null ? v : JSON.parse(JSON.stringify(v)); } } catch {} } return ls.get("kd_" + k, d); },
     async save(k, items) { ls.set("kd_" + k, items); await ready; if (ref) { try { await ref(k).set({items}); } catch (e) { console.warn("db", e); } } }
   };
 })();
