@@ -415,7 +415,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:13</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:22</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1250,7 +1250,8 @@ function renderStartInner() {
   const avgSell = {}; D.sold.forEach(s => { const k = s.product; (avgSell[k] ||= []).push(s.price); });
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
-  stat("#st-rev", "pct", "a", "ROI", mult(T.cost ? T.rev / T.cost : null), `<span>przychód ÷ koszt sprzedanych · zysk ${pct(T.cost ? T.profit / T.cost : null)}</span>`);
+  const roi = T.kCost ? T.kRev / T.kCost : null;
+  stat("#st-rev", "pct", "a", "ROI sprzedanych", mult(roi), `<span>${roi == null ? "brak sprzedaży" : `z 1 zł kosztu: ${zl(roi, 2)} przychodu, ${zl(roi - 1, 2)} zysku (${pct(roi - 1)})`}</span>`);
   stat("#st-roi", "shelf", "w", "W magazynie", (D.unsold.length + notEntered().reduce((a, x) => a + x.qty, 0)) + " szt.", `<span>koszt ${zl(inv)} · wystawione za ${zl(listedVal)}</span>`);
   stat("#st-spent", "spark", "b", "Potencjał magazynu", zl(pot), `<span>${potInc ? "+ ok. " + zl(potInc) + " z towaru w drodze z Chin · " : ""}jeśli sprzedasz wszystko${potEst ? ` (${potEst} szt. po średniej cenie)` : ""} · zysk ok. ${zl(pot - inv)}</span>`);
   stat("#st-stock", "calc", "", "Śr. czas sprzedaży", T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia", `<span>od wystawienia do sprzedaży · ${T.n} szt.</span>`);
@@ -1787,7 +1788,7 @@ function renderKako() {
   const D = derive(), T = totals(D, "all");
   const spent = M.orders.reduce((a, o) => a + (o.spent || 0), 0), w = M.orders.reduce((a, o) => a + (o.weight || 0), 0);
   const st = (icon, cls, lab, v, foot, vcls = "") => `<div class="stat s3"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vcls}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#kako-stats").innerHTML = st("trend", "a", "Zysk Kako", zl(T.kProfit), "ze sprzedanych rzeczy", sgn(T.kProfit)) + st("cart", "", "Wydane", zl(spent), `${M.orders.length} zamówienia · ${w.toFixed(1).replace(".", ",")} kg`) + st("pct", "b", "ROI sprzedanych", mult(T.kCost ? T.kRev / T.kCost : null), "przychód ÷ koszt sprzedanych sztuk") + st("box", "w", "Śr. wysyłka", zl(w ? M.orders.reduce((a, o) => a + (o.ship || 0), 0) / w : null, 2), "za kilogram");
+  $("#kako-stats").innerHTML = st("trend", "a", "Zysk Kako", zl(T.kProfit), "ze sprzedanych rzeczy", sgn(T.kProfit)) + st("cart", "", "Wydane", zl(spent), `${M.orders.length} zamówienia · ${w.toFixed(1).replace(".", ",")} kg`) + st("pct", "b", "ROI sprzedanych", mult(T.kCost ? T.kRev / T.kCost : null), T.kCost ? `z 1 zł kosztu: ${zl(T.kRev / T.kCost, 2)} przychodu, ${zl(T.kRev / T.kCost - 1, 2)} zysku` : "brak sprzedaży") + st("box", "w", "Śr. wysyłka", zl(w ? M.orders.reduce((a, o) => a + (o.ship || 0), 0) / w : null, 2), "za kilogram");
 
   const OSk = orderStatus(), INCk = OSk.filter(x => x.qty > 0);
   $("#k-zam").innerHTML = M.orders.slice().reverse().map((o, idx) => {
