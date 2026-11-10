@@ -160,7 +160,7 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .hero .bigv{font:800 40px/1.05 var(--f);letter-spacing:-.04em;margin-top:6px}
 @media (min-width:1000px){.hero .bigv{font-size:48px}}
 .hero .row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--muted)}
-.spark{position:relative;height:150px;margin:16px -6px -6px}
+.spark{position:relative;height:96px;margin:14px -6px -6px}
 .chartbox{position:relative;height:240px}
 @media (min-width:1000px){.chartbox{height:280px}}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
@@ -174,10 +174,29 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .gauge .gv span{font-size:12px;color:var(--muted)}
 .hsplit{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;font-size:12.5px;color:var(--muted)}
 @media(min-width:700px){.hsplit{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
-.hsplit .hs b{grid-column:1/-1;margin:2px 0 0;font-size:19px;letter-spacing:-.01em}.hsplit .hs svg{position:absolute;top:13px;right:12px;opacity:.6}
+.hsplit .hs b{grid-column:1/-1;margin:2px 0 0;font-size:16px;letter-spacing:-.01em}.hsplit .hs svg{position:absolute;top:13px;right:12px;opacity:.6}
 .hsplit .hs{position:relative;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 8px;font:inherit;color:var(--muted);text-align:left;width:100%;height:auto;padding:12px 14px;border-radius:14px;background:var(--surface2)}
 .hsplit button.hs:hover{box-shadow:inset 0 0 0 1px var(--line)}
 .hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
+details.grp{border-top:1px solid var(--line)}details.grp:first-of-type{margin-top:6px}
+details.grp>summary{list-style:none;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:14px 0;cursor:pointer}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary .gt{display:flex;flex-direction:column;gap:2px;min-width:0}
+details.grp>summary>svg{transition:transform .2s;opacity:.5}details.grp[open]>summary>svg{transform:rotate(90deg)}
+#money:not(.open) .mdet{display:none}
+/* telefon i wąskie okno: mniej ścisku */
+@media(max-width:600px){
+  .card{padding:16px}
+  #hero>.ch{flex-wrap:wrap;gap:10px}#hero #goal{margin-left:0!important;width:100%}#hero #goal>div{width:100%;box-sizing:border-box}
+  .hsplit{grid-template-columns:1fr;gap:8px}
+  .hsplit .hs{grid-template-columns:auto 1fr auto auto;padding:12px 14px}
+  .hsplit .hs b{grid-column:auto;margin:0;font-size:15px}
+  .hsplit .hs svg{position:static;opacity:.5}
+  .hsplit .hs small{grid-column:2/-1;margin-top:-2px}
+  .hmeta{font-size:12.5px}
+  .bigv{font-size:40px}
+}
+@media(max-width:759px){#money .mcol{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;padding:10px 0}#money .mcol .mv{font-size:20px;margin:0}#money .mcol .mdet{flex-basis:100%}#money .mcol .mh .ico{display:none}}
 .hsplit .hs.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--line2);border:0}.hsplit .hs.ghost b{color:var(--muted)}.hsplit .hs small{grid-column:1/-1;font-size:11.5px;color:var(--faint)}
 .hmeta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px;font-size:13px;color:var(--muted)}.hmeta b{color:var(--fg);font-weight:600}.hmeta .sep{color:var(--faint)}
 .hsplit i{width:8px;height:8px;border-radius:50%;flex:none}
@@ -425,7 +444,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:39</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:45</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1190,6 +1209,8 @@ function renderStart() {
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
 }
+let moneyOpen = false;
+document.addEventListener("click", e => { if (e.target.closest("#money-more")) { moneyOpen = !moneyOpen; $("#money").classList.toggle("open", moneyOpen); e.target.closest("#money-more").textContent = moneyOpen ? "Mniej" : "Szczegóły"; } });
 function renderStartInner() {
   const D = derive();
   if (period !== "all" && !D.keys.includes(period)) period = "all";
@@ -1205,7 +1226,7 @@ function renderStartInner() {
   const H = isRev ? {lab: "Przychód", total: T.rev, inn: T.revIn, pen: T.revPen, wal: T.revWal, exp: T.revExp, prev: P && P.rev, color: rv, key: "rev", icon: "wallet", cls: "b"} : {lab: "Zysk", total: T.profit, inn: T.profitIn, pen: T.profitPen, wal: T.profitWal, exp: T.profitExp, prev: P && P.profit, color: ac, key: "profit", icon: "trend", cls: "a"};
   const fam = SRC === "all" || SRC === "rodzina" ? srcTotals("rodzina", period, T) : {got: 0, wait: 0};
   H.total = H.inn + H.pen; if (P) H.prev = isRev ? P.revIn + P.revPen : P.profitIn + P.profitPen;
-  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy"], [H.pen, css("--warn"), "W drodze (sprzedaż)"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
+  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy"], [H.pen, css("--warn"), "W drodze"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="przychod" aria-pressed="${isRev}">Przychód</button><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button></div><div id="goal" style="margin-left:auto"></div></div>
     <div class="sub small muted" style="margin-top:14px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
@@ -1238,16 +1259,16 @@ function renderStartInner() {
   const active = Math.max(0, spentAll - recCost), enroute = incCost || Math.max(0, active - inv), payback = spentAll ? A_.revIn / spentAll : 0;
   const pBar = (a, b, ca, cb) => { const s = Math.max(1, Math.max(0, a) + Math.max(0, b)); return `<div class="stack" style="margin:0 0 8px">${a > 0 ? `<i style="width:${a / s * 100}%;background:${ca}"></i>` : ""}${b > 0 ? `<i style="width:${b / s * 100}%;background:${cb}"></i>` : ""}</div>`; };
   const wn = css("--warn");
-  $("#money").innerHTML = `<div class="ch"><div><h3>Pieniądze</h3><div class="sub">${period === "all" ? "Od początku" : cap(mLabel(period))} · kapitał zawsze od początku</div></div></div>
+  $("#money").innerHTML = `<div class="ch"><div><h3>Pieniądze</h3><div class="sub">${period === "all" ? "Od początku" : cap(mLabel(period))} · kapitał zawsze od początku</div></div><button class="sm" id="money-more">${moneyOpen ? "Mniej" : "Szczegóły"}</button></div>
     <div class="money">
-      <div class="mcol"><div class="mh">${ic("trend", "a")}Zysk łącznie</div><div class="mv ${T.profitIn + T.profitPen < 0 ? "neg" : ""}">${zl(T.profitIn + T.profitPen)}</div>${pBar(T.profitIn, T.profitPen, ac, wn)}
-        <div class="mline"><span><i style="background:var(--accent)"></i>Otrzymany</span><b>${zl(T.profitIn)}</b></div><div class="mline"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.profitPen)}</b></div></div>
-      <div class="mcol"><div class="mh">${ic("wallet", "b")}Przychód łącznie</div><div class="mv">${zl(T.revIn + T.revPen)}</div>${pBar(T.revIn, T.revPen, rv, wn)}
-        <div class="mline"><span><i style="background:var(--rev)"></i>Na koncie</span><b>${zl(T.revIn)}</b></div><div class="mline"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.revPen)}</b></div></div>
-      <div class="mcol"><div class="mh">${ic("box", "w")}Włożone łącznie</div><div class="mv">${zl(spentAll)}</div>${pBar(recCost, active, fa, wn)}
-        <div class="mline"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div>
-        <div class="mline"><span style="padding-left:16px">w magazynie · w drodze z Chin (${incN} szt.)</span><b>${zl(inv)} · ${zl(enroute)}</b></div>
-        <div class="mline"><span><i style="background:var(--faint)"></i>Już sprzedane (koszt)</span><b>${zl(recCost)}</b></div></div>
+      <div class="mcol"><div class="mh">${ic("trend", "a")}Zysk łącznie</div><div class="mv ${T.profitIn + T.profitPen < 0 ? "neg" : ""}">${zl(T.profitIn + T.profitPen)}</div><div class="mdet">${pBar(T.profitIn, T.profitPen, ac, wn)}</div>
+        <div class="mline mdet"><span><i style="background:var(--accent)"></i>Otrzymany</span><b>${zl(T.profitIn)}</b></div><div class="mline mdet"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.profitPen)}</b></div></div>
+      <div class="mcol"><div class="mh">${ic("wallet", "b")}Przychód łącznie</div><div class="mv">${zl(T.revIn + T.revPen)}</div><div class="mdet">${pBar(T.revIn, T.revPen, rv, wn)}</div>
+        <div class="mline mdet"><span><i style="background:var(--rev)"></i>Na koncie</span><b>${zl(T.revIn)}</b></div><div class="mline mdet"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.revPen)}</b></div></div>
+      <div class="mcol"><div class="mh">${ic("box", "w")}Włożone łącznie</div><div class="mv">${zl(spentAll)}</div><div class="mdet">${pBar(recCost, active, fa, wn)}</div>
+        <div class="mline mdet"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div>
+        <div class="mline mdet"><span style="padding-left:16px">w magazynie · w drodze z Chin (${incN} szt.)</span><b>${zl(inv)} · ${zl(enroute)}</b></div>
+        <div class="mline mdet"><span><i style="background:var(--faint)"></i>Już sprzedane (koszt)</span><b>${zl(recCost)}</b></div></div>
     </div>
     <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b> · pieniądze na koncie ÷ wszystko włożone</span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
       <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
@@ -1316,11 +1337,11 @@ function renderTransit(D) {
       <div class="end"><span class="amt">${zl(s.price, 2)}${s.est ? ' <span class="small muted" style="font-weight:500">szac.</span>' : ""}</span><span class="s ${st === "in" ? "" : "pos"}">zysk ${zl(s.profit)}</span></div>
       ${pay3HTML(s)}</div>`, s); };
   $("#transit").innerHTML = `<div class="ch"><div style="display:flex;gap:12px;align-items:center">${ic("wallet", "w")}<div><h3>Pieniądze w drodze</h3><div class="sub">Sprzedane, ale jeszcze nie na Twoim koncie</div></div></div><div style="text-align:right;flex:none"><div class="amt" style="font-size:20px;font-weight:800;color:var(--warn);white-space:nowrap">${zl(sum)}</div><div class="small muted">w tym zysk ${zl(prof, 2)}</div></div></div>
-    ${Object.keys(byAcc).length ? `<div class="chips" style="margin-bottom:14px">${Object.entries(byAcc).map(([k, v]) => `<span class="chip" style="display:inline-flex;align-items:center">${esc(k)}: <b style="color:var(--fg);margin-left:4px">${zl(v)}</b></span>`).join("")}</div>` : ""}
-    ${(() => { const sh = pend.filter(s => s.sheetStage === "shipped"), pay = pend.filter(s => s.sheetStage !== "shipped"); const sec = (title, sub, L) => L.length ? `<div class="mline" style="margin-top:14px"><span><b style="color:var(--fg)">${title}</b> · ${sub}</span><b>${zl(L.reduce((a, s) => a + s.price, 0))}</b></div><div class="list">${L.map(s => row(s, "pending")).join("")}</div>` : "";
-      return (sec("Paczki w drodze do klienta", "sprzedane i wysłane", sh) + sec("Pieniądze w drodze", "kupujący potwierdził, czekasz na wypłatę", pay)) || `<div class="empty" style="padding:12px">Nic nie jest w drodze.</div>`; })()}
-    ${wal.length ? `<div class="mline" style="margin-top:16px"><span><b style="color:var(--fg)">Zamrożone</b> · portfel platformy, trzeba coś zrobić, żeby wypłacić</span><b style="color:var(--rev)">${zl(walSum)}</b></div><div class="list">${wal.map(s => row(s, "wallet")).join("")}</div>` : ""}
-    <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="link" id="toggle-paid">${showPaid ? "Ukryj otrzymane" : "Pokaż ostatnio otrzymane"}</button><span class="small muted">Sprzedaż starsza niż ${AUTO_DAYS} dni liczy się jako otrzymana, chyba że oznaczysz inaczej.</span></div>
+    ${(() => { const sh = pend.filter(s => s.sheetStage === "shipped"), pay = pend.filter(s => s.sheetStage !== "shipped");
+      const sec = (title, sub, L, st, col = "var(--fg)") => L.length ? `<details class="grp"><summary><span class="gt"><b>${title}</b><span class="small muted">${L.length} szt. · ${sub}</span></span><b style="color:${col}">${zl(L.reduce((a, s) => a + s.price, 0))}</b>${svg("arrow", 14)}</summary><div class="list">${L.map(s => row(s, st)).join("")}</div></details>` : "";
+      const acc = Object.entries(byAcc);
+      return (sec("Paczki w drodze do klienta", "sprzedane i wysłane", sh, "pending") + sec("Pieniądze w drodze", "kupujący potwierdził, czekasz na wypłatę", pay, "pending") + sec("Zamrożone", "w portfelu platformy, do wypłacenia", wal, "wallet", "var(--rev)") + (acc.length ? `<details class="grp"><summary><span class="gt"><b>Według konta</b><span class="small muted">${acc.length} kont</span></span><span></span>${svg("arrow", 14)}</summary><div class="list">${acc.map(([k, v]) => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(k)}</div></div><span class="amt">${zl(v)}</span></div>`).join("")}</div></details>` : "")) || `<div class="empty" style="padding:12px">Nic nie jest w drodze.</div>`; })()}
+    <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="link" id="toggle-paid">${showPaid ? "Ukryj otrzymane" : "Pokaż ostatnio otrzymane"}</button><span class="small muted" style="font-size:11.5px;color:var(--faint)">Po ${AUTO_DAYS} dniach sprzedaż liczy się jako otrzymana.</span></div>
     ${showPaid ? `<div class="list" style="margin-top:12px">${recv.map(s => row(s, "in")).join("")}</div>` : ""}`;
   $("#toggle-paid").onclick = () => { showPaid = !showPaid; renderTransit(derive()); };
   bindPay($("#transit"));
