@@ -413,7 +413,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut</div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 19:59</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -890,7 +890,8 @@ let PAID = {}, showPaid = false, heroMode = ls.get("kd_hero", "zysk");
 let M = SNAPSHOT, OTHER = [], SEARCHES = [], GROUPS = [], TX = [], ACCS = {}, GOAL = ls.get("kd_goal_10k", 10000);
 let period = ls.get("kd_period", "all");
 const charts = {};
-const DEF_LIMIT = 8000, TX_LIMIT = 30;
+const DEF_LIMIT = 8000, TX_LIMIT = 30, WARN_REV = 6500, WARN_TX = 25;
+const accWarn = x => [x.rev >= WARN_REV ? `przychód ${zl(x.rev)} (próg ostrzeżenia ${zl(WARN_REV)})` : "", x.n >= WARN_TX ? `${x.n} transakcji (próg ostrzeżenia ${WARN_TX})` : ""].filter(Boolean);
 
 /* storage: private per-user db, browser storage as fallback */
 const store = (() => {
@@ -912,14 +913,16 @@ const AUTO_DAYS = 14;
 const daysAgo = d => d ? Math.floor((Date.now() - new Date(d + "T12:00:00")) / 864e5) : null;
 function saleKeys() { const seen = {}; M.sales.forEach(s => { const b = [s.sheet, s.product, s.color, s.size, s.sold, s.price].join("|"); seen[b] = (seen[b] || 0) + 1; s._k = b + "#" + seen[b]; }); }
 function payState(s) {
-  if (s.sheetPay) { const p = PAID[s._k]; return {st: s.sheetPay, src: "arkusz", conflict: p && (p.s === "in" || p.s === "wallet" ? p.s : "pending") !== s.sheetPay ? p.s : null}; }
+  if (s.sheetPay) { const p = PAID[s._k], b = p && (p.s === "in" || p.s === "wallet" ? p.s : "pending");
+    if (p && p.sheetWas != null && p.sheetWas === (s.sheetStatus || "")) return {st: b, src: "ty", at: p.at, pendingSheet: true};
+    return {st: s.sheetPay, src: "arkusz", conflict: p && p.sheetWas == null && b !== s.sheetPay ? p.s : null}; }
   if (s.received === true) return {st: "in", src: "arkusz"};
   if (s.received === false) return {st: "pending", src: "arkusz"};
   const p = PAID[s._k]; if (p) return {st: p.s === "in" || p.s === "wallet" ? p.s : "pending", src: "ty", at: p.at};
   const d = daysAgo(s.sold); return d != null && d > AUTO_DAYS ? {st: "in", src: "auto"} : {st: "pending", src: "auto"};
 }
 const PAY_LAB = {in: "Na koncie", wallet: "Zamrożone", pending: "W drodze", shipped: "W drodze", paying: "Pieniądze wysłane"};
-const uiPay = s => { const p = payState(s); if (p.st !== "pending") return p.st; const m = PAID[s._k]; return s.sheetStage === "paying" || (!s.sheetPay && m && m.s === "paying") ? "paying" : "shipped"; };
+const uiPay = s => { const p = payState(s); if (p.st !== "pending") return p.st; const m = PAID[s._k]; return (p.src === "ty" ? m && m.s === "paying" : s.sheetStage === "paying") ? "paying" : "shipped"; };
 async function setPaid(k, st) {
   const s = M.sales.find(x => x._k === k);
   if (s && uiPay(s) === st) return;
@@ -933,7 +936,7 @@ async function setPaid(k, st) {
       toast(PAY_LAB[st] + " · zapisane w arkuszu"); rerender(); return;
     } catch (e) { toast("Nie zapisałem w arkuszu: " + (e && e.message || "błąd") + ". Zapisuję tylko tutaj."); }
   }
-  PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10)}; await store.save("paid", PAID); toast(PAY_LAB[st] + (window.KD_SHEET ? "" : " · zmień też STATUS w arkuszu")); rerender();
+  PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10), sheetWas: s ? s.sheetStatus || "" : ""}; await store.save("paid", PAID); toast(PAY_LAB[st] + (window.KD_SHEET ? "" : " · zmień też STATUS w arkuszu")); rerender();
 }
 const PAY3 = [["shipped", "W drodze"], ["wallet", "Zamrożone"], ["paying", "Pieniądze wysłane"], ["in", "Na koncie"]];
 const pay3HTML = s => { const st = uiPay(s); return `<div class="tgl" role="group" aria-label="Gdzie są pieniądze">${PAY3.map(([k, l]) => `<button data-pay="${esc(s._k)}" data-st="${k}" data-v="${k === "in" ? 1 : k === "wallet" ? 2 : k === "paying" ? 3 : 0}" aria-pressed="${k === st}">${l}</button>`).join("")}</div>`; };
@@ -1034,10 +1037,10 @@ const deltaHTML = (cur, prev) => {
 const accKey = (p, a) => p + "|" + (a || "główne");
 function accounts() {
   const A = {};
-  const add = (p, a, amount, date) => { if (!p || p === "Prywatnie") return; const k = accKey(p, a); const x = A[k] ||= {key: k, platform: p, account: a || "główne", rev: 0, n: 0, all: 0, allN: 0, pend: 0}; x.all += amount; x.allN++; if (!date || date.slice(0, 4) === YEAR) { x.rev += amount; x.n++; } };
+  const add = (p, a, amount, date, ext) => { if (!p || p === "Prywatnie") return; const k = accKey(p, a); const x = A[k] ||= {key: k, platform: p, account: a || "główne", rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; x.all += amount; x.allN++; if (!date || date.slice(0, 4) === YEAR) { x.rev += amount; x.n++; if (ext) { x.nExt++; x.revExt += amount; } } };
   M.sales.filter(s => s.status === "sprzedane").forEach(s => { add(s.platform, s.account, s.price, s.sold); if (s.platform && s.platform !== "Prywatnie" && payState(s).st !== "in") A[accKey(s.platform, s.account)].pend += s.price; });
-  TX.forEach(t => add(t.platform, t.account, +t.amount || 0, t.date));
-  Object.keys(ACCS).forEach(k => { if (!A[k]) { const [p, a] = k.split("|"); A[k] = {key: k, platform: p, account: a, rev: 0, n: 0, all: 0, allN: 0, pend: 0}; } });
+  TX.forEach(t => add(t.platform, t.account, +t.amount || 0, t.date, t.mine === false));
+  Object.keys(ACCS).forEach(k => { if (!A[k]) { const [p, a] = k.split("|"); A[k] = {key: k, platform: p, account: a, rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; } });
   return Object.values(A).map(x => { const s = ACCS[x.key] || {}; x.person = s.person || ""; x.limit = +s.limit || DEF_LIMIT; x.r = x.rev / x.limit; x.rn = x.n / TX_LIMIT; x.risk = Math.max(x.r, x.rn); return x; }).sort((a, b) => b.risk - a.risk);
 }
 const barCls = r => r >= 1 ? "l" : r >= .8 ? "w" : "";
@@ -1045,6 +1048,8 @@ function accHTML(x, compact) {
   const name = x.person ? esc(x.person) : esc(x.account === "główne" ? "Konto główne" : x.account);
   return `<div class="acc"><div class="hd"><div class="av">${esc(x.platform.slice(0, 2).toUpperCase())}</div><div class="main" style="flex:1;min-width:0"><div class="t" style="font-weight:600">${name}</div><div class="s small muted">${esc(x.platform)}${x.account !== "główne" ? " · " + esc(x.account) : ""}${x.person ? "" : " · bez przypisanej osoby"}</div></div>
     ${x.risk >= 1 ? `<span class="pill p-oddane">Limit przekroczony</span>` : x.risk >= .8 ? `<span class="pill p-rezerwacja">Blisko limitu</span>` : `<span class="pill p-sprzedane">OK</span>`}</div>
+    ${accWarn(x).length ? `<div class="small" style="margin:8px 0 0;color:var(--loss);font-weight:600"><span class="bang" style="position:static;margin-right:6px">!</span>Uwaga: ${accWarn(x).join(" i ")}</div>` : ""}
+    <div class="small muted" style="margin:8px 0 0">Transakcje ${YEAR}: <b style="color:var(--fg)">${x.n}</b> z ${TX_LIMIT} · zrobione przeze mnie ${x.n - (x.nExt || 0)} (${zl(x.rev - (x.revExt || 0))}) · nie przeze mnie ${x.nExt || 0} (${zl(x.revExt || 0)})</div>
     <div class="meter"><span>Przychód ${YEAR}</span><div class="bar ${barCls(x.r)}"><i style="width:${Math.min(100, x.r * 100)}%"></i></div><span><b>${zl(x.rev)}</b> / ${zl(x.limit)}</span></div>
     <div class="meter"><span>Transakcje</span><div class="bar ${barCls(x.rn)}"><i style="width:${Math.min(100, x.rn * 100)}%"></i></div><span><b>${x.n}</b> / ${TX_LIMIT}</span></div>
     ${compact ? "" : `<div class="small muted">Zostało ${zl(Math.max(0, x.limit - x.rev))} i ${Math.max(0, TX_LIMIT - x.n)} transakcji do progu${x.pend ? ` · <span style="color:var(--warn)">w drodze ${zl(x.pend)}</span>` : ""}</div>`}</div>`;
@@ -1058,6 +1063,7 @@ function checks(D) {
   const PL = {in: "na koncie", wallet: "w portfelu", pending: "w drodze"};
   M.sales.forEach(x => {
     const ps = x.status === "sprzedane" ? payState(x) : null;
+    if (ps && ps.pendingSheet) add("warn", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: wpisz nowy status w arkuszu`, `${x.sheet}, wiersz ${x.row}: w pulpicie „${PAY_LAB[uiPay(x)]}”, w arkuszu jeszcze „${x.sheetStatus}”. Ustaw STATUS: „${{shipped: "Sprzedane - wysłane", wallet: "Pieniądze w portfelu Vinted", paying: "Sprzedane - pieniądze w drodze", in: "Sprzedaż zakończona"}[uiPay(x)]}”. W aplikacji robię to sam.`);
     if (ps && ps.conflict) add("err", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: dashboard „${PL[ps.conflict]}”, arkusz „${x.sheetStatus}”`, `${x.sheet}, wiersz ${x.row}. Liczę według arkusza. Zmień STATUS w arkuszu albo cofnij zaznaczenie w dashboardzie.`);
     if (x.sheetStatus && /niewystaw/i.test(x.sheetStatus) && (x.hasSoldDate || (x.price > 0 && x.platform))) add("err", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: status „Niewystawione”, ale jest cena${x.hasSoldDate ? " i data sprzedaży" : ""}`, `${x.sheet}, wiersz ${x.row}. Popraw STATUS (np. „Sprzedaż zakończona”) albo usuń cenę i datę.`);
     const where = x.future ? `${x.sheet}, wiersz ${x.row} (para, której jeszcze nie ma w arkuszu sprzedaży)` : `${x.sheet}, wiersz ${x.row}`;
@@ -1079,6 +1085,7 @@ function checks(D) {
     if (u === "wallet") q(`${nm}: wypłaciłeś już z portfela?`, `${zl(x.price)} leży w portfelu ${x.platform || "platformy"}.`, ["paying", "in"]);
     if (u === "paying") q(`${nm}: pieniądze doszły na konto?`, `Wypłata ${zl(x.price)} w drodze.`, ["in"]);
   });
+  accounts().forEach(x => { const w = accWarn(x); if (w.length) out.push({lvl: "warn", t: `${x.person || x.account} · ${x.platform} ${x.account}: blisko limitu`, s: `W ${YEAR}: ${w.join(" i ")}. Limit: ${zl(x.limit)} i ${TX_LIMIT} transakcji. Szczegóły w „Konta i limity”.`}); });
   const errs = M.errors.filter(e => CHECK_SHEETS.test(e.sheet));
   const bySheet = {}; errs.forEach(e => (bySheet[e.sheet] ||= []).push(e.cell));
   Object.entries(bySheet).forEach(([sh, cells]) => add("err", `Błędy w formułach: ${sh}`, `Komórki ${cells.slice(0, 6).join(", ")}${cells.length > 6 ? " i " + (cells.length - 6) + " więcej" : ""} pokazują #VALUE!. Zwykle to tekst w kolumnie z liczbami.`));
@@ -1599,18 +1606,19 @@ async function addPhoto(product, color, file) {
   await store.save(slot, [url]); await store.save("photos", PHOTO_IDX);
   toast("Zdjęcie dodane"); rerender();
 }
-const thumb = (product, color, size = 56) => { const u = photoOf(product, color); return u ? `<img src="${esc(u)}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:12px;flex:none;background:var(--surface2)">` : `<label class="av" style="width:${size}px;height:${size}px;cursor:pointer;flex-direction:column;font-size:10.5px;gap:2px;text-align:center" title="Dodaj zdjęcie">${svg("plus", 16)}<span>zdjęcie</span><input type="file" accept="image/*" hidden data-photo="${esc(product)}|${esc(cleanColor(color || ""))}"></label>`; };
+const photoBox = (product, color, px, empty) => { const k = esc(product) + "|" + esc(cleanColor(color || "")), u = PHOTO_URL[pkeyOf(product, color)] || null, dim = px ? `width:${px}px;height:${px}px;border-radius:12px;` : "";
+  return u ? `<span class="pav" style="position:relative;flex:none"><button type="button" class="av" data-pavmenu style="${dim}padding:0;overflow:hidden;cursor:pointer" title="Zdjęcie – zmień lub usuń"><img src="${esc(u)}" alt="" style="width:100%;height:100%;object-fit:cover"></button><span class="pav-menu card" hidden style="position:absolute;z-index:20;top:calc(100% + 6px);left:0;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:150px"><label class="sm" style="cursor:pointer;padding:8px 10px;border-radius:8px">Zmień zdjęcie<input type="file" accept="image/*" hidden data-pav="${k}"></label><button type="button" class="sm" data-pavdel="${k}" style="justify-content:flex-start">Usuń zdjęcie</button></span></span>`
+    : `<label class="av pav" style="${dim}cursor:pointer;flex:none;${px ? "flex-direction:column;font-size:10.5px;gap:2px;text-align:center" : ""}" title="Dodaj zdjęcie">${empty}<input type="file" accept="image/*" hidden data-pav="${k}"></label>`; };
+const thumb = (product, color, size = 56) => photoBox(product, color, size, `${svg("plus", 16)}<span>${cleanColor(color || "") ? "zdjęcie" : "zdjęcie grupy"}</span>`);
 const bindPhotos = root => root.querySelectorAll("[data-photo]").forEach(inp => inp.onchange = e => { const [p, c] = inp.dataset.photo.split("|"); if (e.target.files[0]) addPhoto(p, c, e.target.files[0]).catch(() => toast("Nie udało się dodać zdjęcia")); });
 
 const pname = s => s.product + (s.size ? " · rozm. " + s.size : "");
-const pav = s => { const k = esc(s.product) + "|" + esc(cleanColor(s.color || "")), u = photoOf(s.product, s.color);
-  return u ? `<span class="pav" style="position:relative;flex:none"><button type="button" class="av" data-pavmenu style="padding:0;overflow:hidden;cursor:pointer" title="Zdjęcie – zmień lub usuń"><img src="${esc(u)}" alt="" style="width:100%;height:100%;object-fit:cover"></button><span class="pav-menu card" hidden style="position:absolute;z-index:20;top:calc(100% + 6px);left:0;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:150px"><label class="sm" style="cursor:pointer;padding:8px 10px;border-radius:8px">Zmień zdjęcie<input type="file" accept="image/*" hidden data-pav="${k}"></label><button type="button" class="sm" data-pavdel="${k}" style="justify-content:flex-start">Usuń zdjęcie</button></span></span>`
-    : `<label class="av pav" style="cursor:pointer;flex:none" title="Dodaj zdjęcie">${esc(sz(s.size))}<input type="file" accept="image/*" hidden data-pav="${k}"></label>`; };
+const pav = s => photoBox(s.product, s.color, null, esc(sz(s.size)));
 async function delPhoto(key) { const [p, c] = key.split("|"), k = pkeyOf(p, c), slot = PHOTO_IDX[k]; delete PHOTO_URL[k]; delete PHOTO_IDX[k]; if (slot) await store.save(slot, []); await store.save("photos", PHOTO_IDX); toast("Zdjęcie usunięte"); rerender(); }
 document.addEventListener("click", e => {
   const el = e.target.closest(".pav"); document.querySelectorAll(".pav-menu").forEach(m => { if (!el || !el.contains(m)) m.hidden = true; });
   if (!el) return; e.stopPropagation();
-  const mb = e.target.closest("[data-pavmenu]"); if (mb) { const m = el.querySelector(".pav-menu"); m.hidden = !m.hidden; }
+  const mb = e.target.closest("[data-pavmenu]"); if (mb) { e.preventDefault(); const m = el.querySelector(".pav-menu"); m.hidden = !m.hidden; }
   const db = e.target.closest("[data-pavdel]"); if (db) { const key = db.dataset.pavdel; if (confirm("Usunąć zdjęcie tego produktu?")) delPhoto(key).catch(() => toast("Nie udało się usunąć")); }
 }, true);
 document.addEventListener("change", e => { const inp = e.target.closest("[data-pav]"); if (!inp || !inp.files[0]) return; const [p, c] = inp.dataset.pav.split("|"); addPhoto(p, c, inp.files[0]).catch(() => toast("Nie udało się dodać zdjęcia")); });
@@ -1652,7 +1660,7 @@ function renderProducts() {
   $("#inv-prod").innerHTML = summary + rows.map((r, i) => {
     const firstColor = r.colors[0] && r.colors[0].raw;
     const parts = [["Kupno", r.buy, css("--rev")], ["Fracht", r.fr, css("--warn")], ["Wysyłka", r.ship, css("--accent")]].filter(x => x[1] > 0), ptot = parts.reduce((a, x) => a + x[1], 0);
-    return `<details class="card s6" ${i === 0 ? "open" : ""}><summary><div style="display:flex;gap:14px;align-items:center">${thumb(r.name, firstColor, 52)}<div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(r.name)}</h3>
+    return `<details class="card s6" ${i === 0 ? "open" : ""}><summary><div style="display:flex;gap:14px;align-items:center">${thumb(r.name, "", 52)}<div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(r.name)}</h3>
       <div class="chips" style="margin-top:6px">${r.sold.length + r.pre.length ? `<span class="pill p-sprzedane">${r.sold.length + r.pre.length} sprzedane</span>` : ""}${r.stock.length ? `<span class="pill p-wystawione">${r.stock.length} na stanie</span>` : ""}${r.inc ? `<span class="pill p-rezerwacja">${r.inc} w drodze z Chin</span>` : ""}</div></div><svg class="i chev"><use href="#i-down"/></svg></div></summary>
       ${r.sold.length ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr))">${big("Śr. cena sprzedaży", zl(r.sell))}${big("Śr. zysk / szt", zl(r.prof / r.sold.length), "pos")}${big("Marża", pct(r.rev ? r.prof / r.rev : null))}</div><div class="small muted" style="margin-top:6px">ROI ${mult(r.costSold ? r.rev / r.costSold : null)} · marża = zysk ÷ cena sprzedaży</div>` : `<p class="small muted" style="margin:16px 0 0">Jeszcze nic nie sprzedane${r.pre.length ? ` (${r.pre.length} presale bez ceny – dopisz cenę w arkuszu)` : ""}.</p>`}
       ${r.stock.length + r.inc ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr));padding:14px;border-radius:12px;background:var(--surface2)"><div><div class="l">Towar kupiony za</div><div class="v">${zl(r.buyVal)}</div></div><div><div class="l">Szac. wartość</div><div class="v">${zl(r.estVal)}</div></div><div><div class="l">Potencjalny zysk</div><div class="v ${sgn(r.estVal - r.buyVal)}">${zl(r.estVal - r.buyVal)}</div></div></div>` : ""}
@@ -1710,7 +1718,7 @@ function updateBadges() {
 }
 function renderKakoNav(where, active) {
   const el = $("#kn-" + where); if (!el) return;
-  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}${k === "kontrola" && ISSUES ? `<span class="bang">!</span>` : ""}</button>`).join("")}</div>`;
+  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}${k === "kontrola" && ISSUES ? `<span class="bang">!</span>` : ""}${k === "konta" && accounts().some(x => accWarn(x).length) ? `<span class="bang" title="Konto blisko limitu">!</span>` : ""}</button>`).join("")}</div>`;
   el.querySelectorAll("[data-kn]").forEach(b => b.onclick = () => { const h = b.dataset.h; if (h) { location.hash = h; return; } kakoTab = b.dataset.kn; if (location.hash.slice(1) === "kako") renderKako(); else location.hash = "kako"; });
   const cur = el.querySelector('[aria-pressed="true"]'), seg = el.querySelector(".seg"); if (cur && seg) seg.scrollLeft = cur.offsetLeft - seg.clientWidth / 2 + cur.offsetWidth / 2;
 }
@@ -1776,7 +1784,7 @@ function renderKako() {
   const noPerson = Aall.filter(a => !a.person);
   const A = accProfile === "all" ? Aall : accProfile === "none" ? noPerson : Aall.filter(a => a.person === accProfile);
   const pRev = A.reduce((s, a) => s + a.rev, 0), pN = A.reduce((s, a) => s + a.n, 0), pPend = A.reduce((s, a) => s + a.pend, 0);
-  const profBar = `<div class="s12" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="pills" role="group" aria-label="Profil" id="acc-profiles">${[["all", "Wszyscy"], ...profs.map(p => [p, p]), ...(noPerson.length ? [["none", "Bez profilu"]] : [])].map(([k, l]) => `<button data-prof="${esc(k)}" aria-pressed="${k === accProfile}">${esc(l)}</button>`).join("")}</div>
+  const profBar = `<div class="s12" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="pills" role="group" aria-label="Profil" id="acc-profiles">${[["all", "Wszyscy"], ...profs.map(p => [p, p]), ...(noPerson.length ? [["none", "Bez profilu"]] : [])].map(([k, l]) => `<button data-prof="${esc(k)}" aria-pressed="${k === accProfile}">${esc(l)}${Aall.some(a => (k === "all" || a.person === k || (k === "none" && !a.person)) && accWarn(a).length) ? `<span class="bang" title="Konto blisko limitu" style="position:static;margin-left:6px">!</span>` : ""}</button>`).join("")}</div>
     <form id="prof-form" class="actions" style="margin-left:auto"><input name="p" placeholder="nowy profil (imię i nazwisko)" style="height:34px;width:220px;font-size:14px" aria-label="Nowy profil"><button class="sm" type="submit">${svg("plus", 14)}Profil</button></form></div>
     ${accProfile !== "all" ? `<div class="card s12"><div class="ch" style="margin-bottom:12px"><div style="display:flex;gap:12px;align-items:center"><div class="av">${esc(accProfile === "none" ? "?" : accProfile.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase())}</div><div><h3>${esc(accProfile === "none" ? "Konta bez profilu" : accProfile)}</h3><div class="sub">${A.length ? A.map(a => a.platform + " · " + a.account).join(", ") : "na razie bez kont – przypisz konto w „Ustaw konto”"}</div></div></div></div>
       <div class="kv" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><div class="l">Przychód ${YEAR} (wszystkie konta)</div><div class="v">${zl(pRev)}</div></div><div><div class="l">Transakcje</div><div class="v">${pN}</div></div><div><div class="l">W drodze</div><div class="v wrn">${zl(pPend)}</div></div></div></div>` : ""}`;
@@ -1784,7 +1792,7 @@ function renderKako() {
       ${A.length ? A.map(x => accHTML(x, false)).join("") : `<div class="empty">${accProfile === "all" ? "Brak sprzedaży na kontach." : "Ten profil nie ma jeszcze kont."}</div>`}
       <p class="note">Stan „W drodze / Na koncie” zmieniasz dotknięciem. Możesz też dodać w arkuszu kolumnę OTRZYMANO (TAK/NIE), wtedy ona decyduje. Konto biorę z kolumny KONTO, a jeśli jej nie ma, z dopisku po myślniku w kolumnie platformy, np. „Vinted - nazwa_konta”. Sama nazwa platformy oznacza konto główne.</p></div>
     <div class="s5 col">
-      <div class="card"><div class="ch"><div><h3>Ustaw konto</h3><div class="sub">Do kogo należy profil i jaki limit pilnować</div></div></div>
+      <details class="card"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><h3>Ustaw konto</h3><div class="sub">Zmień osobę albo limit konta · dotknij, żeby rozwinąć</div></div>${svg("plus", 16)}</summary><div style="margin-top:12px">
         <form id="acc-form" class="form">
           <label class="full">Konto<select id="acc-key">${keys.map(k => `<option value="${esc(k)}">${esc(k.replace("|", " · "))}</option>`).join("")}<option value="__new">Nowe konto…</option></select></label>
           <label id="acc-new-p" hidden>Platforma<select id="acc-np"><option>Vinted</option><option>OLX</option><option>Facebook</option><option>Allegro</option><option>Vestiaire</option></select></label>
@@ -1792,16 +1800,17 @@ function renderKako() {
           <label>Osoba (profil)<input id="acc-person" list="prof-list" placeholder="wybierz albo wpisz"></label><datalist id="prof-list">${profs.map(p => `<option value="${esc(p)}">`).join("")}</datalist>
           <label>Limit roczny (zł)<input id="acc-limit" type="number" inputmode="decimal" placeholder="${DEF_LIMIT}"></label>
           <div class="full"><button class="primary" type="submit">Zapisz konto</button></div>
-        </form></div>
-      <div class="card"><div class="ch"><div><h3>Inna transakcja</h3><div class="sub">Sprzedaż spoza arkusza, liczona do limitu konta</div></div></div>
+        </form></div></details>
+      <details class="card"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><h3>Inne transakcje</h3><div class="sub">Sprzedaż spoza arkusza, liczona tylko do limitu konta · ${TX.length} wpisów</div></div>${svg("plus", 16)}</summary><div style="margin-top:12px">
         <form id="tx-form" class="form">
           <label class="full">Konto<select id="tx-key">${keys.map(k => `<option value="${esc(k)}">${esc(k.replace("|", " · "))}</option>`).join("")}</select></label>
-          <label>Data<input id="tx-date" type="date" required></label>
+          <label>Data<input id="tx-date" type="date"></label>
           <label>Kwota (zł)<input id="tx-amount" type="number" step="0.01" inputmode="decimal" required></label>
           <label class="full">Opis<input id="tx-desc" placeholder="np. bluza z szafy"></label>
+          <label class="full">Kto sprzedał<select id="tx-mine"><option value="1">zrobione przeze mnie</option><option value="0">nie przeze mnie (właściciel konta)</option></select></label>
           <div class="full"><button type="submit">${svg("plus", 14)}Dodaj transakcję</button></div>
         </form>
-        <div class="list" style="margin-top:16px">${TX.slice().sort((a, b) => b.date.localeCompare(a.date)).map(t => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(t.desc || "Transakcja")}</div><div class="s">${esc(t.platform + " · " + (t.account || "główne"))} · ${dShort(t.date)}</div></div><span class="amt">${zl(+t.amount, 2)}</span><button class="iconbtn flat" data-tx="${t.id}" aria-label="Usuń transakcję">${svg("x", 15)}</button></div>`).join("")}</div></div>
+        <div class="list" style="margin-top:16px">${TX.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).map(t => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(t.desc || "Transakcja")}</div><div class="s">${esc(t.platform + " · " + (t.account || "główne"))} · ${!t.date || t.date.length === 4 ? "w " + (t.date || YEAR) : dShort(t.date)} · ${t.mine === false ? "nie przeze mnie" : "przeze mnie"}</div></div><span class="amt">${zl(+t.amount, 2)}</span><button class="iconbtn flat" data-tx="${t.id}" aria-label="Usuń transakcję">${svg("x", 15)}</button></div>`).join("")}</div></div></details>
     </div>`;
   $("#acc-profiles").querySelectorAll("[data-prof]").forEach(b => b.onclick = () => { accProfile = b.dataset.prof; renderKako(); });
   $("#prof-form").onsubmit = async e => { e.preventDefault(); const v = String(new FormData(e.target).get("p") || "").trim(); if (!v) return; if (!PROFILES.includes(v)) PROFILES.push(v); await store.save("profiles", PROFILES); accProfile = v; toast("Dodano profil"); renderKako(); };
@@ -1809,7 +1818,7 @@ function renderKako() {
   $("#acc-key").onchange = fillAcc; fillAcc();
   $("#acc-form").onsubmit = async e => { e.preventDefault(); let k = $("#acc-key").value; if (k === "__new") { const a = $("#acc-na").value.trim(); if (!a) { $("#acc-na").focus(); return; } k = accKey($("#acc-np").value, a); } ACCS[k] = {person: $("#acc-person").value.trim(), limit: +$("#acc-limit").value || DEF_LIMIT}; await store.save("accounts", ACCS); toast("Konto zapisane"); renderKako(); };
   $("#tx-date").value = new Date().toISOString().slice(0, 10);
-  $("#tx-form").onsubmit = async e => { e.preventDefault(); const [p, a] = $("#tx-key").value.split("|"); TX.push({id: uid(), platform: p, account: a === "główne" ? null : a, date: $("#tx-date").value, amount: +$("#tx-amount").value || 0, desc: $("#tx-desc").value.trim()}); await store.save("tx", TX); toast("Transakcja dodana"); renderKako(); };
+  $("#tx-form").onsubmit = async e => { e.preventDefault(); const [p, a] = $("#tx-key").value.split("|"); TX.push({id: uid(), platform: p, account: a === "główne" ? null : a, date: $("#tx-date").value || YEAR, amount: +$("#tx-amount").value || 0, desc: $("#tx-desc").value.trim(), mine: $("#tx-mine").value === "1"}); await store.save("tx", TX); toast("Transakcja dodana"); renderKako(); };
   $("#k-konta").querySelectorAll("[data-tx]").forEach(b => b.onclick = async () => { TX = TX.filter(t => t.id !== b.dataset.tx); await store.save("tx", TX); toast("Usunięto"); renderKako(); });
 
   // Kontrola
