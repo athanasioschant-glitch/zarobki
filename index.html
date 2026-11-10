@@ -85,6 +85,8 @@ nav.side .lbl{display:block;font-size:11px;color:var(--faint);font-weight:700;le
 nav.side a{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:14px;color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
 nav.side a svg{width:30px;height:30px;padding:7px;border-radius:10px;background:var(--surface2);color:var(--muted);flex:none}
 nav.side a:hover{color:var(--fg)}
+.bang{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--loss);color:#fff;font-size:11.5px;font-weight:800;margin-left:auto;line-height:1}
+.seg button .bang{margin-left:6px;height:18px;min-width:18px}
 nav.side a[draggable="true"]{cursor:grab}
 nav.side a.dragging{opacity:.4}
 nav.side a.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
@@ -696,7 +698,7 @@ function parseKako(XLSX, wb) {
     const c = {
       p: col(h, 'PRODUKT'), k: col(h, 'KOLOR'), r: col(h, 'ROZMIAR'), q: col(h, 'ILOŚĆ'), b: col(h, 'CENA KUPNA'),
       s: col(h, 'CENA WYSYŁKI'), f: col(h, 'CENA FRACHT'), cost: col(h, 'ŁĄCZNY KOSZT'), price: col(h, 'CENA SPRZEDAŻY'),
-      pl: col(h, 'PLATFORMA'), acc: col(h, 'KONTO'), rec: col(h, 'OTRZYMAN'), ld: col(h, 'DATA WYSTAW'), sd: col(h, 'DATA SPRZEDAŻY')
+      pl: col(h, 'PLATFORMA'), acc: col(h, 'KONTO'), rec: col(h, 'OTRZYMAN'), st: col(h, 'STATUS'), ld: col(h, 'DATA WYSTAW'), sd: col(h, 'DATA SPRZEDAŻY')
     };
     // summary block: header cells after the first empty header column past the table
     const summ = [];
@@ -745,9 +747,24 @@ function parseKako(XLSX, wb) {
       else if (price > 0) status = 'wystawione';
       else status = 'magazyn';
       const pm = p.trim().match(/\s+-\s+([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{2,})\s*$/);
+      // STATUS column (if present) is the source of truth
+      const stRaw = c.st >= 0 && r[c.st] != null ? String(r[c.st]).trim() : '', stl = stRaw.toLowerCase();
+      let sheetPay = null;
+      if (stl && stl !== '-') {
+        if (/zakończon|zakonczon/.test(stl)) { status = 'sprzedane'; sheetPay = 'in'; }
+        else if (/portfel/.test(stl)) { status = 'sprzedane'; sheetPay = 'wallet'; }
+        else if (/wysłan|wyslan|w drodze|sprzedan/.test(stl)) { status = 'sprzedane'; sheetPay = 'pending'; }
+        else if (/negocj/.test(stl)) status = 'negocjacje';
+        else if (/rezerw/.test(stl)) status = 'rezerwacja';
+        else if (/wycofan/.test(stl)) status = 'wycofane';
+        else if (/niewystaw/.test(stl)) status = 'magazyn';
+        else if (/wystaw/.test(stl)) status = 'wystawione';
+        else if (/oddan|prezent/.test(stl)) status = 'oddane';
+      }
       const name = p.trim().replace(/\s+-\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{2,}\s*$/, '').replace(/Lowme$/, 'Lowmel');
       const bq = num(r[c.b]), bs = num(r[c.s]), bf = c.f >= 0 ? num(r[c.f]) : 0;
       model.sales.push({
+        sheetStatus: stRaw || null, sheetPay, hasSoldDate: !!soldDate,
         received: c.rec >= 0 && r[c.rec] != null && String(r[c.rec]).trim() !== '' ? !/^(nie|n|false|0|-)$/i.test(String(r[c.rec]).trim()) : null,
         row: i + 1, expCost: bq != null && bs != null ? r2(bq + bs + (bf || 0)) : null,
         sheet: n.trim(), order, product: name, partner: pm ? pm[1] : null,
@@ -888,6 +905,7 @@ const AUTO_DAYS = 14;
 const daysAgo = d => d ? Math.floor((Date.now() - new Date(d + "T12:00:00")) / 864e5) : null;
 function saleKeys() { const seen = {}; M.sales.forEach(s => { const b = [s.sheet, s.product, s.color, s.size, s.sold, s.price].join("|"); seen[b] = (seen[b] || 0) + 1; s._k = b + "#" + seen[b]; }); }
 function payState(s) {
+  if (s.sheetPay) { const p = PAID[s._k]; return {st: s.sheetPay, src: "arkusz", conflict: p && p.s !== s.sheetPay ? p.s : null}; }
   if (s.received === true) return {st: "in", src: "arkusz"};
   if (s.received === false) return {st: "pending", src: "arkusz"};
   const p = PAID[s._k]; if (p) return {st: p.s === "in" || p.s === "wallet" ? p.s : "pending", src: "ty", at: p.at};
@@ -903,7 +921,7 @@ function keepView(fn) {
   if (view) view.querySelectorAll("details").forEach((d, i) => d.open = open.includes(i));
   scrollTo(0, y);
 }
-function rerender() { const v = location.hash.slice(1) || "start"; keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else renderStart(); }); }
+function rerender() { const v = location.hash.slice(1) || "start"; updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else renderStart(); }); }
 const payBtn = s => pay3HTML(s);
 const payBtnOld = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
 const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.pay, b.dataset.st); });
@@ -1014,11 +1032,15 @@ const CHECK_SHEETS = /sprzeda|^\d+$|Statystyki/i;
 function checks(D) {
   const out = [];
   const add = (lvl, t, s) => out.push({lvl, t, s});
+  const PL = {in: "na koncie", wallet: "w portfelu", pending: "w drodze"};
   M.sales.forEach(x => {
+    const ps = x.status === "sprzedane" ? payState(x) : null;
+    if (ps && ps.conflict) add("err", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: dashboard „${PL[ps.conflict]}”, arkusz „${x.sheetStatus}”`, `${x.sheet}, wiersz ${x.row}. Liczę według arkusza. Zmień STATUS w arkuszu albo cofnij zaznaczenie w dashboardzie.`);
+    if (x.sheetStatus && /niewystaw/i.test(x.sheetStatus) && (x.hasSoldDate || (x.price > 0 && x.platform))) add("err", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: status „Niewystawione”, ale jest cena${x.hasSoldDate ? " i data sprzedaży" : ""}`, `${x.sheet}, wiersz ${x.row}. Popraw STATUS (np. „Sprzedaż zakończona”) albo usuń cenę i datę.`);
     const where = x.future ? `${x.sheet}, wiersz ${x.row} (para, której jeszcze nie ma w arkuszu sprzedaży)` : `${x.sheet}, wiersz ${x.row}`;
     const nm = [x.product, cleanColor(x.color), x.size].filter(Boolean).join(" ");
     if (x.status === "wystawione" && !x.listed) add("info", `${nm}: wystawione czy sprzedane?`, `${where}. Cena ${zl(x.price)}${x.account ? ", konto " + x.account : ""}, ale bez daty. Liczę jako wystawione. Jeśli sprzedane, dopisz datę sprzedaży; jeśli wystawione, datę wystawienia.`);
-    if (x.platform && x.platform !== "Prywatnie" && x.status === "sprzedane" && !x.sold) add("warn", `${nm}: brak daty sprzedaży`, `${where}. Bez daty sprzedaż nie trafi do właściwego miesiąca ani do limitu konta.`);
+    if (x.platform && x.platform !== "Prywatnie" && x.status === "sprzedane" && !x.sold) add(x.sheetStatus ? "info" : "warn", `${nm}: brak daty sprzedaży`, `${where}. Bez daty sprzedaż nie trafi do właściwego miesiąca ani do limitu konta.`);
     if (x.sold && x.listed && x.sold < x.listed) add("warn", `${nm}: data sprzedaży przed wystawieniem`, `${where}. Sprawdź kolejność dat.`);
     if (x.expCost != null && x.cost != null && x.expCost > x.cost + 0.5) add("warn", `${nm}: cena kupna nie pasuje do kosztu`, `${where}. Kupno + fracht + wysyłka = ${zl(x.expCost, 2)}, a łączny koszt to ${zl(x.cost, 2)}. Wygląda na cenę skopiowaną z innego produktu.`);
     if (x.status === "sprzedane" && x.price > 0 && x.price < x.cost) add("info", `${nm}: sprzedane poniżej kosztu`, `${where}. Strata ${zl(x.cost - x.price, 2)}.`);
@@ -1030,7 +1052,7 @@ function checks(D) {
   const bySheet = {}; errs.forEach(e => (bySheet[e.sheet] ||= []).push(e.cell));
   Object.entries(bySheet).forEach(([sh, cells]) => add("err", `Błędy w formułach: ${sh}`, `Komórki ${cells.slice(0, 6).join(", ")}${cells.length > 6 ? " i " + (cells.length - 6) + " więcej" : ""} pokazują #VALUE!. Zwykle to tekst w kolumnie z liczbami.`));
   M.orders.forEach(o => { const s = D.ord[o.n]; if (s && s.soldN && o.profit == null) add("info", `${o.name}: brak faktycznego zysku w statystykach`, `Sprzedano już ${s.soldN} szt. za ${zl(s.soldRev)}. Dashboard liczy zysk sam ze sprzedaży.`); });
-  orderStatus().forEach(x => { const inSheet = M.sales.filter(s => s.order === x.order && !s.future).length; if (x.qty && x.manual && x.arrived > x.auto) add("info", `Zamówienie ${x.order}: ${x.product} – dotarło ${x.arrived}, a w arkuszu sprzedaży jest mniej sztuk`, `Dopisz brakujące sztuki do zakładki „${x.order} - sprzedaż”, żeby trafiły do magazynu.`); });
+  orderStatus().forEach(x => { const inSheet = M.sales.filter(s => s.order === x.order && !s.future).length; if (x.manual && x.arrived > x.auto) add("warn", `Zamówienie ${x.order}: ${x.product} – dotarło ${x.arrived}, a w arkuszu sprzedaży jest mniej sztuk`, `Dopisz brakujące sztuki do zakładki „${x.order} - sprzedaż”, żeby trafiły do magazynu.`); });
   M.orders.forEach(o => { const os = orderStatus().filter(x => x.order === o.n), ordQ = os.reduce((a, x) => a + x.ordered, 0), inS = M.sales.filter(s => s.order === o.n && !s.future).length;
     if (ordQ && inS > ordQ) add("warn", `Zamówienie ${o.n}: w arkuszu sprzedaży więcej sztuk niż zamówiono`, `Zamówiono ${ordQ} szt., a w „${o.n} - sprzedaż” jest ${inS}. Sprawdź, czy coś się nie zdublowało.`);
     const wait = os.reduce((a, x) => a + x.qty, 0), d = daysAgo(o.shipDate);
@@ -1148,7 +1170,9 @@ function renderStartInner() {
 
   const C = checks(D), serious = C.filter(c => c.lvl !== "info");
   const cm = $("#checks-mini"); cm.hidden = !C.length;
-  cm.innerHTML = `<div class="ch" style="margin-bottom:${serious.length ? 16 : 0}px"><div style="display:flex;gap:12px;align-items:center">${ic(serious.length ? "alert" : "shield", serious.length ? "w" : "a")}<div><h3>Kontrola danych</h3><div class="sub">${serious.length ? serious.length + " do poprawienia w arkuszu · " : ""}${C.length - serious.length} uwag</div></div></div><button class="link" id="go-checks">Szczegóły ${svg("arrow", 14)}</button></div>${serious.slice(0, 2).map(chkHTML).join("")}`;
+  const nErr = C.filter(c => c.lvl === "err").length;
+  cm.style.boxShadow = nErr ? "0 0 0 1.5px var(--loss)" : "";
+  cm.innerHTML = `<div class="ch" style="margin-bottom:${serious.length ? 16 : 0}px"><div style="display:flex;gap:12px;align-items:center">${ic(serious.length ? "alert" : "shield", nErr ? "l" : serious.length ? "w" : "a")}<div><h3>Kontrola danych</h3><div class="sub">${serious.length ? serious.length + " do poprawienia w arkuszu · " : ""}${C.length - serious.length} uwag</div></div></div><button class="link" id="go-checks">Szczegóły ${svg("arrow", 14)}</button></div>${serious.slice(0, 2).map(chkHTML).join("")}`;
   $("#go-checks").onclick = () => { kakoTab = "kontrola"; location.hash = "kako"; };
 
   chart("ch-month", {type: "bar", data: {labels: D.keys.map(k => cap(mShort(k)) + " " + k.slice(2, 4)), datasets: [
@@ -1574,9 +1598,14 @@ function renderMagazyn() {
 
 /* Kako tab strip: Dashboard · Magazyn · Zamówienia · … shared by every Kako screen */
 const KNAV = [["dash", "Dashboard", "start-kako"], ["magazyn", "Magazyn", "magazyn"], ["zam", "Zamówienia"], ["sprz", "Sprzedaż"], ["wystaw", "Wystaw", "wystaw"], ["konta", "Konta i limity"], ["kontrola", "Kontrola danych"], ["kanaly", "Kanały sprzedaży"], ["todo", "Do zrobienia"], ["wsp", "Wspólne"], ["plan", "Do kupienia"]];
+let ISSUES = 0;
+function updateBadges() {
+  try { ISSUES = checks(derive()).filter(c => c.lvl === "err" || c.lvl === "warn").length; } catch { ISSUES = 0; }
+  document.querySelectorAll('nav.side a[data-sid="kako"]').forEach(a => { let b = a.querySelector(".bang"); if (ISSUES) { if (!b) { b = document.createElement("span"); b.className = "bang"; a.appendChild(b); } b.textContent = "!" + (ISSUES > 1 ? " " + ISSUES : ""); b.title = ISSUES + " niezgodności do sprawdzenia"; } else if (b) b.remove(); });
+}
 function renderKakoNav(where, active) {
   const el = $("#kn-" + where); if (!el) return;
-  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}</button>`).join("")}</div>`;
+  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}${k === "kontrola" && ISSUES ? `<span class="bang">!</span>` : ""}</button>`).join("")}</div>`;
   el.querySelectorAll("[data-kn]").forEach(b => b.onclick = () => { const h = b.dataset.h; if (h) { location.hash = h; return; } kakoTab = b.dataset.kn; if (location.hash.slice(1) === "kako") renderKako(); else location.hash = "kako"; });
   const cur = el.querySelector('[aria-pressed="true"]'), seg = el.querySelector(".seg"); if (cur && seg) seg.scrollLeft = cur.offsetLeft - seg.clientWidth / 2 + cur.offsetWidth / 2;
 }
@@ -1956,6 +1985,7 @@ addEventListener("keydown", e => { if (e.key === "Escape" && !$("#chat").hidden)
 /* routing */
 const TITLES = {start: "Dashboard", zadania: "Wszystkie zadania", zrodla: "Źródła dochodu", zrodlo: "Źródło", magazyn: "Magazyn", kako: "Kako", wystaw: "Wystaw", licz: "Przelicznik", okazje: "Okazje", pomysly: "Pomysły"};
 function route() {
+  updateBadges();
   if ($("#src-links") && !$("#src-links").children.length) renderNav();
   const h = location.hash.slice(1), srcId = h.startsWith("zrodlo-") ? h.slice(7) : null;
   if (h === "start-kako") SRC = "kako"; else if (h === "start" && window.__fromKako) SRC = "all";
