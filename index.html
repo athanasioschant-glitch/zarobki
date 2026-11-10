@@ -411,9 +411,10 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <span class="lbl">Inne</span>
     <a href="#zadania" data-v="zadania"><svg class="i"><use href="#i-check"/></svg>Wszystkie zadania</a>
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
+    <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:13</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:57</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -921,7 +922,7 @@ function histSheet(x) { const g = histGroup(); g.sheet.push(x); histSave(); }
 function histSave() { clearTimeout(HIST.timer); HIST.timer = setTimeout(() => store.save("history", HIST.list), 1200); }
 const histWant = s => /zako[nń]czon/i.test(s) ? "in" : /portfel/i.test(s) ? "wallet" : /pieni[aą]dze w drodze/i.test(s) ? "paying" : /wys[łl]an/i.test(s) ? "shipped" : null;
 function histHTML(src) {
-  const L = HIST.list.filter(g => (src === "all" || g.src === src) && (g.ch.length || g.sheet.length)).slice(0, 8);
+  const L = HIST.list.filter(g => (src === "all" || g.src === src) && (g.ch.length || g.sheet.length)).slice(0, src === "all" ? 20 : 8);
   const when = iso => { const d = new Date(iso); return dShort(iso.slice(0, 10)) + ", " + d.toTimeString().slice(0, 5); };
   return `<div class="ch"><div><h3>Ostatnie zmiany</h3><div class="sub">Coś kliknięte przez przypadek? Cofnij.</div></div>${ic("check", "")}</div>
     <div class="list">${L.map(g => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(g.label || "Zmiana")}</div><div class="s">${esc(when(g.at))} · ${esc([...g.ch.map(c => KEY_LAB[c.k] || c.k), ...(g.sheet.length ? ["STATUS w arkuszu"] : [])].join(", "))}</div></div><button class="sm" data-undo="${g.id}">Cofnij</button></div>`).join("") || `<div class="empty">Na razie bez zmian.</div>`}</div>`;
@@ -938,6 +939,13 @@ async function undoGroup(id) {
   HIST.list = HIST.list.filter(x => !all.includes(x)); await store.save("history", HIST.list);
   toast("Cofnięte"); setTimeout(() => location.reload(), 500);
 }
+function openHist() {
+  let box = $("#hist-box"); if (box) box.remove();
+  box = document.createElement("div"); box.id = "hist-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
+  box.innerHTML = `<div class="card" style="max-width:560px;width:100%;max-height:88vh;overflow:auto">${histHTML("all").replace('<div class="ch">', `<div class="ch"><button class="iconbtn flat" data-x aria-label="Zamknij" style="order:3">${svg("x", 16)}</button>`)}</div>`;
+  document.body.append(box); box.querySelector("[data-x]").onclick = () => box.remove(); box.onclick = e => { if (e.target === box) box.remove(); };
+}
+document.querySelectorAll("[data-hist]").forEach(el => el.onclick = e => { e.preventDefault(); openHist(); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-undo]"); if (b) { e.preventDefault(); undoGroup(b.dataset.undo); } });
 const saveTimers = {};
 const autosave = (k, getter) => { clearTimeout(saveTimers[k]); saveTimers[k] = setTimeout(() => store.save(k, getter()), 600); };
@@ -1072,9 +1080,10 @@ const deltaHTML = (cur, prev) => {
 const accKey = (p, a) => p + "|" + (a || "główne");
 function accounts() {
   const A = {};
-  const add = (p, a, amount, date, ext) => { if (!p || p === "Prywatnie") return; const k = accKey(p, a); const x = A[k] ||= {key: k, platform: p, account: a || "główne", rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; x.all += amount; x.allN++; if (!date || date.slice(0, 4) === YEAR) { x.rev += amount; x.n++; if (ext) { x.nExt++; x.revExt += amount; } } };
+  const one = p => { const ks = Object.keys(ACCS).filter(k => k.startsWith(p + "|") && !k.endsWith("|główne")); return ks.length === 1 ? ks[0].split("|")[1] : null; };
+  const add = (p, a, amount, date, ext) => { if (!p || p === "Prywatnie") return; a = a || one(p); const k = accKey(p, a); const x = A[k] ||= {key: k, platform: p, account: a || "główne", rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; x.all += amount; x.allN++; if (!date || date.slice(0, 4) === YEAR) { x.rev += amount; x.n++; if (ext) { x.nExt++; x.revExt += amount; } } };
   M.sales.filter(s => s.status === "presale").forEach(s => add(s.platform, s.account, s.price || 0, s.sold));
-  M.sales.filter(s => s.status === "sprzedane").forEach(s => { add(s.platform, s.account, s.price, s.sold); if (s.platform && s.platform !== "Prywatnie" && payState(s).st !== "in") A[accKey(s.platform, s.account)].pend += s.price; });
+  M.sales.filter(s => s.status === "sprzedane").forEach(s => { add(s.platform, s.account, s.price, s.sold); if (s.platform && s.platform !== "Prywatnie" && payState(s).st !== "in") A[accKey(s.platform, s.account || one(s.platform))].pend += s.price; });
   TX.forEach(t => add(t.platform, t.account, +t.amount || 0, t.date, t.mine === false));
   Object.keys(ACCS).forEach(k => { if (!A[k]) { const [p, a] = k.split("|"); A[k] = {key: k, platform: p, account: a, rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; } });
   return Object.values(A).map(x => { const s = ACCS[x.key] || {}; x.person = s.person || ""; x.limit = +s.limit || DEF_LIMIT; x.r = x.rev / x.limit; x.rn = x.n / TX_LIMIT; x.risk = Math.max(x.r, x.rn); return x; }).sort((a, b) => b.risk - a.risk);
