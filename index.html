@@ -405,6 +405,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <span class="lbl">Źródła</span>
     <div id="src-links" style="display:contents"></div>
     <span class="lbl">Narzędzia</span>
+    <a href="#podzial" data-v="podzial"><svg class="i"><use href="#i-pct"/></svg>Podział pieniędzy</a>
     <a href="#licz" data-v="licz"><svg class="i"><use href="#i-calc"/></svg>Przelicznik</a>
     <a href="#okazje" data-v="okazje"><svg class="i"><use href="#i-search"/></svg>Okazje</a>
     <a href="#pomysly" data-v="pomysly"><svg class="i"><use href="#i-bulb"/></svg>Pomysły</a>
@@ -414,7 +415,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:07</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:13</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -433,8 +434,8 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <div class="toolbar"><div class="seg" id="srcs" role="group" aria-label="Źródło"></div></div>
     <div class="toolbar"><div class="pills" id="periods" role="group" aria-label="Okres"></div></div>
     <div class="dash">
-      <div class="card hero s8" id="hero"></div>
-      <div class="card s4" id="goal"></div>
+      <div class="card hero s12" id="hero"></div>
+      <div class="card s12" id="networth"></div>
       <div class="card s12" id="money"></div>
       <div class="stat s3" id="st-rev"></div>
       <div class="stat s3" id="st-roi"></div>
@@ -452,11 +453,9 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
       <div class="card s6" id="limits-mini"></div>
       <div class="card s6" id="top"></div>
       <div class="card s6" id="sources"></div>
-      <div class="card s6" id="budget"></div>
       <div class="card s6" id="life"></div>
       <div class="card s6" id="recur" hidden></div>
       <div class="card s6" id="debts"></div>
-      <div class="card s12" id="networth"></div>
       <div class="card s12" id="hist"></div>
     </div>
   </section>
@@ -535,6 +534,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
   </section>
 
   <!-- PRZELICZNIK -->
+  <section class="view" id="v-podzial" hidden><div class="dash"><div class="card s12" id="budget"></div></div></section>
   <section class="view" id="v-licz" hidden>
     <div class="toolbar"><div class="seg" role="group" aria-label="Narzędzia"><button aria-pressed="true" onclick="location.hash='licz'">Przelicznik</button><button aria-pressed="false" onclick="location.hash='okazje'">Okazje</button><button aria-pressed="false" onclick="location.hash='pomysly'">Pomysły</button><button aria-pressed="false" onclick="location.hash='zadania'">Zadania</button><button aria-pressed="false" data-chat>Zapytaj</button></div></div>
     <div class="dash">
@@ -888,7 +888,7 @@ const nowKey = () => new Date().toISOString().slice(0, 7);
 const YEAR = String(new Date().getFullYear());
 let toastT; const toast = t => { try { const g = HIST.list[0]; if (HIST.on && g && !g.label && Date.now() - g.t < 4000 && !/…$/.test(t)) { g.label = t; histSave(); } } catch {} const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1800); };
 
-let PAID = {}, showPaid = false, heroMode = ls.get("kd_hero", "zysk");
+let PAID = {}, showPaid = false, heroMode = ls.get("kd_hero2", "przychod");
 let M = SNAPSHOT, OTHER = [], SEARCHES = [], GROUPS = [], TX = [], ACCS = {}, GOAL = ls.get("kd_goal_10k", 10000);
 let period = ls.get("kd_period", "all");
 const charts = {};
@@ -990,7 +990,7 @@ function keepView(fn) {
   if (view) view.querySelectorAll("details").forEach((d, i) => d.open = open.includes(i));
   scrollTo(0, y);
 }
-function rerender() { const v = location.hash.slice(1) || "start"; updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else renderStart(); }); }
+function rerender() { const v = location.hash.slice(1) || "start"; updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else if (v === "podzial") renderBudget(totals(derive(), period)); else renderStart(); }); }
 const payBtn = s => pay3HTML(s);
 const payBtnOld = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
 const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.pay, b.dataset.st); });
@@ -1174,7 +1174,7 @@ function renderStart() {
   const kakoMode = location.hash.slice(1) === "start-kako";
   $("#srcs").parentElement.hidden = kakoMode;
   $("#kn-start").hidden = !kakoMode; if (kakoMode) renderKakoNav("start", "dash");
-  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat"], allOnly = ["life", "networth", "budget", "sources", "debts"];
+  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat"], allOnly = ["life", "networth", "sources", "debts"];
   kakoOnly.forEach(id => { if (SRC !== "all" && SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
@@ -1195,14 +1195,14 @@ function renderStartInner() {
   const fam = SRC === "all" || SRC === "rodzina" ? srcTotals("rodzina", period, T) : {got: 0, wait: 0};
   H.total = H.inn + H.pen; if (P) H.prev = isRev ? P.revIn + P.revPen : P.profitIn + P.profitPen;
   const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy"], [H.pen, css("--warn"), "W drodze (sprzedaż)"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
-  $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button><button data-h="przychod" aria-pressed="${isRev}">Przychód</button></div>${ic(H.icon, H.cls)}</div>
+  $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="przychod" aria-pressed="${isRev}">Przychód</button><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button></div><div id="goal" style="margin-left:auto"></div></div>
     <div class="sub small muted" style="margin-top:12px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>${isRev && SRC !== "rodzina" && H.total > 0 ? `<div class="small muted" style="margin-top:4px">marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b> · zysk ${zl(T.profitIn + T.profitPen)}</div>` : ""}
     <div class="stack" style="margin:16px 0 10px">${segs.map(([v, c]) => v > 0 ? `<i style="width:${v / hs * 100}%;background:${c}"></i>` : "").join("")}</div>
     <div class="hsplit">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${H.wal > 0 && SRC !== "rodzina" ? `<div class="small muted" style="margin-top:8px;display:flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:2px;background:#b18cff;display:inline-block"></i>+${zl(H.wal, 2)} zamrożone (portfel Vinted) · niewliczone w ${H.lab.toLowerCase()}, tylko w majątku</div>` : ""}
     <div class="row1">${P ? deltaHTML(H.total, H.prev) : `<span class="delta up">${T.n} szt. sprzedanych</span><span>${isRev ? "średnio " + zl(T.n ? T.kRev / T.n : null) + " za sztukę" : "średnio " + (T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia") + " od wystawienia do sprzedaży"}</span>`}</div>
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
-  $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero", heroMode); renderStart(); });
+  $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero2", heroMode); renderStart(); });
   const famM = k => expand(OTHER).filter(o => catOf(o) === "rodzina" && o.month === k).reduce((a, o) => a + (+o.rev || 0), 0);
   const famSeries = SRC === "all" && D.keys.some(k => famM(k)) ? [{label: "w tym stałe wpływy", data: D.keys.map(famM), borderColor: css("--rev"), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false, cubicInterpolationMode: "monotone"}] : [];
   chart("ch-spark", {type: "line", data: {labels: D.keys.map(mShort), datasets: [...famSeries, {label: H.lab, data: D.keys.map(k => D.months[k][H.key]), borderColor: H.color, backgroundColor: fade(H.color, .28), fill: true, cubicInterpolationMode: "monotone", borderWidth: 2.5,
@@ -1211,12 +1211,12 @@ function renderStartInner() {
 
   const gk = period === "all" ? (D.keys.includes(nowKey()) ? nowKey() : D.keys[D.keys.length - 1] || nowKey()) : period;
   const gp = (D.months[gk] || {profit: 0}).profit, ratio = GOAL ? Math.max(0, Math.min(1, gp / GOAL)) : 0, L = Math.PI * 80;
-  $("#goal").innerHTML = `<div class="ch"><div><h3>Cel miesiąca</h3><div class="sub">${esc(cap(mLabel(gk)))}</div></div><button class="sm" id="goal-edit">Zmień</button></div>
-    <div class="gauge"><svg viewBox="0 0 200 112" aria-hidden="true"><path d="M20 100a80 80 0 0 1 160 0" fill="none" stroke="${css("--surface2")}" stroke-width="16" stroke-linecap="round"/><path d="M20 100a80 80 0 0 1 160 0" fill="none" stroke="${ac}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${L * ratio} ${L}"/></svg>
-      <div class="gv"><b>${Math.round(ratio * 100)}%</b><span>celu</span></div></div>
-    <div class="goalrow"><span>Zarobione <b>${zl(gp)}</b></span><span>Cel <b>${zl(GOAL)}</b></span></div>
-    <form id="goal-form" class="actions" hidden style="margin-top:12px"><input id="goal-in" type="number" inputmode="decimal" value="${GOAL}" aria-label="Cel zysku na miesiąc" style="flex:1"><button class="primary" type="submit" style="height:46px">Zapisz</button></form>
-    <div class="note" style="margin-top:10px">${gp >= GOAL ? "Cel osiągnięty." : "Zostało " + zl(GOAL - gp) + " do celu."}</div>`;
+  const GC = 2 * Math.PI * 15;
+  $("#goal").innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--surface2)" title="Cel miesiąca: ${esc(cap(mLabel(gk)))}">
+      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true"><circle cx="19" cy="19" r="15" fill="none" stroke="${css("--line")}" stroke-width="5"/><circle cx="19" cy="19" r="15" fill="none" stroke="${ac}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${GC * ratio} ${GC}" transform="rotate(-90 19 19)"/></svg>
+      <div style="line-height:1.2"><div class="small muted">Cel miesiąca</div><b style="font-size:14px">${Math.round(ratio * 100)}% · ${zl(gp)} z ${zl(GOAL)}</b></div>
+      <button class="link small" id="goal-edit" style="margin-left:4px">Zmień</button></div>
+    <form id="goal-form" class="actions" hidden style="margin-top:8px;justify-content:flex-end"><input id="goal-in" type="number" inputmode="decimal" value="${GOAL}" aria-label="Cel zysku na miesiąc" style="width:120px"><button class="primary sm" type="submit">Zapisz</button></form>`;
   $("#goal-edit").onclick = () => { const f = $("#goal-form"); f.hidden = !f.hidden; if (!f.hidden) $("#goal-in").focus(); };
   $("#goal-form").onsubmit = e => { e.preventDefault(); GOAL = Math.max(0, +$("#goal-in").value || 0); ls.set("kd_goal_10k", GOAL); store.save("goal_10k", [GOAL]); toast("Cel zapisany"); renderStart(); };
 
@@ -1377,7 +1377,6 @@ function renderSources(T) {
     ${entryForm(null)}
     <div class="list">${SOURCES.map(s => { const x = srcTotals(s.id, period, T); return `<a class="row" href="#${s.id === "kako" ? "start-kako" : "zrodlo-" + s.id}" style="text-decoration:none">${ic(s.icon, s.cls)}<div class="main"><div class="t">${s.name}</div><div class="s">${x.rev ? "przychód " + zl(x.rev) + " · marża " + pct(x.rev ? x.profit / x.rev : null) : s.desc}</div></div><div class="end"><span class="amt ${sgn(x.profit)}">${zl(x.profit)}</span><span class="s">${all > 0 && x.profit > 0 ? pct(x.profit / all) + " zysku" : "zysk"}</span></div></a>`; }).join("")}</div>`;
   bindEntryForm(el, renderStart);
-  renderBudget(T);
 }
 const tglHTML = (inst, got) => `<div class="tgl" role="group" aria-label="Czy otrzymane"><button data-tgl="${esc(inst)}" data-v="0" aria-pressed="${!got}">Nieotrzymane</button><button data-tgl="${esc(inst)}" data-v="1" aria-pressed="${!!got}">Otrzymane</button></div>`;
 const bindTgl = (root, after) => root.querySelectorAll("[data-tgl]").forEach(b => b.onclick = async e => { e.stopPropagation(); const r = RECV[b.dataset.tgl] ||= {}; const v = b.dataset.v === "1"; if (r.got === v) return; r.got = v; await store.save("recv", RECV); toast(v ? "Otrzymane" : "Nieotrzymane"); after(); });
@@ -1454,29 +1453,33 @@ function renderNetWorth(D, A_, incCost) {
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c)[0]; })();
   const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
   const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = debtsList().filter(d => !d.paid).reduce((a, d) => a + d.amount, 0);
-  const total = cash + inv + incCost + pend - debts;
+  const O = NW.ovr ||= {}, ov = (k, v) => O[k] != null && O[k] !== "" ? +O[k] : v;
+  const pendV = ov("pend", A_.revPen), walV = ov("wal", A_.revWal), invV = ov("inv", inv), incV = ov("inc", incCost), auto = {pend: A_.revPen, wal: A_.revWal, inv, inc: incCost};
+  const total = cash + invV + incV + pendV + walV - debts;
   const ev = (q, x) => q * (x.sell || x.unitCost || 0);
   const invEst = D.unsold.reduce((a, x) => a + (estSell(x) || x.cost || 0), 0) + notEntered().reduce((a, x) => a + ev(x.qty, x), 0), incEst = incoming().reduce((a, x) => a + ev(x.qty, x), 0);
-  const potential = cash + invEst + incEst + pend - debts;
-  const parts = [["Na kontach i w gotówce", cash, css("--accent"), "od ręki"], ["Pieniądze w drodze", A_.revPen, css("--warn"), "sprzedane, czekasz na przelew"], ["Zamrożone (portfel Vinted)", A_.revWal, "#b18cff", "do wypłacenia z platformy"], ["Towar w magazynie", inv, css("--rev"), `kupione za ${zl(inv)} · sprzeda się za ok. ${zl(invEst)}`], ["Towar w drodze z Chin", incCost, css("--good"), `kupione za ${zl(incCost)} · sprzeda się za ok. ${zl(incEst)}`]];
+  const potential = cash + invEst + incEst + pendV + walV - debts;
+  const parts = [["Na kontach i w gotówce", cash, css("--accent"), NW.assets.filter(a => +a.amount).map(a => a.name + " " + zl(+a.amount)).join(" · ") || "od ręki · dotknij, żeby wpisać salda", "cash"], ["Pieniądze w drodze", pendV, css("--warn"), "sprzedane, czekasz na przelew", "pend"], ["Zamrożone (portfel Vinted)", walV, "#b18cff", "do wypłacenia z platformy", "wal"], ["Towar w magazynie", invV, css("--rev"), `kupione za ${zl(invV)} · sprzeda się za ok. ${zl(invEst)}`, "inv"], ["Towar w drodze z Chin", incV, css("--good"), `kupione za ${zl(incV)} · sprzeda się za ok. ${zl(incEst)}`, "inc"]];
   const ps = Math.max(1, parts.reduce((a, x) => a + Math.max(0, x[1]), 0));
-  el.innerHTML = `<div class="ch"><div><h3>Majątek netto</h3><div class="sub">Wszystko, co masz, minus to, co jesteś winien</div></div><button class="sm" id="nw-edit">${nwEdit ? "Gotowe" : "Salda kont"}</button></div>
+  el.innerHTML = `<div class="ch"><div><h3>Majątek netto</h3><div class="sub">Wszystko, co masz, minus to, co jesteś winien</div></div><button class="sm ${nwEdit ? "primary" : ""}" id="nw-edit">${nwEdit ? "Gotowe" : svg("pen", 14) + "Edytuj"}</button></div>
     <div class="kv" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:4px">
       <div><div class="l">Teraz · towar po cenie zakupu</div><div class="bigv" style="font-size:32px">${zl(total)}</div></div>
       <div><div class="l">Potencjalnie · gdy sprzedasz cały towar</div><div class="bigv" style="font-size:32px;color:var(--accent)">${zl(potential)}</div><div class="small muted">+${zl(potential - total)} niezrealizowanego zysku z towaru</div></div>
       <div><div class="l">Wolne pieniądze · od ręki minus długi</div><div class="bigv ${cash - debts < 0 ? "neg" : ""}" style="font-size:32px">${zl(cash - debts)}</div></div>
     </div>
     <div class="stack" style="margin:14px 0 12px">${parts.map(([l, v, c]) => v > 0 ? `<i style="width:${v / ps * 100}%;background:${c}"></i>` : "").join("")}</div>
-    <div class="list">${parts.map(([l, v, c, s]) => `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span><div class="main"><div class="t" style="font-weight:500">${l}</div><div class="s">${s}</div></div><span class="amt">${zl(v)}</span></div>`).join("")}
+    <div class="list">${parts.map(([l, v, c, s, k]) => `<div class="row" ${k === "cash" && !nwEdit ? `data-nwcash style="cursor:pointer"` : ""}><span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span><div class="main"><div class="t" style="font-weight:500">${l}${k !== "cash" && O[k] != null && O[k] !== "" ? ` <span class="small muted">· wpisane ręcznie</span>` : ""}</div><div class="s">${s}</div></div>${nwEdit && k !== "cash" ? `<input data-ovr="${k}" type="number" inputmode="decimal" value="${O[k] ?? ""}" placeholder="${Math.round(auto[k])} (auto)" style="width:130px" aria-label="${l}">` : `<span class="amt">${zl(v)}</span>`}</div>`).join("")}
       <div class="row"><span style="width:10px;height:10px;border-radius:50%;background:var(--loss);flex:none"></span><div class="main"><div class="t" style="font-weight:500">Do oddania</div><div class="s">${debtsList().filter(d => !d.paid).map(d => d.name + " " + zl(d.amount)).join(" · ") || "nic"} · szczegóły w „Do oddania”</div></div><span class="amt neg">−${zl(debts)}</span></div></div>
     <p class="note">Część zysku wkładasz w kolejne zamówienia – to w porządku: te pieniądze nie znikają, tylko zamieniają się w towar (wiersze „Towar”). „Teraz” liczy towar po tym, ile za niego zapłaciłeś, „Potencjalnie” – po cenie, za którą się sprzeda.</p>
     ${nwEdit ? `<div class="small muted" style="font-weight:600;margin:16px 0 8px">Konta i gotówka</div>${NW.assets.map((x, i) => `<div class="row"><input data-an="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Nazwa konta"><input data-aa="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Saldo"><button class="iconbtn flat" data-adel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
       <button class="sm" id="nw-add-a" style="margin-top:8px">${svg("plus", 14)}Dodaj konto</button>
       <div class="small muted" style="font-weight:600;margin:16px 0 8px">Długi i zobowiązania</div>${NW.debts.map((x, i) => `<div class="row"><input data-dn="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Komu"><input data-da="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Kwota"><button class="iconbtn flat" data-ddel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
-      <button class="sm" id="nw-add-d" style="margin-top:8px">${svg("plus", 14)}Dodaj dług</button>` : `<p class="note">Salda kont wpisujesz ręcznie (dotknij „Salda kont”). Towar i pieniądze w drodze liczą się same z arkusza.</p>`}`;
+      <button class="sm" id="nw-add-d" style="margin-top:8px">${svg("plus", 14)}Dodaj dług</button>` : `<p class="note">Salda kont i każdą kwotę możesz poprawić przyciskiem „Edytuj”. Towar i pieniądze w drodze liczą się same z arkusza.</p>`}`;
   $("#nw-edit").onclick = async () => { if (nwEdit) await store.save("networth", NW); nwEdit = !nwEdit; renderNetWorth(D, A_, incCost); };
+  el.querySelectorAll("[data-nwcash]").forEach(r => r.onclick = () => { nwEdit = true; renderNetWorth(D, A_, incCost); });
   if (nwEdit) {
     const sv = () => autosave("networth", () => NW);
+    el.querySelectorAll("[data-ovr]").forEach(i => i.onchange = () => { NW.ovr[i.dataset.ovr] = i.value === "" ? null : +i.value; sv(); renderNetWorth(D, A_, incCost); });
     const bindL = (sel, list, f) => el.querySelectorAll(sel).forEach(i => i.oninput = () => { list[+i.dataset[Object.keys(i.dataset)[0]]][f] = f === "amount" ? +i.value || 0 : i.value; sv(); });
     bindL("[data-an]", NW.assets, "name"); bindL("[data-aa]", NW.assets, "amount"); bindL("[data-dn]", NW.debts, "name"); bindL("[data-da]", NW.debts, "amount");
     el.querySelectorAll("[data-adel]").forEach(b => b.onclick = () => { NW.assets.splice(+b.dataset.adel, 1); sv(); renderNetWorth(D, A_, incCost); });
@@ -2197,7 +2200,7 @@ $("#chat-form").onsubmit = e => { e.preventDefault(); ask($("#chat-in").value); 
 addEventListener("keydown", e => { if (e.key === "Escape" && !$("#chat").hidden) $("#chat-x").click(); });
 
 /* routing */
-const TITLES = {start: "Dashboard", zadania: "Wszystkie zadania", zrodla: "Źródła dochodu", zrodlo: "Źródło", magazyn: "Magazyn", kako: "Kako", wystaw: "Wystaw", licz: "Przelicznik", okazje: "Okazje", pomysly: "Pomysły"};
+const TITLES = {podzial: "Podział pieniędzy", start: "Dashboard", zadania: "Wszystkie zadania", zrodla: "Źródła dochodu", zrodlo: "Źródło", magazyn: "Magazyn", kako: "Kako", wystaw: "Wystaw", licz: "Przelicznik", okazje: "Okazje", pomysly: "Pomysły"};
 function route() {
   updateBadges();
   if ($("#src-links") && !$("#src-links").children.length) renderNav();
@@ -2215,6 +2218,7 @@ function route() {
   if (v === "kako") renderKako();
   if (v === "magazyn") renderMagazyn();
   if (v === "pomysly") renderIdeas();
+  if (v === "podzial") renderBudget(totals(derive(), period));
   window.scrollTo(0, 0);
 }
 addEventListener("hashchange", route);
