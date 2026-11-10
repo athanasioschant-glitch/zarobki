@@ -116,6 +116,8 @@ button.sm,.btn.sm{height:32px;padding:0 12px;font-size:12.5px;border-radius:10px
 button:disabled{opacity:.45;cursor:default}
 .link{background:none;border:0;padding:0;height:auto;color:var(--accent);font:600 13px var(--f);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .card{background:var(--surface);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);min-width:0}
+/* drugorzędne sekcje leżą wprost na tle – więcej tła (60:30:10), główne karty zostają wyróżnione */
+#v-start :is(#life,#recur,#debts,#hist,#plat,#top,#limits-mini,#recent).card{background:transparent;box-shadow:none;border-radius:0;border-top:1px solid var(--line);padding:20px 2px}
 .ch{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .ch h3{font:700 15px/1.3 var(--f);margin:0;letter-spacing:-.01em}
 .ch .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
@@ -421,7 +423,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:33</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:36</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
