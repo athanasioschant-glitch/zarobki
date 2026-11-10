@@ -451,6 +451,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
       <div class="card s6" id="budget"></div>
       <div class="card s6" id="life"></div>
       <div class="card s6" id="recur" hidden></div>
+      <div class="card s6" id="debts"></div>
       <div class="card s12" id="networth"></div>
     </div>
   </section>
@@ -761,10 +762,12 @@ function parseKako(XLSX, wb) {
         else if (/wystaw/.test(stl)) status = 'wystawione';
         else if (/oddan|prezent/.test(stl)) status = 'oddane';
       }
+      if (!sheetPay && status === 'sprzedane' && /inne/i.test(n)) sheetPay = 'in';  // sales in the 'Inne' sheet are finished
+      const sheetStage = /wysłan|wyslan/.test(stl) ? 'shipped' : /pieni[aą]dze w drodze/.test(stl) ? 'paying' : null;
       const name = p.trim().replace(/\s+-\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{2,}\s*$/, '').replace(/Lowme$/, 'Lowmel');
       const bq = num(r[c.b]), bs = num(r[c.s]), bf = c.f >= 0 ? num(r[c.f]) : 0;
       model.sales.push({
-        sheetStatus: stRaw || null, sheetPay, hasSoldDate: !!soldDate,
+        sheetStatus: stRaw || null, sheetPay, sheetStage, hasSoldDate: !!soldDate,
         received: c.rec >= 0 && r[c.rec] != null && String(r[c.rec]).trim() !== '' ? !/^(nie|n|false|0|-)$/i.test(String(r[c.rec]).trim()) : null,
         row: i + 1, expCost: bq != null && bs != null ? r2(bq + bs + (bf || 0)) : null,
         sheet: n.trim(), order, product: name, partner: pm ? pm[1] : null,
@@ -912,7 +915,7 @@ function payState(s) {
   const d = daysAgo(s.sold); return d != null && d > AUTO_DAYS ? {st: "in", src: "auto"} : {st: "pending", src: "auto"};
 }
 async function setPaid(k, st) { PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10)}; await store.save("paid", PAID); toast(st === "in" ? "Na koncie" : st === "wallet" ? "W portfelu platformy" : "W drodze"); rerender(); }
-const PAY3 = [["pending", "W drodze"], ["wallet", "W portfelu"], ["in", "Na koncie"]];
+const PAY3 = [["pending", "W drodze"], ["wallet", "Zamrożone"], ["in", "Na koncie"]];
 const pay3HTML = s => { const st = payState(s).st; return `<div class="tgl" role="group" aria-label="Gdzie są pieniądze">${PAY3.map(([k, l]) => `<button data-pay="${esc(s._k)}" data-st="${k}" data-v="${k === "in" ? 1 : k === "wallet" ? 2 : 0}" aria-pressed="${k === st}">${l}</button>`).join("")}</div>`; };
 function keepView(fn) {
   const view = [...document.querySelectorAll("section.view")].find(s => !s.hidden), y = scrollY;
@@ -971,7 +974,7 @@ function derive() {
   const real = M.sales.filter(s => s.status === "sprzedane"), avgP = {};
   real.forEach(s => (avgP[s.product] ||= []).push(s.price));
   const est = M.sales.filter(s => s.status === "presale").map(s => { const a = avgP[s.product]; if (!a) return null; const price = Math.round(a.reduce((x, y) => x + y, 0) / a.length), cost = s.cost ?? s.estCost ?? 0; return {...s, price, cost, profit: Math.round((price - cost) * 100) / 100, est: true}; }).filter(Boolean);
-  const sold = real;
+  const sold = real.map(s => s.partner ? {...s, profit: Math.round(s.profit * 50) / 100, fullProfit: s.profit} : s);
   const gone = M.sales.filter(s => s.status === "oddane");
   const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
   const months = {};
@@ -1090,7 +1093,7 @@ function renderStart() {
   const kakoMode = location.hash.slice(1) === "start-kako";
   $("#srcs").parentElement.hidden = kakoMode;
   $("#kn-start").hidden = !kakoMode; if (kakoMode) renderKakoNav("start", "dash");
-  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat"], allOnly = ["life", "networth", "budget", "sources"];
+  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat"], allOnly = ["life", "networth", "budget", "sources", "debts"];
   kakoOnly.forEach(id => { if (SRC !== "all" && SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
@@ -1109,7 +1112,7 @@ function renderStartInner() {
   const isRev = heroMode === "przychod";
   const H = isRev ? {lab: "Przychód", total: T.rev, inn: T.revIn, pen: T.revPen, wal: T.revWal, exp: T.revExp, prev: P && P.rev, color: rv, key: "rev", icon: "wallet", cls: "b"} : {lab: "Zysk", total: T.profit, inn: T.profitIn, pen: T.profitPen, wal: T.profitWal, exp: T.profitExp, prev: P && P.profit, color: ac, key: "profit", icon: "trend", cls: "a"};
   const fam = SRC === "all" || SRC === "rodzina" ? srcTotals("rodzina", period, T) : {got: 0, wait: 0};
-  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : "Biznesy – na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy – otrzymane"], [H.wal, "#b18cff", "W portfelu platform"], [H.pen, css("--warn"), "W drodze (sprzedaż)"], [H.exp, css("--faint"), "Stałe wpływy – oczekiwane"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
+  const segs = [[H.inn - fam.got, H.color, SRC === "rodzina" ? "Otrzymane" : SRC === "all" ? "Biznesy – na koncie" : "Na koncie"], [SRC === "rodzina" ? 0 : fam.got, css("--rev"), "Stałe wpływy – otrzymane"], [H.wal, "#b18cff", "Zamrożone (portfel Vinted)"], [H.pen, css("--warn"), "W drodze (sprzedaż)"], [H.exp, css("--faint"), "Stałe wpływy – oczekiwane"]], hs = Math.max(1, segs.reduce((a, x) => a + Math.max(0, x[0]), 0));
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button><button data-h="przychod" aria-pressed="${isRev}">Przychód</button></div>${ic(H.icon, H.cls)}</div>
     <div class="sub small muted" style="margin-top:12px">${H.lab} · ${period === "all" ? "od początku działalności" : mLabel(period)}</div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
@@ -1159,7 +1162,7 @@ function renderStartInner() {
       <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
   const gt = $("#go-transit"); if (gt) gt.onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
   renderTransit(D);
-  if (SRC === "all") { renderLife(T); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
+  if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
   const avgSell = {}; D.sold.forEach(s => { const k = s.product; (avgSell[k] ||= []).push(s.price); });
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
@@ -1219,8 +1222,9 @@ function renderTransit(D) {
       ${pay3HTML(s)}</div>`, s); };
   $("#transit").innerHTML = `<div class="ch"><div style="display:flex;gap:12px;align-items:center">${ic("wallet", "w")}<div><h3>Pieniądze w drodze</h3><div class="sub">Sprzedane, ale jeszcze nie na Twoim koncie</div></div></div><div style="text-align:right;flex:none"><div class="amt" style="font-size:20px;font-weight:800;color:var(--warn);white-space:nowrap">${zl(sum)}</div><div class="small muted">w tym zysk ${zl(prof, 2)}</div></div></div>
     ${Object.keys(byAcc).length ? `<div class="chips" style="margin-bottom:14px">${Object.entries(byAcc).map(([k, v]) => `<span class="chip" style="display:inline-flex;align-items:center">${esc(k)}: <b style="color:var(--fg);margin-left:4px">${zl(v)}</b></span>`).join("")}</div>` : ""}
-    <div class="list">${pend.map(s => row(s, "pending")).join("") || `<div class="empty" style="padding:12px">Nic nie jest w drodze.</div>`}</div>
-    ${wal.length ? `<div class="mline" style="margin-top:16px"><span><b style="color:var(--fg)">W portfelu platform</b> · trzeba wypłacić</span><b style="color:var(--rev)">${zl(walSum)}</b></div><div class="list">${wal.map(s => row(s, "wallet")).join("")}</div>` : ""}
+    ${(() => { const sh = pend.filter(s => s.sheetStage === "shipped"), pay = pend.filter(s => s.sheetStage !== "shipped"); const sec = (title, sub, L) => L.length ? `<div class="mline" style="margin-top:14px"><span><b style="color:var(--fg)">${title}</b> · ${sub}</span><b>${zl(L.reduce((a, s) => a + s.price, 0))}</b></div><div class="list">${L.map(s => row(s, "pending")).join("")}</div>` : "";
+      return (sec("Paczki w drodze do klienta", "sprzedane i wysłane", sh) + sec("Pieniądze w drodze", "kupujący potwierdził, czekasz na wypłatę", pay)) || `<div class="empty" style="padding:12px">Nic nie jest w drodze.</div>`; })()}
+    ${wal.length ? `<div class="mline" style="margin-top:16px"><span><b style="color:var(--fg)">Zamrożone</b> · portfel platformy, trzeba coś zrobić, żeby wypłacić</span><b style="color:var(--rev)">${zl(walSum)}</b></div><div class="list">${wal.map(s => row(s, "wallet")).join("")}</div>` : ""}
     <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:8px"><button class="link" id="toggle-paid">${showPaid ? "Ukryj otrzymane" : "Pokaż ostatnio otrzymane"}</button><span class="small muted">Sprzedaż starsza niż ${AUTO_DAYS} dni liczy się jako otrzymana, chyba że oznaczysz inaczej.</span></div>
     ${showPaid ? `<div class="list" style="margin-top:12px">${recv.map(s => row(s, "in")).join("")}</div>` : ""}`;
   $("#toggle-paid").onclick = () => { showPaid = !showPaid; renderTransit(derive()); };
@@ -1303,11 +1307,36 @@ function renderLife(T) {
 }
 /* net worth */
 let nwEdit = false;
+/* debts: automatic (partner from sheet, purchases from the 'Inne' sheet) + your own entries */
+function debtsList() {
+  const L = [], paid = NW.paidAuto || {};
+  const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c)[0]; })();
+  const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
+  if (owe) L.push({id: "auto-partner", name: partner, note: "z arkusza (rozliczenie wspólnych)", amount: owe, auto: true, paid: !!paid["auto-partner"]});
+  const inneSheet = [...new Set(M.sales.map(s => s.sheet))].find(n => /inne/i.test(n));
+  if (inneSheet) { const amt = M.sales.filter(s => s.sheet === inneSheet).reduce((a, s) => a + (s.buy || 0), 0); if (amt) L.push({id: "auto-inne", name: "Zakupy z „" + inneSheet + "”", note: "suma cen kupna z tej zakładki", amount: Math.round(amt * 100) / 100, auto: true, paid: !!paid["auto-inne"]}); }
+  NW.debts.forEach(d => L.push({id: d.id, name: d.name, note: d.note || "", amount: +d.amount || 0, auto: false, paid: !!d.paid}));
+  return L;
+}
+function renderDebts() {
+  const el = $("#debts"), L = debtsList(), open = L.filter(d => !d.paid), sum = open.reduce((a, d) => a + d.amount, 0);
+  el.innerHTML = `<div class="ch"><div><h3>Do oddania</h3><div class="sub">${open.length} pozycji · razem <b style="color:var(--loss)">${zl(sum)}</b></div></div><button class="sm" id="debt-add">${svg("plus", 14)}Dodaj</button></div>
+    <form id="debt-form" class="form" hidden style="margin-bottom:12px"><label>Komu<input name="name" required placeholder="np. imię"></label><label>Kwota (zł)<input name="amount" type="number" step="0.01" inputmode="decimal" required></label><label class="full">Za co<input name="note" placeholder="opcjonalnie"></label><div class="full actions"><button class="primary" type="submit">Zapisz</button><button type="button" class="ghost" id="debt-cancel">Anuluj</button></div></form>
+    <div class="list">${L.map(d => `<div class="row"><div class="main"><div class="t" style="${d.paid ? "text-decoration:line-through;color:var(--faint)" : ""}">${esc(d.name)}</div><div class="s">${esc(d.note)}${d.auto ? (d.note ? " · " : "") + "liczy się samo" : ""}</div></div><span class="amt ${d.paid ? "muted" : "neg"}">${zl(d.amount, 2)}</span>
+      <div class="tgl" role="group" aria-label="Czy oddane"><button data-dpaid="${esc(d.id)}" data-v="0" aria-pressed="${!d.paid}">Do oddania</button><button data-dpaid="${esc(d.id)}" data-v="1" aria-pressed="${d.paid}">Oddane</button></div>
+      ${d.auto ? "" : `<button class="iconbtn flat" data-ddel2="${esc(d.id)}" aria-label="Usuń">${svg("x", 15)}</button>`}</div>`).join("") || `<div class="empty" style="padding:12px">Nic do oddania.</div>`}</div>`;
+  const save = async () => { await store.save("networth", NW); keepView(renderStart); };
+  $("#debt-add").onclick = () => { const f = $("#debt-form"); f.hidden = !f.hidden; };
+  $("#debt-cancel").onclick = () => $("#debt-form").hidden = true;
+  $("#debt-form").onsubmit = e => { e.preventDefault(); const d = new FormData(e.target); NW.debts.push({id: uid(), name: String(d.get("name")).trim(), amount: +d.get("amount") || 0, note: String(d.get("note") || "").trim(), paid: false}); toast("Dodano"); save(); };
+  el.querySelectorAll("[data-dpaid]").forEach(b => b.onclick = () => { const id = b.dataset.dpaid, v = b.dataset.v === "1"; if (id.startsWith("auto-")) { (NW.paidAuto ||= {})[id] = v; } else { const d = NW.debts.find(x => x.id === id); if (d) d.paid = v; } save(); });
+  el.querySelectorAll("[data-ddel2]").forEach(b => b.onclick = () => { NW.debts = NW.debts.filter(x => x.id !== b.dataset.ddel2); save(); });
+}
 function renderNetWorth(D, A_, incCost) {
   const el = $("#networth"), inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0) + notEnteredCost(), pend = A_.revPen + A_.revWal;
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c)[0]; })();
   const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
-  const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = NW.debts.reduce((a, x) => a + (+x.amount || 0), 0) + (owe || 0);
+  const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = debtsList().filter(d => !d.paid).reduce((a, d) => a + d.amount, 0);
   const total = cash + inv + incCost + pend - debts;
   const parts = [["Na kontach i w gotówce", cash, css("--accent")], ["Towar w magazynie", inv, css("--rev")], ["Towar w drodze z Chin", incCost, css("--warn")], ["Pieniądze i wpływy w drodze", pend, css("--good")]];
   const ps = Math.max(1, parts.reduce((a, x) => a + Math.max(0, x[1]), 0));
@@ -1315,7 +1344,7 @@ function renderNetWorth(D, A_, incCost) {
     <div class="bigv" style="font-size:36px">${zl(total)}</div>
     <div class="stack" style="margin:14px 0 12px">${parts.map(([l, v, c]) => v > 0 ? `<i style="width:${v / ps * 100}%;background:${c}"></i>` : "").join("")}</div>
     <div class="list">${parts.map(([l, v, c]) => `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span><div class="main"><div class="t" style="font-weight:500">${l}</div></div><span class="amt">${zl(v)}</span></div>`).join("")}
-      <div class="row"><span style="width:10px;height:10px;border-radius:50%;background:var(--loss);flex:none"></span><div class="main"><div class="t" style="font-weight:500">Do oddania</div><div class="s">${[owe ? "wspólnik " + zl(owe) + " (z arkusza)" : "", ...NW.debts.map(d => d.name + " " + zl(+d.amount))].filter(Boolean).join(" · ") || "nic"}</div></div><span class="amt neg">−${zl(debts)}</span></div></div>
+      <div class="row"><span style="width:10px;height:10px;border-radius:50%;background:var(--loss);flex:none"></span><div class="main"><div class="t" style="font-weight:500">Do oddania</div><div class="s">${debtsList().filter(d => !d.paid).map(d => d.name + " " + zl(d.amount)).join(" · ") || "nic"} · szczegóły w „Do oddania”</div></div><span class="amt neg">−${zl(debts)}</span></div></div>
     ${nwEdit ? `<div class="small muted" style="font-weight:600;margin:16px 0 8px">Konta i gotówka</div>${NW.assets.map((x, i) => `<div class="row"><input data-an="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Nazwa konta"><input data-aa="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Saldo"><button class="iconbtn flat" data-adel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
       <button class="sm" id="nw-add-a" style="margin-top:8px">${svg("plus", 14)}Dodaj konto</button>
       <div class="small muted" style="font-weight:600;margin:16px 0 8px">Długi i zobowiązania</div>${NW.debts.map((x, i) => `<div class="row"><input data-dn="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Komu"><input data-da="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Kwota"><button class="iconbtn flat" data-ddel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
@@ -1443,10 +1472,10 @@ function renderZrodlo(id) {
   const mRev = inMonth.reduce((x, e) => x + e.rev, 0), mGot = inMonth.filter(e => e.got).reduce((x, e) => x + e.rev, 0);
   const m = {rev: mRev, got: mGot, wait: mRev - mGot};
   const a = srcTotals(s.id, "all", T);
-  const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat s3"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
+  const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat ${s.id === "rodzina" ? "s6" : "s3"}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
   const hasRec = E.some(o => o.recurring);
   const stepper = hasRec ? `<div class="card s12" style="padding:12px 16px;display:flex;align-items:center;gap:12px"><button class="iconbtn" id="sm-prev" aria-label="Poprzedni miesiąc" ${sel <= first ? "disabled" : ""}>‹</button><div style="flex:1;text-align:center"><div style="font-weight:700;font-size:16px">${esc(cap(mLabel(sel)))}</div><div class="small muted">${sel > nowKey() ? "zaznaczasz z wyprzedzeniem" : sel === nowKey() ? "bieżący miesiąc" : "miesiąc miniony"}</div></div><button class="iconbtn" id="sm-next" aria-label="Następny miesiąc" ${sel >= last ? "disabled" : ""}>›</button></div>` : "";
-  $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Jeszcze nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód") +
+  $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3><div class="sub">${E.length} wpisów · przychody i koszty z opisem</div></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
       <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div></div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>
@@ -1597,7 +1626,7 @@ function renderMagazyn() {
 }
 
 /* Kako tab strip: Dashboard · Magazyn · Zamówienia · … shared by every Kako screen */
-const KNAV = [["dash", "Dashboard", "start-kako"], ["magazyn", "Magazyn", "magazyn"], ["zam", "Zamówienia"], ["sprz", "Sprzedaż"], ["wystaw", "Wystaw", "wystaw"], ["konta", "Konta i limity"], ["kontrola", "Kontrola danych"], ["kanaly", "Kanały sprzedaży"], ["todo", "Do zrobienia"], ["wsp", "Wspólne"], ["plan", "Do kupienia"]];
+const KNAV = [["dash", "Dashboard", "start-kako"], ["magazyn", "Magazyn", "magazyn"], ["zam", "Zamówienia"], ["sprz", "Sprzedaż"], ["wystaw", "Wystaw", "wystaw"], ["konta", "Konta i limity"], ["kontrola", "Kontrola danych"], ["kanaly", "Kanały sprzedaży"], ["todo", "Do zrobienia"], ["wsp", "Wspólne"]];
 let ISSUES = 0;
 function updateBadges() {
   try { ISSUES = checks(derive()).filter(c => c.lvl === "err" || c.lvl === "warn").length; } catch { ISSUES = 0; }
@@ -1611,7 +1640,7 @@ function renderKakoNav(where, active) {
 }
 
 /* KAKO */
-let kakoTab = "zam", salesFilter = "all";
+let kakoTab = "zam", salesFilter = "all", accProfile = "all", PROFILES = [];
 function renderKako() {
   const D = derive(), T = totals(D, "all");
   const spent = M.orders.reduce((a, o) => a + (o.spent || 0), 0), w = M.orders.reduce((a, o) => a + (o.weight || 0), 0);
@@ -1648,7 +1677,7 @@ function renderKako() {
 
   const counts = {}; M.sales.forEach(s => counts[s.status] = (counts[s.status] || 0) + 1);
   const nPend = D.sold.filter(s => payState(s).st === "pending").length, nWal = D.sold.filter(s => payState(s).st === "wallet").length;
-  const fl = [["all", "Wszystko", M.sales.length], ...Object.keys(STATUS).filter(k => counts[k]).map(k => [k, STATUS[k], counts[k]]), ...(nPend ? [["transit", "W drodze", nPend]] : []), ...(nWal ? [["wallet", "W portfelu", nWal]] : [])];
+  const fl = [["all", "Wszystko", M.sales.length], ...Object.keys(STATUS).filter(k => counts[k]).map(k => [k, STATUS[k], counts[k]]), ...(nPend ? [["transit", "W drodze", nPend]] : []), ...(nWal ? [["wallet", "Zamrożone", nWal]] : [])];
   const list = M.sales.filter(s => salesFilter === "all" || (salesFilter === "transit" ? s.status === "sprzedane" && payState(s).st === "pending" : salesFilter === "wallet" ? s.status === "sprzedane" && payState(s).st === "wallet" : s.status === salesFilter)).slice().sort((a, b) => (b.sold || "").localeCompare(a.sold || ""));
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null; })();
   const pkey = partner ? partner.slice(0, 4).toUpperCase() : null;
@@ -1663,11 +1692,20 @@ function renderKako() {
   $("#k-sprz").querySelectorAll("[data-f]").forEach(b => b.onclick = () => { salesFilter = b.dataset.f; renderKako(); });
   bindPay($("#k-sprz"));
 
-  // Konta
-  const A = accounts();
-  const keys = [...new Set([...A.map(a => a.key)])];
-  $("#k-konta").innerHTML = `<div class="card s7"><div class="ch"><div><h3>Konta i limity ${YEAR}</h3><div class="sub">Platformy zgłaszają do skarbówki sprzedawcę, który w roku przekroczy 30 transakcji albo 2000 €. Limit kwoty ustawiasz z zapasem na kurs.</div></div></div>
-      ${A.length ? A.map(x => accHTML(x, false)).join("") : `<div class="empty">Brak sprzedaży na kontach.</div>`}
+  // Konta – grouped by person profile
+  const Aall = accounts();
+  const keys = [...new Set([...Aall.map(a => a.key)])];
+  const profs = [...new Set([...PROFILES, ...Aall.map(a => a.person).filter(Boolean)])];
+  if (accProfile !== "all" && accProfile !== "none" && !profs.includes(accProfile)) accProfile = "all";
+  const noPerson = Aall.filter(a => !a.person);
+  const A = accProfile === "all" ? Aall : accProfile === "none" ? noPerson : Aall.filter(a => a.person === accProfile);
+  const pRev = A.reduce((s, a) => s + a.rev, 0), pN = A.reduce((s, a) => s + a.n, 0), pPend = A.reduce((s, a) => s + a.pend, 0);
+  const profBar = `<div class="s12" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="pills" role="group" aria-label="Profil" id="acc-profiles">${[["all", "Wszyscy"], ...profs.map(p => [p, p]), ...(noPerson.length ? [["none", "Bez profilu"]] : [])].map(([k, l]) => `<button data-prof="${esc(k)}" aria-pressed="${k === accProfile}">${esc(l)}</button>`).join("")}</div>
+    <form id="prof-form" class="actions" style="margin-left:auto"><input name="p" placeholder="nowy profil (imię i nazwisko)" style="height:34px;width:220px;font-size:14px" aria-label="Nowy profil"><button class="sm" type="submit">${svg("plus", 14)}Profil</button></form></div>
+    ${accProfile !== "all" ? `<div class="card s12"><div class="ch" style="margin-bottom:12px"><div style="display:flex;gap:12px;align-items:center"><div class="av">${esc(accProfile === "none" ? "?" : accProfile.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase())}</div><div><h3>${esc(accProfile === "none" ? "Konta bez profilu" : accProfile)}</h3><div class="sub">${A.length ? A.map(a => a.platform + " · " + a.account).join(", ") : "na razie bez kont – przypisz konto w „Ustaw konto”"}</div></div></div></div>
+      <div class="kv" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><div class="l">Przychód ${YEAR} (wszystkie konta)</div><div class="v">${zl(pRev)}</div></div><div><div class="l">Transakcje</div><div class="v">${pN}</div></div><div><div class="l">W drodze</div><div class="v wrn">${zl(pPend)}</div></div></div></div>` : ""}`;
+  $("#k-konta").innerHTML = profBar + `<div class="card s7"><div class="ch"><div><h3>Konta i limity ${YEAR}</h3><div class="sub">Platformy zgłaszają do skarbówki sprzedawcę, który w roku przekroczy 30 transakcji albo 2000 €. Limit kwoty ustawiasz z zapasem na kurs.</div></div></div>
+      ${A.length ? A.map(x => accHTML(x, false)).join("") : `<div class="empty">${accProfile === "all" ? "Brak sprzedaży na kontach." : "Ten profil nie ma jeszcze kont."}</div>`}
       <p class="note">Stan „W drodze / Na koncie” zmieniasz dotknięciem. Możesz też dodać w arkuszu kolumnę OTRZYMANO (TAK/NIE), wtedy ona decyduje. Konto biorę z kolumny KONTO, a jeśli jej nie ma, z dopisku po myślniku w kolumnie platformy, np. „Vinted - nazwa_konta”. Sama nazwa platformy oznacza konto główne.</p></div>
     <div class="s5 col">
       <div class="card"><div class="ch"><div><h3>Ustaw konto</h3><div class="sub">Do kogo należy profil i jaki limit pilnować</div></div></div>
@@ -1675,7 +1713,7 @@ function renderKako() {
           <label class="full">Konto<select id="acc-key">${keys.map(k => `<option value="${esc(k)}">${esc(k.replace("|", " · "))}</option>`).join("")}<option value="__new">Nowe konto…</option></select></label>
           <label id="acc-new-p" hidden>Platforma<select id="acc-np"><option>Vinted</option><option>OLX</option><option>Facebook</option><option>Allegro</option><option>Vestiaire</option></select></label>
           <label id="acc-new-a" hidden>Nazwa profilu<input id="acc-na" placeholder="np. nazwa_profilu"></label>
-          <label>Osoba<input id="acc-person" placeholder="np. Wika Dobrowolska"></label>
+          <label>Osoba (profil)<input id="acc-person" list="prof-list" placeholder="wybierz albo wpisz"></label><datalist id="prof-list">${profs.map(p => `<option value="${esc(p)}">`).join("")}</datalist>
           <label>Limit roczny (zł)<input id="acc-limit" type="number" inputmode="decimal" placeholder="${DEF_LIMIT}"></label>
           <div class="full"><button class="primary" type="submit">Zapisz konto</button></div>
         </form></div>
@@ -1689,6 +1727,8 @@ function renderKako() {
         </form>
         <div class="list" style="margin-top:16px">${TX.slice().sort((a, b) => b.date.localeCompare(a.date)).map(t => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(t.desc || "Transakcja")}</div><div class="s">${esc(t.platform + " · " + (t.account || "główne"))} · ${dShort(t.date)}</div></div><span class="amt">${zl(+t.amount, 2)}</span><button class="iconbtn flat" data-tx="${t.id}" aria-label="Usuń transakcję">${svg("x", 15)}</button></div>`).join("")}</div></div>
     </div>`;
+  $("#acc-profiles").querySelectorAll("[data-prof]").forEach(b => b.onclick = () => { accProfile = b.dataset.prof; renderKako(); });
+  $("#prof-form").onsubmit = async e => { e.preventDefault(); const v = String(new FormData(e.target).get("p") || "").trim(); if (!v) return; if (!PROFILES.includes(v)) PROFILES.push(v); await store.save("profiles", PROFILES); accProfile = v; toast("Dodano profil"); renderKako(); };
   const fillAcc = () => { const k = $("#acc-key").value, isNew = k === "__new"; $("#acc-new-p").hidden = $("#acc-new-a").hidden = !isNew; const s = ACCS[k] || {}; $("#acc-person").value = s.person || ""; $("#acc-limit").value = s.limit || ""; };
   $("#acc-key").onchange = fillAcc; fillAcc();
   $("#acc-form").onsubmit = async e => { e.preventDefault(); let k = $("#acc-key").value; if (k === "__new") { const a = $("#acc-na").value.trim(); if (!a) { $("#acc-na").focus(); return; } k = accKey($("#acc-np").value, a); } ACCS[k] = {person: $("#acc-person").value.trim(), limit: +$("#acc-limit").value || DEF_LIMIT}; await store.save("accounts", ACCS); toast("Konto zapisane"); renderKako(); };
@@ -1716,8 +1756,15 @@ function renderKako() {
       <div class="stat"><div class="top">${ic("alert", "w")}<div class="lab">Ostrzeżenia</div></div><div class="v">${n.warn}</div><div class="foot"><span>warto sprawdzić</span></div></div>
       <div class="stat"><div class="top">${ic("info", "")}<div class="lab">Uwagi</div></div><div class="v">${n.info}</div><div class="foot"><span>jak dashboard czyta wpisy</span></div></div></div>`;
 
-  $("#k-wsp").innerHTML = M.group.length ? M.group.map(g => `<details class="card s6"><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${esc(g.person.slice(0, 2).toUpperCase())}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(g.person)}</h3><div class="small muted">${g.items.length} poz. · ${g.items.filter(i => i.done).length} odhaczone</div></div><span class="amt">${zl(g.total, 2)}</span><svg class="i chev"><use href="#i-down"/></svg></div></summary>
-    <div class="list" style="margin-top:16px">${g.items.map(i => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${i.link ? `<a href="${esc(i.link)}" target="_blank" rel="noopener" style="text-decoration-color:var(--faint);text-underline-offset:3px">${esc(i.name)}</a>` : esc(i.name)}</div></div><div class="end"><span class="amt">${zl(i.total, 2)}</span>${i.done ? '<span class="pill p-sprzedane">kupione</span>' : ""}</div></div>`).join("")}</div></details>`).join("") : `<div class="card s12 empty">Brak wspólnego zamówienia w arkuszu.</div>`;
+  { const P = M.sales.filter(s => s.partner), who = P[0] && P[0].partner;
+    const soldP = P.filter(s => s.status === "sprzedane"), stockP = P.filter(s => s.status !== "sprzedane");
+    const cost = P.reduce((a, s) => a + (s.cost || 0), 0), rev = soldP.reduce((a, s) => a + s.price, 0), prof = soldP.reduce((a, s) => a + s.profit, 0);
+    const k = (l, v, cls = "") => `<div><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
+    $("#k-wsp").innerHTML = who ? `<div class="card s12"><div class="ch"><div><h3>Wspólne: ${esc(who)}</h3><div class="sub">Produkty z dopiskiem „- ${esc(who)}”. Koszt i zysk dzielicie po połowie.</div></div>${ic("user", "b")}</div>
+      <div class="kv">${k("Wspólnie zainwestowane", zl(cost))}${k("Wkład " + esc(who) + " (½)", zl(cost / 2))}${k("Przychód ze sprzedanych", zl(rev))}${k("Zysk razem", zl(prof), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2), "pos")}${k("Zysk " + esc(who) + " (½)", zl(prof / 2))}${k("Do oddania " + esc(who), zl(rev / 2), "wrn")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
+      ${pSum.length ? `<div class="small muted" style="font-weight:600;margin:18px 0 8px">Z arkusza (${esc(pSheet)})</div><div class="kv">${pSum.map(([l, v]) => k(esc(cap(l.toLowerCase())), zl(v, 2))).join("")}</div>` : ""}
+      <p class="note">„Do oddania” = jego połowa przychodu ze sprzedanych (zwrot wkładu + połowa zysku). Kwota z arkusza może się różnić, jeśli część już mu przekazałeś.</p></div>
+      <div class="card s12"><div class="ch"><div><h3>Produkty wspólne</h3><div class="sub">${P.length} szt.</div></div></div><div class="list">${P.map(s => drow(`<div class="row"><div class="av">${esc(sz(s.size))}</div><div class="main"><div class="t">${esc(s.product)}</div><div class="s">${[cleanColor(s.color), s.platform && s.platform + " · " + (s.account || "konto główne"), s.sheetStatus].filter(Boolean).map(esc).join(" · ")}</div></div><div class="end"><span class="pill p-${s.status}">${STATUS[s.status]}</span><span class="amt">${s.status === "sprzedane" ? "zysk " + zl(s.profit / 2) + " / " + zl(s.profit) : "koszt ½ " + zl((s.cost || 0) / 2)}</span></div></div>`, s)).join("")}</div></div>` : `<div class="card s12 empty">Brak produktów wspólnych (z dopiskiem „- Imię” w nazwie produktu).</div>`; }
 
   $("#k-plan").innerHTML = `<div class="card s7"><div class="ch"><div><h3>Do rozważenia</h3><div class="sub">Pomysły z arkusza</div></div></div><div class="list">${M.wishlist.map(w => `<div class="row"><div class="main"><div class="t">${esc(w.product)}</div><div class="s">${w.buy ? "kupno " + zl(w.buy) : "bez ceny"}${w.sell ? " · sprzedaż ok. " + zl(w.sell) : ""}</div></div><button class="sm" data-calc="${esc(JSON.stringify({buy: w.buy || 0, sell: w.sell || 0}))}">${svg("calc", 14)}Przelicz</button></div>`).join("") || `<div class="empty">Pusto.</div>`}</div></div>
     <div class="card s5"><div class="ch"><div><h3>Sprawdzeni sprzedawcy</h3></div></div><div class="list">${M.sellers.map(s => `<div class="row"><div class="av">${esc(s.brand.slice(0, 2))}</div><div class="main"><div class="t">${esc(cap(s.brand.toLowerCase()))}</div><div class="s">${s.items.map(esc).join(", ")}</div></div></div>`).join("") || `<div class="empty">Brak.</div>`}</div></div>`;
@@ -1725,7 +1772,7 @@ function renderKako() {
 
   renderChannels(); $("#k-todo").innerHTML = `<div class="card s8">${todoHTML("kako")}</div>`; bindTodo($("#k-todo"), "kako");
   ["zam", "sprz", "konta", "kontrola", "wsp", "plan", "kanaly", "todo"].forEach(k => $("#k-" + k).hidden = k !== kakoTab);
-  $("#kako-stats").hidden = ["konta", "kontrola", "kanaly", "todo"].includes(kakoTab);
+  $("#kako-stats").hidden = ["konta", "kontrola", "kanaly", "todo", "wsp", "plan"].includes(kakoTab);
   renderKakoNav("kako", kakoTab);
 }
 document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { kakoTab = b.dataset.k; renderKako(); });
@@ -2065,9 +2112,9 @@ renderAll();
   try { [mcp, sample, assetsNS] = await Promise.all([claude.use("mcp"), claude.use("sample"), claude.use("assets")]); } catch {}
   if (mcp) connect();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
-  const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null)]);
+  const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
-  applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
+  PROFILES = profiles || []; applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
   if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
   if (goal && goal[0] != null) { GOAL = +goal[0]; ls.set("kd_goal_10k", GOAL); }
   try { await loadPhotos(); } catch {}
@@ -2092,6 +2139,7 @@ if (!window.KD_CFG) document.getElementById("setup").hidden = false;
 document.getElementById("setup-form").onsubmit = async e => {
   e.preventDefault();
   const url = document.getElementById("setup-url").value.trim(), token = document.getElementById("setup-token").value.trim(), msg = document.getElementById("setup-msg");
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) { msg.textContent = "To nie jest adres skryptu. Potrzebny jest adres z Apps Script → Wdróż → Aplikacja internetowa, w postaci https://script.google.com/macros/s/…/exec (nie link do arkusza)."; return; }
   msg.textContent = "Sprawdzam…";
   try {
     const r = await fetch(url, {method: "POST", body: JSON.stringify({a: "data", t: token})}); const j = await r.json();
