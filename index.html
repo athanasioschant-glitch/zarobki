@@ -195,6 +195,7 @@ details.grp>summary>svg{transition:transform .2s;opacity:.5}details.grp[open]>su
   .hsplit .hs small{grid-column:2/-1;margin-top:-2px}
   .hmeta{font-size:12.5px}
   .bigv{font-size:40px}
+  .stat{padding:12px 14px;gap:6px}.stat .top .ico{display:none}.stat .top{flex-direction:row}.stat .v{font-size:20px}
 }
 @media(max-width:759px){#money .mcol{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;padding:10px 0}#money .mcol .mv{font-size:20px;margin:0}#money .mcol .mdet{flex-basis:100%}#money .mcol .mh .ico{display:none}}
 .hsplit .hs.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--line2);border:0}.hsplit .hs.ghost b{color:var(--muted)}.hsplit .hs small{grid-column:1/-1;font-size:11.5px;color:var(--faint)}
@@ -444,7 +445,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:45</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:49</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -506,7 +507,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <div id="inv-stan">
     <div class="dash" id="inv-stats"></div>
     <div class="toolbar" style="margin-top:16px"><div class="seg" id="inv-seg" role="group" aria-label="Filtr magazynu"></div></div>
-    <div class="legend" style="margin:-4px 0 16px"><span><i style="background:var(--accent)"></i>Sprzedane</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)"></i>Presale bez ceny</span><span><i style="background:var(--rev)"></i>Wystawione</span><span><i style="background:var(--muted)"></i>Niewystawione</span><span><i style="background:var(--warn)"></i>Rezerwacja / w drodze z Chin</span><span><i style="background:var(--loss)"></i>Oddane</span></div>
+    <details class="grp" style="margin:-4px 0 12px"><summary><span class="gt"><span class="small muted">Co oznaczają kolory kropek</span></span><span></span><svg class="i" width="14" height="14"><use href="#i-arrow"/></svg></summary><div class="legend" style="padding:0 0 12px"><span><i style="background:var(--accent)"></i>Sprzedane</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)"></i>Presale bez ceny</span><span><i style="background:var(--rev)"></i>Wystawione</span><span><i style="background:var(--muted)"></i>Niewystawione</span><span><i style="background:var(--warn)"></i>Rezerwacja / w drodze z Chin</span><span><i style="background:var(--loss)"></i>Oddane</span></div></details>
     <div class="dash" id="inv-list"></div>
     </div>
     <div class="dash" id="inv-prod" hidden></div>
@@ -1021,6 +1022,8 @@ function keepView(fn) {
 }
 function rerender() { const v = location.hash.slice(1) || "start"; updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else if (v === "podzial") renderBudget(totals(derive(), period)); else renderStart(); }); }
 const payBtn = s => pay3HTML(s);
+const PILL_COL = {shipped: "var(--warn)", wallet: "var(--rev)", paying: "var(--good, var(--rev))", in: "var(--accent)"};
+const payPill = s => { const u = uiPay(s); return `<span class="pill" style="color:${PILL_COL[u]};background:color-mix(in srgb, ${PILL_COL[u]} 14%, transparent)">${PAY_LAB[u]}</span>`; };
 const payBtnOld = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
 const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.pay, b.dataset.st); });
 
@@ -1055,7 +1058,7 @@ const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.spli
   const rows = [["Cena", s.price != null ? zl(s.price, 2) + (s.est ? " (szacunek)" : "") : null], ["Koszt łącznie", c != null ? zl(c, 2) : null], ["Kupno", s.buy != null ? zl(s.buy, 2) : null], ["Fracht", s.freight ? zl(s.freight, 2) : null], ["Wysyłka", s.ship != null ? zl(s.ship, 2) : null],
     ["Zysk", s.profit != null ? zl(s.profit, 2) : null], ["Marża", s.price && s.profit != null ? pct(s.profit / s.price) : null], ["Platforma · konto", s.platform ? s.platform + " · " + (s.account || "konto główne") : null], ["Kupujący", s.buyer], ["Wystawione", f(s.listed)], ["Sprzedane", f(s.sold)], ["W arkuszu", s.sheet ? s.sheet + ", wiersz " + s.row : null]];
   return `<div class="dkv">${rows.filter(([, v]) => v).map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>`; };
-const drow = (inner, s) => `<details class="drow"><summary>${inner}</summary>${detailKV(s)}</details>`;
+const drow = (inner, s, extra = "") => `<details class="drow"><summary>${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
 const STATUS = {sprzedane: "Sprzedane", presale: "Presale bez ceny", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
@@ -1123,10 +1126,9 @@ function accHTML(x, compact) {
   return `<div class="acc"><div class="hd"><div class="av">${esc(x.platform.slice(0, 2).toUpperCase())}</div><div class="main" style="flex:1;min-width:0"><div class="t" style="font-weight:600">${name}</div><div class="s small muted">${esc(x.platform)}${x.account !== "główne" ? " · " + esc(x.account) : ""}${x.person ? "" : " · bez przypisanej osoby"}</div></div>
     ${x.risk >= 1 ? `<span class="pill p-oddane">Limit przekroczony</span>` : x.risk >= .8 ? `<span class="pill p-rezerwacja">Blisko limitu</span>` : `<span class="pill p-sprzedane">OK</span>`}</div>
     ${accWarn(x).length ? `<div class="small" style="margin:8px 0 0;color:var(--loss);font-weight:600"><span class="bang" style="position:static;margin-right:6px">!</span>Uwaga: ${accWarn(x).join(" i ")}</div>` : ""}
-    <div class="small muted" style="margin:8px 0 0">Transakcje ${YEAR}: <b style="color:var(--fg)">${x.n}</b> z ${TX_LIMIT} · zrobione przeze mnie ${x.n - (x.nExt || 0)} (${zl(x.rev - (x.revExt || 0))}) · nie przeze mnie ${x.nExt || 0} (${zl(x.revExt || 0)})</div>
     <div class="meter"><span>Przychód ${YEAR}</span><div class="bar ${barCls(x.r)}"><i style="width:${Math.min(100, x.r * 100)}%"></i></div><span><b>${zl(x.rev)}</b> / ${zl(x.limit)}</span></div>
     <div class="meter"><span>Transakcje</span><div class="bar ${barCls(x.rn)}"><i style="width:${Math.min(100, x.rn * 100)}%"></i></div><span><b>${x.n}</b> / ${TX_LIMIT}</span></div>
-    ${compact ? "" : `<div class="small muted">Zostało ${zl(Math.max(0, x.limit - x.rev))} i ${Math.max(0, TX_LIMIT - x.n)} transakcji do progu${x.pend ? ` · <span style="color:var(--warn)">w drodze ${zl(x.pend)}</span>` : ""}</div>`}</div>`;
+    ${compact ? "" : `<details class="grp" style="margin-top:6px"><summary><span class="gt"><span class="small muted">Zostało ${zl(Math.max(0, x.limit - x.rev))} i ${Math.max(0, TX_LIMIT - x.n)} transakcji${x.pend ? ` · <span style="color:var(--warn)">w drodze ${zl(x.pend)}</span>` : ""}</span></span><span></span><svg class="i" width="14" height="14"><use href="#i-arrow"/></svg></summary><div class="small muted" style="padding:0 0 12px;line-height:1.6">Transakcje ${YEAR}: <b style="color:var(--fg)">${x.n}</b> z ${TX_LIMIT}<br>zrobione przeze mnie: ${x.n - (x.nExt || 0)} (${zl(x.rev - (x.revExt || 0))})<br>nie przeze mnie: ${x.nExt || 0} (${zl(x.revExt || 0)})</div></details>`}</div>`;
 }
 
 /* data checks — deterministic rules run on every refresh */
@@ -1334,8 +1336,8 @@ function renderTransit(D) {
   const byAcc = {}; pend.forEach(s => { const k = (s.platform || "Inne") + " · " + (s.account || "konto główne"); byAcc[k] = (byAcc[k] || 0) + s.price; });
   const row = (s, st) => { const d = daysAgo(s.sold); const p = payState(s);
     return drow(`<div class="row tr">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${esc((s.platform || "Inne") + " · " + (s.account || "konto główne"))} · ${s.sold ? "sprzedane " + dShort(s.sold) + (d != null ? " · " + (d === 0 ? "dziś" : d === 1 ? "wczoraj" : d + " dni temu") : "") : "bez daty sprzedaży"}${st === "in" && p.src === "auto" ? " · uznane za otrzymane po " + AUTO_DAYS + " dniach" : ""}</div></div>
-      <div class="end"><span class="amt">${zl(s.price, 2)}${s.est ? ' <span class="small muted" style="font-weight:500">szac.</span>' : ""}</span><span class="s ${st === "in" ? "" : "pos"}">zysk ${zl(s.profit)}</span></div>
-      ${pay3HTML(s)}</div>`, s); };
+      <div class="end">${payPill(s)}<span class="amt">${zl(s.price, 2)}${s.est ? ' <span class="small muted" style="font-weight:500">szac.</span>' : ""}</span><span class="s ${st === "in" ? "" : "pos"}">zysk ${zl(s.profit)}</span></div>
+      </div>`, s, `<div class="small muted" style="margin-bottom:6px">Zmień status:</div>${pay3HTML(s)}`); };
   $("#transit").innerHTML = `<div class="ch"><div style="display:flex;gap:12px;align-items:center">${ic("wallet", "w")}<div><h3>Pieniądze w drodze</h3><div class="sub">Sprzedane, ale jeszcze nie na Twoim koncie</div></div></div><div style="text-align:right;flex:none"><div class="amt" style="font-size:20px;font-weight:800;color:var(--warn);white-space:nowrap">${zl(sum)}</div><div class="small muted">w tym zysk ${zl(prof, 2)}</div></div></div>
     ${(() => { const sh = pend.filter(s => s.sheetStage === "shipped"), pay = pend.filter(s => s.sheetStage !== "shipped");
       const sec = (title, sub, L, st, col = "var(--fg)") => L.length ? `<details class="grp"><summary><span class="gt"><b>${title}</b><span class="small muted">${L.length} szt. · ${sub}</span></span><b style="color:${col}">${zl(L.reduce((a, s) => a + s.price, 0))}</b>${svg("arrow", 14)}</summary><div class="list">${L.map(s => row(s, st)).join("")}</div></details>` : "";
@@ -1860,7 +1862,7 @@ function renderKako() {
   $("#k-sprz").innerHTML = `<div class="card s8"><div class="ch"><div><h3>Sprzedaż</h3><div class="sub">${list.length} pozycji · numer zamówienia i konto przy każdej</div></div></div>
     <div class="seg in" style="margin-bottom:14px">${fl.map(([k, l, n]) => `<button data-f="${k}" aria-pressed="${k === salesFilter}">${l} ${n}</button>`).join("")}</div>
     <div class="list">${list.map(s => drow(`<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.order ? "zam. " + s.order + "-sprzedaż" : "inne", s.platform && s.platform !== "Prywatnie" ? s.platform + " · " + (s.account || "konto główne") : s.recipient, s.presale ? "presale" + (s.buyer ? ": " + s.buyer : "") : s.note, s.partner && "wspólnie: " + s.partner].filter(Boolean).map(esc).join(" · ")}</div></div>
-      <div class="end">${s.status === "sprzedane" ? payBtn(s) : `<span class="pill p-${s.status}">${STATUS[s.status]}</span>`}<span class="amt ${s.profit != null ? sgn(s.profit) : ""}">${s.profit != null ? (s.profit > 0 ? "+" : "") + zl(s.profit) : s.price ? zl(s.price) : zl(s.cost)}</span><span class="s">${s.sold ? dShort(s.sold) : s.price && s.status !== "sprzedane" ? "cena wystawienia" : "koszt"}</span></div></div>`, s)).join("") || `<div class="empty">Nic w tej grupie.</div>`}</div></div>
+      <div class="end">${s.status === "sprzedane" ? payPill(s) : `<span class="pill p-${s.status}">${STATUS[s.status]}</span>`}<span class="amt ${s.profit != null ? sgn(s.profit) : ""}">${s.profit != null ? (s.profit > 0 ? "+" : "") + zl(s.profit) : s.price ? zl(s.price) : zl(s.cost)}</span><span class="s">${s.sold ? dShort(s.sold) : s.price && s.status !== "sprzedane" ? "cena wystawienia" : "koszt"}</span></div></div>`, s, s.status === "sprzedane" ? `<div class="small muted" style="margin-bottom:6px">Zmień status:</div>${pay3HTML(s)}` : "")).join("") || `<div class="empty">Nic w tej grupie.</div>`}</div></div>
     <div class="card s4">${pSum.length ? `<div class="ch"><div><h3>Rozliczenie: ${esc(partner)}</h3><div class="sub">${esc(pSheet)}, wartości z arkusza</div></div></div><div class="list">${pSum.map(([l, v]) => `<div class="row"><div class="main"><div class="t" style="font-weight:500;font-size:13px">${esc(cap(l.toLowerCase()))}</div></div><span class="amt">${zl(v, 2)}</span></div>`).join("")}</div><p class="note">Arkusz wlicza do przychodu także wystawione, jeszcze niesprzedane rzeczy.</p>` : `<div class="empty">Brak rozliczeń.</div>`}</div>`;
   $("#k-zam").querySelectorAll("[data-arr]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setArrived(b.dataset.arr, b.dataset.n === "" ? null : +b.dataset.n); });
   $("#k-sprz").querySelectorAll("[data-f]").forEach(b => b.onclick = () => { salesFilter = b.dataset.f; renderKako(); });
@@ -1875,10 +1877,10 @@ function renderKako() {
   const A = accProfile === "all" ? Aall : accProfile === "none" ? noPerson : Aall.filter(a => a.person === accProfile);
   const pRev = A.reduce((s, a) => s + a.rev, 0), pN = A.reduce((s, a) => s + a.n, 0), pPend = A.reduce((s, a) => s + a.pend, 0);
   const profBar = `<div class="s12" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="pills" role="group" aria-label="Profil" id="acc-profiles">${[["all", "Wszyscy"], ...profs.map(p => [p, p]), ...(noPerson.length ? [["none", "Bez profilu"]] : [])].map(([k, l]) => `<button data-prof="${esc(k)}" aria-pressed="${k === accProfile}">${esc(l)}${Aall.some(a => (k === "all" || a.person === k || (k === "none" && !a.person)) && accWarn(a).length) ? `<span class="bang" title="Konto blisko limitu" style="position:static;margin-left:6px">!</span>` : ""}</button>`).join("")}</div>
-    <form id="prof-form" class="actions" style="margin-left:auto"><input name="p" placeholder="nowy profil (imię i nazwisko)" style="height:34px;width:220px;font-size:14px" aria-label="Nowy profil"><button class="sm" type="submit">${svg("plus", 14)}Profil</button></form></div>
+    <button class="sm" id="prof-add" style="margin-left:auto">${svg("plus", 14)}Profil</button><form id="prof-form" class="actions" hidden style="width:100%"><input name="p" placeholder="nowy profil (imię i nazwisko)" style="height:34px;flex:1;font-size:14px" aria-label="Nowy profil"><button class="sm primary" type="submit">Dodaj</button></form></div>
     ${accProfile !== "all" ? `<div class="card s12"><div class="ch" style="margin-bottom:12px"><div style="display:flex;gap:12px;align-items:center"><div class="av">${esc(accProfile === "none" ? "?" : accProfile.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase())}</div><div><h3>${esc(accProfile === "none" ? "Konta bez profilu" : accProfile)}</h3><div class="sub">${A.length ? A.map(a => a.platform + " · " + a.account).join(", ") : "na razie bez kont – przypisz konto w „Ustaw konto”"}</div></div></div></div>
       <div class="kv" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><div class="l">Przychód ${YEAR} (wszystkie konta)</div><div class="v">${zl(pRev)}</div></div><div><div class="l">Transakcje</div><div class="v">${pN}</div></div><div><div class="l">W drodze</div><div class="v wrn">${zl(pPend)}</div></div></div></div>` : ""}`;
-  $("#k-konta").innerHTML = profBar + `<div class="card s7"><div class="ch"><div><h3>Konta i limity ${YEAR}</h3><div class="sub">Platformy zgłaszają do skarbówki sprzedawcę, który w roku przekroczy 30 transakcji albo 2000 €. Limit kwoty ustawiasz z zapasem na kurs.</div></div></div>
+  $("#k-konta").innerHTML = profBar + `<div class="card s7"><div class="ch"><div><h3>Konta i limity ${YEAR}</h3><div class="sub">Próg zgłoszenia do skarbówki: 30 transakcji albo 2000 € w roku.</div></div></div>
       ${A.length ? A.map(x => accHTML(x, false)).join("") : `<div class="empty">${accProfile === "all" ? "Brak sprzedaży na kontach." : "Ten profil nie ma jeszcze kont."}</div>`}
       <p class="note">Stan „W drodze / Na koncie” zmieniasz dotknięciem. Możesz też dodać w arkuszu kolumnę OTRZYMANO (TAK/NIE), wtedy ona decyduje. Konto biorę z kolumny KONTO, a jeśli jej nie ma, z dopisku po myślniku w kolumnie platformy, np. „Vinted - nazwa_konta”. Sama nazwa platformy oznacza konto główne.</p></div>
     <div class="s5 col">
@@ -1903,6 +1905,7 @@ function renderKako() {
         <div class="list" style="margin-top:16px">${TX.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).map(t => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(t.desc || "Transakcja")}</div><div class="s">${esc(t.platform + " · " + (t.account || "główne"))} · ${!t.date || t.date.length === 4 ? "w " + (t.date || YEAR) : dShort(t.date)} · ${t.mine === false ? "nie przeze mnie" : "przeze mnie"}</div></div><span class="amt">${zl(+t.amount, 2)}</span><button class="iconbtn flat" data-tx="${t.id}" aria-label="Usuń transakcję">${svg("x", 15)}</button></div>`).join("")}</div></div></details>
     </div>`;
   $("#acc-profiles").querySelectorAll("[data-prof]").forEach(b => b.onclick = () => { accProfile = b.dataset.prof; renderKako(); });
+  $("#prof-add").onclick = () => { const f = $("#prof-form"); f.hidden = !f.hidden; if (!f.hidden) f.querySelector("input").focus(); };
   $("#prof-form").onsubmit = async e => { e.preventDefault(); const v = String(new FormData(e.target).get("p") || "").trim(); if (!v) return; if (!PROFILES.includes(v)) PROFILES.push(v); await store.save("profiles", PROFILES); accProfile = v; toast("Dodano profil"); renderKako(); };
   const fillAcc = () => { const k = $("#acc-key").value, isNew = k === "__new"; $("#acc-new-p").hidden = $("#acc-new-a").hidden = !isNew; const s = ACCS[k] || {}; $("#acc-person").value = s.person || ""; $("#acc-limit").value = s.limit || ""; };
   $("#acc-key").onchange = fillAcc; fillAcc();
