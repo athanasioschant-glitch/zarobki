@@ -179,6 +179,9 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .splitrow i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
 .row.tr{display:grid;grid-template-columns:38px minmax(0,1fr) auto;column-gap:12px;row-gap:10px;align-items:center}
 .row.tr>button{grid-column:2/-1;justify-self:start}
+.row.tr>.tgl{grid-column:2/-1;justify-self:start}
+.row:has(>.tgl),.row:has(>.end>.tgl){flex-wrap:wrap}.row:has(>.end>.tgl)>.main{flex:1 1 150px}.row>.end:has(>.tgl){flex:1 1 100%;flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;padding-left:50px}.row>.end:has(>.tgl)>.tgl{order:10}
+@media (max-width:480px){.tgl button{padding:0 9px;font-size:12px}.row>.end:has(>.tgl){padding-left:0}}.row:has(>.tgl)>.main{flex:1 1 55%}.row:has(>.tgl)>.tgl{order:10;margin-left:50px}
 @media(min-width:1000px){.row.tr{grid-template-columns:38px minmax(0,1fr) auto auto}.row.tr>button{grid-column:auto}}
 .row.arr{flex-wrap:wrap}.row.arr .main{flex:1 1 180px}.row.arr .actions{margin-left:auto}
 details.drow>summary{display:block}
@@ -415,7 +418,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:22</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:28</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1174,8 +1177,9 @@ function renderStart() {
   const kakoMode = location.hash.slice(1) === "start-kako";
   $("#srcs").parentElement.hidden = kakoMode;
   $("#kn-start").hidden = !kakoMode; if (kakoMode) renderKakoNav("start", "dash");
-  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat"], allOnly = ["life", "networth", "sources", "debts"];
-  kakoOnly.forEach(id => { if (SRC !== "all" && SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
+  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat", "st-rev", "st-roi", "st-spent", "st-stock"], allOnly = ["life", "networth", "sources", "debts", "recur"];
+  // „Wszystkie źródła” = same finanse; magazyn, sprzedaże, limity i produkty tylko w Kako
+  kakoOnly.forEach(id => { if (SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
 }
@@ -1905,11 +1909,13 @@ function renderKako() {
     const cost = P.reduce((a, s) => a + (s.cost || 0), 0), rev = soldP.reduce((a, s) => a + s.price, 0), prof = soldP.reduce((a, s) => a + s.profit, 0);
     const k = (l, v, cls = "") => `<div><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
     $("#k-wsp").innerHTML = who ? `<div class="card s12"><div class="ch"><div><h3>Wspólne: ${esc(who)}</h3><div class="sub">Produkty z dopiskiem „- ${esc(who)}”. Koszt i zysk dzielicie po połowie.</div></div>${ic("user", "b")}</div>
-      <div class="kv">${k("Wspólnie zainwestowane", zl(cost))}${k("Wkład " + esc(who) + " (½)", zl(cost / 2))}${k("Przychód ze sprzedanych", zl(rev))}${k("Zysk razem", zl(prof), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2), "pos")}${k("Zysk " + esc(who) + " (½)", zl(prof / 2))}${k("Do oddania " + esc(who), zl(rev / 2), "wrn")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
+      <div class="kv">${k("Wspólnie zainwestowane", zl(cost))}${k("Wkład " + esc(who), `${zl(NW.wklad != null ? NW.wklad : cost / 2, 2)} <button class="link small" id="wk-edit">Zmień</button>`)}${k("Przychód ze sprzedanych", zl(rev))}${k("Zysk razem", zl(prof), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2), "pos")}${k("Zysk " + esc(who) + " (½)", zl(prof / 2))}${k("Do oddania " + esc(who), zl(rev / 2), "wrn")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
       ${pSum.length ? `<div class="small muted" style="font-weight:600;margin:18px 0 8px">Z arkusza (${esc(pSheet)})</div><div class="kv">${pSum.map(([l, v]) => k(esc(cap(l.toLowerCase())), zl(v, 2))).join("")}</div>` : ""}
+      <form id="wk-form" class="actions" hidden style="margin-top:12px"><input id="wk-in" type="number" step="0.01" inputmode="decimal" value="${NW.wklad != null ? NW.wklad : (cost / 2).toFixed(2)}" aria-label="Wkład wspólnika" style="width:140px"><button class="primary sm" type="submit">Zapisz wkład</button><span class="small muted">puste = połowa kosztów (${zl(cost / 2, 2)})</span></form>
       <p class="note">„Do oddania” = jego połowa przychodu ze sprzedanych (zwrot wkładu + połowa zysku). Kwota z arkusza może się różnić, jeśli część już mu przekazałeś.</p></div>
       <div class="card s12"><div class="ch"><div><h3>Produkty wspólne</h3><div class="sub">${P.length} szt.</div></div></div><div class="list">${P.map(s => drow(`<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.platform && s.platform + " · " + (s.account || "konto główne"), s.sheetStatus].filter(Boolean).map(esc).join(" · ")}</div></div><div class="end"><span class="pill p-${s.status}">${STATUS[s.status]}</span><span class="amt">${s.status === "sprzedane" ? "zysk " + zl(s.profit / 2) + " / " + zl(s.profit) : "koszt ½ " + zl((s.cost || 0) / 2)}</span></div></div>`, s)).join("")}</div></div>` : `<div class="card s12 empty">Brak produktów wspólnych (z dopiskiem „- Imię” w nazwie produktu).</div>`; }
 
+  { const we = $("#wk-edit"), wf = $("#wk-form"); if (we && wf) { we.onclick = () => { wf.hidden = !wf.hidden; }; wf.onsubmit = async e => { e.preventDefault(); const v = $("#wk-in").value.trim(); NW.wklad = v === "" ? null : Math.max(0, +v || 0); await store.save("networth", NW); toast("Wkład zapisany"); keepView(renderKako); }; } }
   $("#k-plan").innerHTML = `<div class="card s7"><div class="ch"><div><h3>Do rozważenia</h3><div class="sub">Pomysły z arkusza</div></div></div><div class="list">${M.wishlist.map(w => `<div class="row"><div class="main"><div class="t">${esc(w.product)}</div><div class="s">${w.buy ? "kupno " + zl(w.buy) : "bez ceny"}${w.sell ? " · sprzedaż ok. " + zl(w.sell) : ""}</div></div><button class="sm" data-calc="${esc(JSON.stringify({buy: w.buy || 0, sell: w.sell || 0}))}">${svg("calc", 14)}Przelicz</button></div>`).join("") || `<div class="empty">Pusto.</div>`}</div></div>
     <div class="card s5"><div class="ch"><div><h3>Sprawdzeni sprzedawcy</h3></div></div><div class="list">${M.sellers.map(s => `<div class="row"><div class="av">${esc(s.brand.slice(0, 2))}</div><div class="main"><div class="t">${esc(cap(s.brand.toLowerCase()))}</div><div class="s">${s.items.map(esc).join(", ")}</div></div></div>`).join("") || `<div class="empty">Brak.</div>`}</div></div>`;
   $("#k-plan").querySelectorAll("[data-calc]").forEach(b => b.onclick = () => { const d = JSON.parse(b.dataset.calc); $("#c-buy").value = d.buy; $("#c-sell").value = d.sell; $("#c-cur").value = "pln"; calc(); location.hash = "licz"; });
