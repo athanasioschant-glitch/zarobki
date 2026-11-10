@@ -78,13 +78,17 @@ nav.side{position:fixed;top:0;bottom:0;left:0;width:min(84vw,var(--side));z-inde
 nav.side.open{transform:none;box-shadow:20px 0 60px rgba(0,0,0,.5)}
 .scrim{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s}
 .scrim.on{opacity:1;pointer-events:auto}
-nav.side .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;letter-spacing:.12em;text-transform:uppercase;padding:0 10px 18px;border-bottom:1px solid var(--line)}
-nav.side .brand i{width:32px;height:32px;border-radius:10px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-style:normal;font-size:12px;letter-spacing:0}
+nav.side .brand{display:flex;align-items:center;gap:12px;padding:0 8px 18px;border-bottom:1px solid var(--line)}
+nav.side .brand i{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#0b3d2e));color:var(--accent-fg);display:grid;place-items:center;font-style:normal;box-shadow:0 6px 18px -8px var(--accent)}
 nav.side .items{display:flex;flex-direction:column;gap:2px}
 nav.side .lbl{display:block;font-size:11px;color:var(--faint);font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:0 12px;margin:14px 0 6px}
 nav.side a{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:14px;color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
 nav.side a svg{width:30px;height:30px;padding:7px;border-radius:10px;background:var(--surface2);color:var(--muted);flex:none}
 nav.side a:hover{color:var(--fg)}
+nav.side a[draggable="true"]{cursor:grab}
+nav.side a.dragging{opacity:.4}
+nav.side a.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+nav.side a.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 nav.side a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
 nav.side a[aria-current="page"] svg{background:var(--accent);color:var(--accent-fg)}
 nav.side .foot{margin-top:auto;font-size:12px;color:var(--faint);padding:14px;line-height:1.5;border-radius:16px;background:var(--surface2)}
@@ -384,17 +388,11 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
 </svg>
 
 <nav class="side" id="side-nav" aria-label="Sekcje">
-  <div class="brand"><i>zł</i>Zarobki</div>
+  <div class="brand"><i><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="13" width="4" height="7" rx="1.6" fill="currentColor" opacity=".55"/><rect x="10" y="9" width="4" height="11" rx="1.6" fill="currentColor" opacity=".8"/><rect x="16" y="4" width="4" height="16" rx="1.6" fill="currentColor"/></svg></i><span><span style="display:block;font-size:17px;font-weight:800;letter-spacing:-.02em;line-height:1.1">Zarobki</span><span style="display:block;font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:0;text-transform:none;margin-top:2px">pulpit finansowy</span></span></div>
   <div class="items">
     <a href="#start" data-v="start" onclick="SRC='all'"><svg class="i"><use href="#i-home"/></svg>Dashboard</a>
     <span class="lbl">Źródła</span>
-    <a href="#start-kako" data-v="start-kako" data-also="kako magazyn wystaw"><svg class="i"><use href="#i-box"/></svg>Kako</a>
-    <a href="#zrodlo-dropshipping" data-v="zrodlo-dropshipping"><svg class="i"><use href="#i-cart"/></svg>Dropshipping</a>
-    <a href="#zrodlo-fiszki" data-v="zrodlo-fiszki"><svg class="i"><use href="#i-tag"/></svg>Fiszki</a>
-    <a href="#zrodlo-premie" data-v="zrodlo-premie"><svg class="i"><use href="#i-shield"/></svg>Premie bankowe</a>
-    <a href="#zrodlo-revolut" data-v="zrodlo-revolut"><svg class="i"><use href="#i-pct"/></svg>Revolut</a>
-    <a href="#zrodlo-inne" data-v="zrodlo-inne"><svg class="i"><use href="#i-wallet"/></svg>Inne dochody</a>
-    <a href="#zrodlo-rodzina" data-v="zrodlo-rodzina"><svg class="i"><use href="#i-user"/></svg>Stałe wpływy</a>
+    <div id="src-links" style="display:contents"></div>
     <span class="lbl">Narzędzia</span>
     <a href="#licz" data-v="licz"><svg class="i"><use href="#i-calc"/></svg>Przelicznik</a>
     <a href="#okazje" data-v="okazje"><svg class="i"><use href="#i-search"/></svg>Okazje</a>
@@ -872,6 +870,8 @@ const store = (() => {
     async save(k, items) { ls.set("kd_" + k, items); await ready; if (ref) { try { await ref(k).set({items}); } catch (e) { console.warn("db", e); } } }
   };
 })();
+const saveTimers = {};
+const autosave = (k, getter) => { clearTimeout(saveTimers[k]); saveTimers[k] = setTimeout(() => store.save(k, getter()), 600); };
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* payment state: sold → money in transit until marked as received */
@@ -1270,12 +1270,13 @@ function renderNetWorth(D, A_, incCost) {
       <button class="sm" id="nw-add-d" style="margin-top:8px">${svg("plus", 14)}Dodaj dług</button>` : `<p class="note">Salda kont wpisujesz ręcznie (dotknij „Salda kont”). Towar i pieniądze w drodze liczą się same z arkusza.</p>`}`;
   $("#nw-edit").onclick = async () => { if (nwEdit) await store.save("networth", NW); nwEdit = !nwEdit; renderNetWorth(D, A_, incCost); };
   if (nwEdit) {
-    const bindL = (sel, list, f) => el.querySelectorAll(sel).forEach(i => i.oninput = () => list[+i.dataset[Object.keys(i.dataset)[0]]][f] = f === "amount" ? +i.value || 0 : i.value);
+    const sv = () => autosave("networth", () => NW);
+    const bindL = (sel, list, f) => el.querySelectorAll(sel).forEach(i => i.oninput = () => { list[+i.dataset[Object.keys(i.dataset)[0]]][f] = f === "amount" ? +i.value || 0 : i.value; sv(); });
     bindL("[data-an]", NW.assets, "name"); bindL("[data-aa]", NW.assets, "amount"); bindL("[data-dn]", NW.debts, "name"); bindL("[data-da]", NW.debts, "amount");
-    el.querySelectorAll("[data-adel]").forEach(b => b.onclick = () => { NW.assets.splice(+b.dataset.adel, 1); renderNetWorth(D, A_, incCost); });
-    el.querySelectorAll("[data-ddel]").forEach(b => b.onclick = () => { NW.debts.splice(+b.dataset.ddel, 1); renderNetWorth(D, A_, incCost); });
-    $("#nw-add-a").onclick = () => { NW.assets.push({id: uid(), name: "Konto", amount: 0}); renderNetWorth(D, A_, incCost); };
-    $("#nw-add-d").onclick = () => { NW.debts.push({id: uid(), name: "Komu", amount: 0}); renderNetWorth(D, A_, incCost); };
+    el.querySelectorAll("[data-adel]").forEach(b => b.onclick = () => { NW.assets.splice(+b.dataset.adel, 1); sv(); renderNetWorth(D, A_, incCost); });
+    el.querySelectorAll("[data-ddel]").forEach(b => b.onclick = () => { NW.debts.splice(+b.dataset.ddel, 1); sv(); renderNetWorth(D, A_, incCost); });
+    $("#nw-add-a").onclick = () => { NW.assets.push({id: uid(), name: "Konto", amount: 0}); sv(); renderNetWorth(D, A_, incCost); };
+    $("#nw-add-d").onclick = () => { NW.debts.push({id: uid(), name: "Komu", amount: 0}); sv(); renderNetWorth(D, A_, incCost); };
   }
 }
 
@@ -1309,12 +1310,13 @@ function renderBudget(T) {
       <p class="note">Wpisz dowolną kwotę, a rozpiszę ją według procentów. „Przelane” zapisuje kwotę w historii i dolicza ją do stanu konta.</p>`}`;
   $("#bud-edit").onclick = async () => { if (budgetEdit) await store.save("budget", BUDGET); budgetEdit = !budgetEdit; renderBudget(T); };
   if (budgetEdit) {
-    el.querySelectorAll("[data-bn]").forEach(i => i.oninput = () => BUDGET[i.dataset.bn].name = i.value);
-    el.querySelectorAll("[data-ba]").forEach(i => i.oninput = () => BUDGET[i.dataset.ba].acc = i.value);
-    el.querySelectorAll("[data-bs]").forEach(i => i.oninput = () => BUDGET[i.dataset.bs].start = +i.value || 0);
-    el.querySelectorAll("[data-bp]").forEach(i => { i.oninput = () => { BUDGET[i.dataset.bp].pct = Math.max(0, +i.value || 0); }; i.onchange = () => renderBudget(T); });
-    el.querySelectorAll("[data-bdel]").forEach(b => b.onclick = () => { BUDGET.splice(+b.dataset.bdel, 1); renderBudget(T); });
-    $("#bud-add").onclick = () => { BUDGET.push({id: uid(), name: "Nowe konto", acc: "", pct: 0, start: 0}); renderBudget(T); };
+    const sv = () => autosave("budget", () => BUDGET);
+    el.querySelectorAll("[data-bn]").forEach(i => i.oninput = () => { BUDGET[i.dataset.bn].name = i.value; sv(); });
+    el.querySelectorAll("[data-ba]").forEach(i => i.oninput = () => { BUDGET[i.dataset.ba].acc = i.value; sv(); });
+    el.querySelectorAll("[data-bs]").forEach(i => i.oninput = () => { BUDGET[i.dataset.bs].start = +i.value || 0; sv(); });
+    el.querySelectorAll("[data-bp]").forEach(i => { i.oninput = () => { BUDGET[i.dataset.bp].pct = Math.max(0, +i.value || 0); sv(); }; i.onchange = () => renderBudget(T); });
+    el.querySelectorAll("[data-bdel]").forEach(b => b.onclick = () => { BUDGET.splice(+b.dataset.bdel, 1); sv(); renderBudget(T); });
+    $("#bud-add").onclick = () => { BUDGET.push({id: uid(), name: "Nowe konto", acc: "", pct: 0, start: 0}); sv(); renderBudget(T); };
     return;
   }
   const inp = $("#bud-amt");
@@ -1335,6 +1337,28 @@ function bindTodo(root, cat) {
   root.querySelectorAll("[data-tdel]").forEach(b => b.onclick = () => { TODOS[cat] = (TODOS[cat] || []).filter(i => i.id !== b.dataset.tdel); save(); });
 }
 function rerenderTodo(root, cat) { const box = root.querySelector(".todo-box") || root.firstElementChild; box.innerHTML = todoHTML(cat); bindTodo(root, cat); }
+/* sidebar source links – drag to reorder (order saved) */
+const SRC_ICON = {kako: "box", dropshipping: "cart", fiszki: "tag", premie: "shield", revolut: "pct", inne: "wallet", rodzina: "user"};
+function applySrcOrder(order) { if (!Array.isArray(order)) return; SOURCES.sort((a, b) => { const i = order.indexOf(a.id), j = order.indexOf(b.id); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j); }); }
+function renderNav() {
+  const box = $("#src-links"); if (!box) return;
+  box.innerHTML = SOURCES.map(s => s.id === "kako"
+    ? `<a href="#start-kako" data-v="start-kako" data-also="kako magazyn wystaw" draggable="true" data-sid="kako" title="Przeciągnij, żeby zmienić kolejność"><svg class="i"><use href="#i-box"/></svg>Kako</a>`
+    : `<a href="#zrodlo-${s.id}" data-v="zrodlo-${s.id}" draggable="true" data-sid="${s.id}" title="Przeciągnij, żeby zmienić kolejność"><svg class="i"><use href="#i-${SRC_ICON[s.id] || "wallet"}"/></svg>${esc(s.name)}</a>`).join("");
+  let dragId = null;
+  box.querySelectorAll("[data-sid]").forEach(a => {
+    a.addEventListener("dragstart", e => { dragId = a.dataset.sid; a.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragId); });
+    a.addEventListener("dragend", () => { a.classList.remove("dragging"); box.querySelectorAll(".drop-before,.drop-after").forEach(x => x.classList.remove("drop-before", "drop-after")); });
+    a.addEventListener("dragover", e => { if (!dragId || dragId === a.dataset.sid) return; e.preventDefault(); const r = a.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2; a.classList.toggle("drop-after", after); a.classList.toggle("drop-before", !after); });
+    a.addEventListener("dragleave", () => a.classList.remove("drop-before", "drop-after"));
+    a.addEventListener("drop", async e => {
+      e.preventDefault(); const after = a.classList.contains("drop-after"); a.classList.remove("drop-before", "drop-after");
+      const ids = SOURCES.map(s => s.id).filter(id => id !== dragId); let k = ids.indexOf(a.dataset.sid); if (after) k++; ids.splice(k, 0, dragId);
+      applySrcOrder(ids); await store.save("src_order", ids); renderNav(); route(); toast("Kolejność zapisana");
+    });
+  });
+}
+
 /* all to-dos across sources */
 function renderAllTodos() {
   const groups = SOURCES.map(s => ({s, L: (TODOS[s.id] || []).slice().sort((a, b) => a.done - b.done)}));
@@ -1425,6 +1449,14 @@ const bindPhotos = root => root.querySelectorAll("[data-photo]").forEach(inp => 
 /* MAGAZYN */
 let invFilter = "all", invMode = "stan";
 const avg = (arr, f) => { const v = arr.map(f).filter(x => x != null && !isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+/* estimated sale price for an unsold item: its listing price, else the plan from the order sheet, else the average sold price */
+function estSell(s) {
+  if (s.price > 0) return s.price;
+  const it = (M.orderItems[String(s.order)] || []).find(i => { const a = toks(i.product), b = toks(s.product); return a[0] === b[0] && a.slice(1).some(w => !STOP.has(w) && b.includes(w)); });
+  if (it && it.sell) return it.sell;
+  const sold = M.sales.filter(x => x.status === "sprzedane" && x.product === s.product);
+  return sold.length ? sold.reduce((a, x) => a + x.price, 0) / sold.length : null;
+}
 function renderProducts() {
   const G = {}, INC = incoming();
   M.sales.forEach(s => { (G[s.product.trim()] ||= []).push(s); });
@@ -1437,15 +1469,23 @@ function renderProducts() {
     const days = sold.filter(s => s.listed && s.sold).map(s => (new Date(s.sold) - new Date(s.listed)) / 864e5);
     const buy = avg(it, s => s.buy), fr = avg(it, s => s.freight), ship = avg(it, s => s.ship), cost = avg(it, s => s.cost);
     const colors = {}; it.forEach(s => { const c = cleanColor(s.color) || "—"; const o = colors[c] ||= {c, raw: s.color, sold: 0, stock: 0, pre: 0, prices: []}; if (s.status === "sprzedane") { o.sold++; o.prices.push(s.price); } else if (s.status === "presale") o.pre++; else if (stock.includes(s)) o.stock++; });
-    return {name, it, sold, pre, listed, stock, inc, rev, prof, costSold, days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null, buy, fr, ship, cost,
+    const incItems = INC.filter(x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); });
+    const buyVal = stock.reduce((a, s) => a + (s.cost || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
+    const estVal = stock.reduce((a, s) => a + (estSell(s) || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
+    return {buyVal, estVal, name, it, sold, pre, listed, stock, inc, rev, prof, costSold, days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null, buy, fr, ship, cost,
       sell: avg(sold, s => s.price), minS: sold.length ? Math.min(...sold.map(s => s.price)) : null, maxS: sold.length ? Math.max(...sold.map(s => s.price)) : null, noSell: avg(listed, s => s.price), colors: Object.values(colors)};
   }).sort((a, b) => b.prof - a.prof || b.it.length - a.it.length);
-  $("#inv-prod").innerHTML = rows.map((r, i) => {
+  const TB = rows.reduce((a, r) => a + r.buyVal, 0), TE = rows.reduce((a, r) => a + r.estVal, 0), TN = rows.reduce((a, r) => a + r.stock.length + r.inc, 0);
+  const summary = `<div class="card s12"><div class="ch"><div><h3>Wartość magazynu</h3><div class="sub">${TN} szt. na stanie i w drodze z Chin</div></div>${ic("shelf", "w")}</div>
+    <div class="kv" style="grid-template-columns:repeat(3,minmax(0,1fr))">${big("Kupione za", zl(TB))}${big("Szacowana wartość", zl(TE))}${big("Potencjalny zysk", zl(TE - TB), sgn(TE - TB))}</div>
+    <p class="note">Szacowana wartość: cena wystawienia, a gdy jej nie ma – „szacowana cena sprzedaży” z zakładki zamówienia w arkuszu (albo średnia cena, za którą ten produkt już się sprzedał).</p></div>`;
+  $("#inv-prod").innerHTML = summary + rows.map((r, i) => {
     const firstColor = r.colors[0] && r.colors[0].raw;
     const parts = [["Kupno", r.buy, css("--rev")], ["Fracht", r.fr, css("--warn")], ["Wysyłka", r.ship, css("--accent")]].filter(x => x[1] > 0), ptot = parts.reduce((a, x) => a + x[1], 0);
     return `<details class="card s6" ${i === 0 ? "open" : ""}><summary><div style="display:flex;gap:14px;align-items:center">${thumb(r.name, firstColor, 52)}<div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(r.name)}</h3>
       <div class="chips" style="margin-top:6px">${r.sold.length + r.pre.length ? `<span class="pill p-sprzedane">${r.sold.length + r.pre.length} sprzedane</span>` : ""}${r.stock.length ? `<span class="pill p-wystawione">${r.stock.length} na stanie</span>` : ""}${r.inc ? `<span class="pill p-rezerwacja">${r.inc} w drodze z Chin</span>` : ""}</div></div><svg class="i chev"><use href="#i-down"/></svg></div></summary>
       ${r.sold.length ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr))">${big("Śr. cena sprzedaży", zl(r.sell))}${big("Śr. zysk / szt", zl(r.prof / r.sold.length), "pos")}${big("Marża", pct(r.rev ? r.prof / r.rev : null))}</div><div class="small muted" style="margin-top:6px">ROI ${mult(r.costSold ? r.rev / r.costSold : null)} · marża = zysk ÷ cena sprzedaży</div>` : `<p class="small muted" style="margin:16px 0 0">Jeszcze nic nie sprzedane${r.pre.length ? ` (${r.pre.length} presale bez ceny – dopisz cenę w arkuszu)` : ""}.</p>`}
+      ${r.stock.length + r.inc ? `<div class="kv" style="margin-top:18px;grid-template-columns:repeat(3,minmax(0,1fr));padding:14px;border-radius:12px;background:var(--surface2)"><div><div class="l">Towar kupiony za</div><div class="v">${zl(r.buyVal)}</div></div><div><div class="l">Szac. wartość</div><div class="v">${zl(r.estVal)}</div></div><div><div class="l">Potencjalny zysk</div><div class="v ${sgn(r.estVal - r.buyVal)}">${zl(r.estVal - r.buyVal)}</div></div></div>` : ""}
       ${ptot ? `<div style="margin-top:20px"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Koszt jednej sztuki</b></span><b>${zl(r.cost || ptot, 2)}</b></div>
         <div class="stack" style="margin:6px 0 8px">${parts.map(([l, v, c]) => `<i style="width:${v / ptot * 100}%;background:${c}"></i>`).join("")}</div>
         <div class="legend">${parts.map(([l, v, c]) => `<span><i style="background:${c}"></i>${l} ${zl(v, 2)}</span>`).join("")}</div></div>` : ""}
@@ -1872,6 +1912,7 @@ addEventListener("keydown", e => { if (e.key === "Escape" && !$("#chat").hidden)
 /* routing */
 const TITLES = {start: "Dashboard", zadania: "Wszystkie zadania", zrodla: "Źródła dochodu", zrodlo: "Źródło", magazyn: "Magazyn", kako: "Kako", wystaw: "Wystaw", licz: "Przelicznik", okazje: "Okazje", pomysly: "Pomysły"};
 function route() {
+  if ($("#src-links") && !$("#src-links").children.length) renderNav();
   const h = location.hash.slice(1), srcId = h.startsWith("zrodlo-") ? h.slice(7) : null;
   if (h === "start-kako") SRC = "kako"; else if (h === "start" && window.__fromKako) SRC = "all";
   window.__fromKako = h === "start-kako";
@@ -1889,6 +1930,7 @@ function route() {
   window.scrollTo(0, 0);
 }
 addEventListener("hashchange", route);
+addEventListener("pagehide", () => { if (saveTimers.budget) store.save("budget", BUDGET); if (saveTimers.networth) store.save("networth", NW); });
 const setMenu = on => { $("#side-nav").classList.toggle("open", on); $("#scrim").classList.toggle("on", on); $("#menu-btn").setAttribute("aria-expanded", on); };
 $("#menu-btn").onclick = () => setMenu(true); $("#scrim").onclick = () => setMenu(false);
 $("#side-nav").addEventListener("click", e => { if (e.target.closest("a")) setMenu(false); });
@@ -1949,9 +1991,9 @@ renderAll();
   try { [mcp, sample, assetsNS] = await Promise.all([claude.use("mcp"), claude.use("sample"), claude.use("assets")]); } catch {}
   if (mcp) connect();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
-  const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null)]);
+  const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null)]);
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
-  RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
+  applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
   if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
   if (goal && goal[0] != null) { GOAL = +goal[0]; ls.set("kd_goal_10k", GOAL); }
   try { await loadPhotos(); } catch {}
