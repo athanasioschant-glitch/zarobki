@@ -896,7 +896,14 @@ function payState(s) {
 async function setPaid(k, st) { PAID[k] = {s: st, at: new Date().toISOString().slice(0, 10)}; await store.save("paid", PAID); toast(st === "in" ? "Na koncie" : st === "wallet" ? "W portfelu platformy" : "W drodze"); rerender(); }
 const PAY3 = [["pending", "W drodze"], ["wallet", "W portfelu"], ["in", "Na koncie"]];
 const pay3HTML = s => { const st = payState(s).st; return `<div class="tgl" role="group" aria-label="Gdzie są pieniądze">${PAY3.map(([k, l]) => `<button data-pay="${esc(s._k)}" data-st="${k}" data-v="${k === "in" ? 1 : k === "wallet" ? 2 : 0}" aria-pressed="${k === st}">${l}</button>`).join("")}</div>`; };
-function rerender() { const v = location.hash.slice(1) || "start"; if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else renderStart(); }
+function keepView(fn) {
+  const view = [...document.querySelectorAll("section.view")].find(s => !s.hidden), y = scrollY;
+  const open = view ? [...view.querySelectorAll("details")].map((d, i) => d.open ? i : -1).filter(i => i >= 0) : [];
+  fn();
+  if (view) view.querySelectorAll("details").forEach((d, i) => d.open = open.includes(i));
+  scrollTo(0, y);
+}
+function rerender() { const v = location.hash.slice(1) || "start"; keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else renderStart(); }); }
 const payBtn = s => pay3HTML(s);
 const payBtnOld = s => { const p = payState(s); return `<button class="paybtn ${p.st === "in" ? "p-sprzedane" : "p-rezerwacja"}" data-pay="${esc(s._k)}" data-st="${p.st === "in" ? "pending" : "in"}" title="${p.st === "in" ? "Dotknij, jeśli pieniądze jednak nie doszły" : "Dotknij, gdy pieniądze są na koncie"}">${p.st === "in" ? "Na koncie" : "W drodze"}</button>`; };
 const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.pay, b.dataset.st); });
@@ -924,6 +931,8 @@ function orderStatus() {
   return out;
 }
 const incoming = () => orderStatus().filter(x => x.qty > 0);
+const notEntered = () => orderStatus().filter(x => x.arrived > x.auto).map(x => ({...x, qty: x.arrived - x.auto}));
+const notEnteredCost = () => notEntered().reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
 async function setArrived(key, n) { if (n == null) delete ARRIVED[key]; else ARRIVED[key] = n; await store.save("arrived", ARRIVED); toast("Zapisano stan dostawy"); rerender(); }
 
 const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.split("-").reverse().join(".") : null;
@@ -1071,7 +1080,7 @@ function renderStartInner() {
   $("#periods").querySelectorAll("button").forEach(b => b.onclick = () => { period = b.dataset.p; ls.set("kd_period", period); renderStart(); });
   const T = totals(D, period);
   const pk = period !== "all" ? prevKey(period) : null, P = pk && D.months[pk] ? totals(D, pk) : null;
-  const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0);
+  const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0) + notEnteredCost();
   const listedVal = D.unsold.filter(x => x.status === "wystawione").reduce((a, x) => a + x.price, 0);
   const ac = css("--accent"), rv = css("--rev"), fa = css("--faint");
 
@@ -1133,7 +1142,7 @@ function renderStartInner() {
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
   stat("#st-rev", "pct", "a", "ROI", mult(T.cost ? T.rev / T.cost : null), `<span>przychód ÷ koszt sprzedanych · zysk ${pct(T.cost ? T.profit / T.cost : null)}</span>`);
-  stat("#st-roi", "shelf", "w", "W magazynie", D.unsold.length + " szt.", `<span>koszt ${zl(inv)} · wystawione za ${zl(listedVal)}</span>`);
+  stat("#st-roi", "shelf", "w", "W magazynie", (D.unsold.length + notEntered().reduce((a, x) => a + x.qty, 0)) + " szt.", `<span>koszt ${zl(inv)} · wystawione za ${zl(listedVal)}</span>`);
   stat("#st-spent", "spark", "b", "Potencjał magazynu", zl(pot), `<span>${potInc ? "+ ok. " + zl(potInc) + " z towaru w drodze z Chin · " : ""}jeśli sprzedasz wszystko${potEst ? ` (${potEst} szt. po średniej cenie)` : ""} · zysk ok. ${zl(pot - inv)}</span>`);
   stat("#st-stock", "calc", "", "Śr. czas sprzedaży", T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia", `<span>od wystawienia do sprzedaży · ${T.n} szt.</span>`);
 
@@ -1271,7 +1280,7 @@ function renderLife(T) {
 /* net worth */
 let nwEdit = false;
 function renderNetWorth(D, A_, incCost) {
-  const el = $("#networth"), inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0), pend = A_.revPen + A_.revWal;
+  const el = $("#networth"), inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0) + notEnteredCost(), pend = A_.revPen + A_.revWal;
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c)[0]; })();
   const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
   const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = NW.debts.reduce((a, x) => a + (+x.amount || 0), 0) + (owe || 0);
@@ -1419,8 +1428,8 @@ function renderZrodlo(id) {
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>
     ${E.some(o => o.recurring) ? `<div class="card s12" id="recur-src"></div>` : ""}`;
   if (E.some(o => o.recurring)) renderRecurring($("#recur-src"), s.id);
-  bindEntryForm($("#src-page"), () => renderZrodlo(id));
-  bindTgl($("#src-page"), () => renderZrodlo(id));
+  bindEntryForm($("#src-page"), () => keepView(() => renderZrodlo(id)));
+  bindTgl($("#src-page"), () => keepView(() => renderZrodlo(id)));
   const sp = $("#sm-prev"), sn = $("#sm-next");
   if (sp) sp.onclick = () => { srcMonth = addMonths(sel, -1); renderZrodlo(id); };
   if (sn) sn.onclick = () => { srcMonth = addMonths(sel, 1); renderZrodlo(id); };
@@ -1489,7 +1498,7 @@ function estSell(s) {
   return sold.length ? sold.reduce((a, x) => a + x.price, 0) / sold.length : null;
 }
 function renderProducts() {
-  const G = {}, INC = incoming();
+  const G = {}, INC = incoming(), NEp = notEntered();
   M.sales.forEach(s => { (G[s.product.trim()] ||= []).push(s); });
   const big = (l, v, cls = "") => `<div><div class="l">${l}</div><div class="v ${cls}" style="font-size:20px;font-weight:800;letter-spacing:-.02em">${v}</div></div>`;
   const rows = Object.entries(G).map(([name, it]) => {
@@ -1500,7 +1509,8 @@ function renderProducts() {
     const days = sold.filter(s => s.listed && s.sold).map(s => (new Date(s.sold) - new Date(s.listed)) / 864e5);
     const buy = avg(it, s => s.buy), fr = avg(it, s => s.freight), ship = avg(it, s => s.ship), cost = avg(it, s => s.cost);
     const colors = {}; it.forEach(s => { const c = cleanColor(s.color) || "—"; const o = colors[c] ||= {c, raw: s.color, sold: 0, stock: 0, pre: 0, prices: []}; if (s.status === "sprzedane") { o.sold++; o.prices.push(s.price); } else if (s.status === "presale") o.pre++; else if (stock.includes(s)) o.stock++; });
-    const incItems = INC.filter(x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); });
+    const match = x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); };
+    const incItems = [...INC.filter(match), ...NEp.filter(match)];
     const buyVal = stock.reduce((a, s) => a + (s.cost || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
     const estVal = stock.reduce((a, s) => a + (estSell(s) || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
     return {buyVal, estVal, name, it, sold, pre, listed, stock, inc, rev, prof, costSold, days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null, buy, fr, ship, cost,
@@ -1538,7 +1548,7 @@ function renderMagazyn() {
   const all = M.sales, cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
   const val = st => all.filter(s => s.status === st).reduce((a, s) => a + (s.cost || 0), 0);
   const tile = (icon, cls, lab, n, foot, f) => `<div class="stat s3" role="button" tabindex="0" data-tile="${f}" style="cursor:pointer;${invFilter === f ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v">${n} szt.</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", (cnt.sprzedane || 0) + (cnt.presale || 0), (cnt.presale ? `w tym ${cnt.presale} presale bez ceny · ` : "") + "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0), "koszt " + zl(val("magazyn") + val("wycofane")) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
+  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", (cnt.sprzedane || 0) + (cnt.presale || 0), (cnt.presale ? `w tym ${cnt.presale} presale bez ceny · ` : "") + "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
   $("#inv-stats").querySelectorAll("[data-tile]").forEach(el => { const go = () => { invFilter = invFilter === el.dataset.tile ? "all" : el.dataset.tile; renderMagazyn(); $("#inv-seg").scrollIntoView({behavior: "smooth", block: "start"}); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   const incN = INCm.reduce((a, x) => a + x.qty, 0);
   const fl = [["all", "Wszystko", all.length + incN], ...Object.keys(STATUS).filter(k => cnt[k]).map(k => [k, STATUS[k], cnt[k]]), ...(incN ? [["chiny", "W drodze z Chin", incN]] : [])];
@@ -1550,11 +1560,14 @@ function renderMagazyn() {
   const sizeChip = s => `<span class="sz p-${s.status}" title="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
   const incRows = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt${x.sell ? " · plan " + zl(x.sell) + "/szt" : ""}</div>
       <div class="sizes" style="margin-top:8px"><span class="sz p-rezerwacja">w drodze z Chin · ${x.qty} szt.</span></div></div><div class="end"><span class="amt wrn">${x.qty} szt.</span><span class="s">w drodze</span></div></div>`) : [];
+  const NE = notEntered();
+  const neRows = (invFilter === "all" || invFilter === "magazyn") ? NE.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt</div>
+      <div class="sizes" style="margin-top:8px"><span class="sz p-magazyn">dotarło · wpisz do arkusza sprzedaży</span></div></div><div class="end"><span class="amt">${x.qty} szt.</span><span class="s">na stanie</span></div></div>`) : [];
   const prodRows = invFilter === "chiny" ? [] : order.map(([k, items]) => { const [p, c, o] = k.split("|"); const left = items.filter(x => !["sprzedane", "oddane", "presale"].includes(x.status)).length;
     return `<div class="row" style="align-items:flex-start">${thumb(p, items[0].color, 48)}<div class="main"><div class="t">${esc(p)}</div><div class="s">${[c, o === "inne" ? "inne" : "zamówienie " + o].filter(Boolean).map(esc).join(" · ")}</div>
       <div class="sizes" style="margin-top:8px">${items.slice().sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(sizeChip).join("")}</div></div>
       <div class="end"><span class="amt">${left} / ${items.length}</span><span class="s">na stanie</span></div></div>`; });
-  const rows = [...incRows, ...prodRows];
+  const rows = [...incRows, ...neRows, ...prodRows];
   $("#inv-list").innerHTML = rows.length ? `<div class="card s12"><div class="list">${rows.join("")}</div></div>` : `<div class="card s12 empty">Nic w tej grupie.</div>`;
   bindPhotos($("#inv-list"));
 }
@@ -1565,7 +1578,7 @@ function renderKakoNav(where, active) {
   const el = $("#kn-" + where); if (!el) return;
   el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}</button>`).join("")}</div>`;
   el.querySelectorAll("[data-kn]").forEach(b => b.onclick = () => { const h = b.dataset.h; if (h) { location.hash = h; return; } kakoTab = b.dataset.kn; if (location.hash.slice(1) === "kako") renderKako(); else location.hash = "kako"; });
-  const cur = el.querySelector('[aria-pressed="true"]'); if (cur) cur.scrollIntoView({block: "nearest", inline: "center"});
+  const cur = el.querySelector('[aria-pressed="true"]'), seg = el.querySelector(".seg"); if (cur && seg) seg.scrollLeft = cur.offsetLeft - seg.clientWidth / 2 + cur.offsetWidth / 2;
 }
 
 /* KAKO */
@@ -1579,7 +1592,7 @@ function renderKako() {
   const OSk = orderStatus(), INCk = OSk.filter(x => x.qty > 0);
   $("#k-zam").innerHTML = M.orders.slice().reverse().map((o, idx) => {
     const items = M.orderItems[String(o.n)] || [], s = D.ord[o.n] || {soldRev: 0, listedRev: 0, soldN: 0, n: 0, profit: 0};
-    const steps = [["Zamówione", o.orderDateText], ["Wysyłka opłacona", o.shipDate && o.shipDate.split("-").reverse().join(".")], ["Odebrane", o.received]];
+    const steps = [["Zamówione", o.orderDateText], ["Wysyłka opłacona", o.shipDate && o.shipDate.split("-").reverse().join(".")], ["Odebrane", o.received || ((M.orderItems[String(o.n)] || []).length && !INCk.some(x => x.order === o.n) ? "wszystko dotarło" : null)]];
     const inc = INCk.filter(x => x.order === o.n), incQ = inc.reduce((a, x) => a + x.qty, 0), ordQ = items.reduce((a, i) => a + (i.qty || 0), 0);
     const roi = o.spent ? s.soldRev / o.spent : null, roiL = o.spent ? (s.soldRev + s.listedRev) / o.spent : null;
     return `<details class="card s12" ${idx === 0 || idx === M.orders.length - 1 ? "open" : ""}><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${o.n}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(o.name)}</h3><div class="small muted">${zl(o.spent)} · ${o.weight ?? "—"} kg${s.n ? " · sprzedane " + s.soldN + " z " + s.n : ""}</div></div>
@@ -1887,7 +1900,7 @@ function summary() {
   const D = derive(), A_ = totals(D, "all"), now = nowKey(), Tm = totals(D, now);
   const spentAll = M.orders.reduce((a, o) => a + (o.spent || 0), 0) + expand(OTHER).reduce((a, o) => a + (+o.cost || 0), 0);
   const recCost = M.sales.filter(s => ["sprzedane", "oddane", "presale"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
-  const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0);
+  const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0) + notEnteredCost();
   const r = v => v == null ? null : Math.round(v);
   const prods = {}; M.sales.forEach(s => { const p = prods[s.product] ||= {sprzedane: 0, na_stanie: 0, przychod: 0, zysk: 0, ceny_sprzedazy: [], koszt_szt: []}; if (s.status === "sprzedane") { p.sprzedane++; p.przychod += s.price; p.zysk += s.profit; p.ceny_sprzedazy.push(r(s.price)); } else if (["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status)) p.na_stanie++; if (s.cost) p.koszt_szt.push(r(s.cost)); });
   Object.values(prods).forEach(p => { p.przychod = r(p.przychod); p.zysk = r(p.zysk); p.sr_koszt = p.koszt_szt.length ? r(p.koszt_szt.reduce((a, b) => a + b, 0) / p.koszt_szt.length) : null; delete p.koszt_szt; });
