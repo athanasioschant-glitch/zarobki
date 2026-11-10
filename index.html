@@ -414,7 +414,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:57</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:07</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1439,7 +1439,7 @@ function renderDebts() {
   const el = $("#debts"), L = debtsList(), open = L.filter(d => !d.paid), sum = open.reduce((a, d) => a + d.amount, 0);
   el.innerHTML = `<div class="ch"><div><h3>Do oddania</h3><div class="sub">${open.length} pozycji · razem <b style="color:var(--loss)">${zl(sum)}</b></div></div><button class="sm" id="debt-add">${svg("plus", 14)}Dodaj</button></div>
     <form id="debt-form" class="form" hidden style="margin-bottom:12px"><label>Komu<input name="name" required placeholder="np. imię"></label><label>Kwota (zł)<input name="amount" type="number" step="0.01" inputmode="decimal" required></label><label class="full">Za co<input name="note" placeholder="opcjonalnie"></label><div class="full actions"><button class="primary" type="submit">Zapisz</button><button type="button" class="ghost" id="debt-cancel">Anuluj</button></div></form>
-    <div class="list">${L.map(d => `<div class="row"><div class="main"><div class="t" style="${d.paid ? "text-decoration:line-through;color:var(--faint)" : ""}">${esc(d.name)}</div><div class="s">${esc(d.note)}${d.auto ? (d.note ? " · " : "") + "liczy się samo" : ""}</div></div><span class="amt ${d.paid ? "muted" : "neg"}">${zl(d.amount, 2)}</span>
+    <div class="list">${L.map(d => `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 140px;min-width:120px"><div class="t" style="${d.paid ? "text-decoration:line-through;color:var(--faint)" : ""}">${esc(d.name)}</div><div class="s">${esc(d.note)}${d.auto ? (d.note ? " · " : "") + "liczy się samo" : ""}</div></div><span class="amt ${d.paid ? "muted" : "neg"}">${zl(d.amount, 2)}</span>
       <div class="tgl" role="group" aria-label="Czy oddane"><button data-dpaid="${esc(d.id)}" data-v="0" aria-pressed="${!d.paid}">Do oddania</button><button data-dpaid="${esc(d.id)}" data-v="1" aria-pressed="${d.paid}">Oddane</button></div>
       ${d.auto ? "" : `<button class="iconbtn flat" data-ddel2="${esc(d.id)}" aria-label="Usuń">${svg("x", 15)}</button>`}</div>`).join("") || `<div class="empty" style="padding:12px">Nic do oddania.</div>`}</div>`;
   const save = async () => { await store.save("networth", NW); keepView(renderStart); };
@@ -1455,13 +1455,21 @@ function renderNetWorth(D, A_, incCost) {
   const owe = partner ? (Object.values(M.summaries).flat().find(([l]) => /^DO\s/i.test(l) && l.toUpperCase().includes(partner.slice(0, 4).toUpperCase())) || [])[1] : null;
   const cash = NW.assets.reduce((a, x) => a + (+x.amount || 0), 0), debts = debtsList().filter(d => !d.paid).reduce((a, d) => a + d.amount, 0);
   const total = cash + inv + incCost + pend - debts;
-  const parts = [["Na kontach i w gotówce", cash, css("--accent")], ["Towar w magazynie", inv, css("--rev")], ["Towar w drodze z Chin", incCost, css("--warn")], ["Pieniądze i wpływy w drodze", pend, css("--good")]];
+  const ev = (q, x) => q * (x.sell || x.unitCost || 0);
+  const invEst = D.unsold.reduce((a, x) => a + (estSell(x) || x.cost || 0), 0) + notEntered().reduce((a, x) => a + ev(x.qty, x), 0), incEst = incoming().reduce((a, x) => a + ev(x.qty, x), 0);
+  const potential = cash + invEst + incEst + pend - debts;
+  const parts = [["Na kontach i w gotówce", cash, css("--accent"), "od ręki"], ["Pieniądze w drodze", A_.revPen, css("--warn"), "sprzedane, czekasz na przelew"], ["Zamrożone (portfel Vinted)", A_.revWal, "#b18cff", "do wypłacenia z platformy"], ["Towar w magazynie", inv, css("--rev"), `kupione za ${zl(inv)} · sprzeda się za ok. ${zl(invEst)}`], ["Towar w drodze z Chin", incCost, css("--good"), `kupione za ${zl(incCost)} · sprzeda się za ok. ${zl(incEst)}`]];
   const ps = Math.max(1, parts.reduce((a, x) => a + Math.max(0, x[1]), 0));
   el.innerHTML = `<div class="ch"><div><h3>Majątek netto</h3><div class="sub">Wszystko, co masz, minus to, co jesteś winien</div></div><button class="sm" id="nw-edit">${nwEdit ? "Gotowe" : "Salda kont"}</button></div>
-    <div class="bigv" style="font-size:36px">${zl(total)}</div>
+    <div class="kv" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:4px">
+      <div><div class="l">Teraz · towar po cenie zakupu</div><div class="bigv" style="font-size:32px">${zl(total)}</div></div>
+      <div><div class="l">Potencjalnie · gdy sprzedasz cały towar</div><div class="bigv" style="font-size:32px;color:var(--accent)">${zl(potential)}</div><div class="small muted">+${zl(potential - total)} niezrealizowanego zysku z towaru</div></div>
+      <div><div class="l">Wolne pieniądze · od ręki minus długi</div><div class="bigv ${cash - debts < 0 ? "neg" : ""}" style="font-size:32px">${zl(cash - debts)}</div></div>
+    </div>
     <div class="stack" style="margin:14px 0 12px">${parts.map(([l, v, c]) => v > 0 ? `<i style="width:${v / ps * 100}%;background:${c}"></i>` : "").join("")}</div>
-    <div class="list">${parts.map(([l, v, c]) => `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span><div class="main"><div class="t" style="font-weight:500">${l}</div></div><span class="amt">${zl(v)}</span></div>`).join("")}
+    <div class="list">${parts.map(([l, v, c, s]) => `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span><div class="main"><div class="t" style="font-weight:500">${l}</div><div class="s">${s}</div></div><span class="amt">${zl(v)}</span></div>`).join("")}
       <div class="row"><span style="width:10px;height:10px;border-radius:50%;background:var(--loss);flex:none"></span><div class="main"><div class="t" style="font-weight:500">Do oddania</div><div class="s">${debtsList().filter(d => !d.paid).map(d => d.name + " " + zl(d.amount)).join(" · ") || "nic"} · szczegóły w „Do oddania”</div></div><span class="amt neg">−${zl(debts)}</span></div></div>
+    <p class="note">Część zysku wkładasz w kolejne zamówienia – to w porządku: te pieniądze nie znikają, tylko zamieniają się w towar (wiersze „Towar”). „Teraz” liczy towar po tym, ile za niego zapłaciłeś, „Potencjalnie” – po cenie, za którą się sprzeda.</p>
     ${nwEdit ? `<div class="small muted" style="font-weight:600;margin:16px 0 8px">Konta i gotówka</div>${NW.assets.map((x, i) => `<div class="row"><input data-an="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Nazwa konta"><input data-aa="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Saldo"><button class="iconbtn flat" data-adel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
       <button class="sm" id="nw-add-a" style="margin-top:8px">${svg("plus", 14)}Dodaj konto</button>
       <div class="small muted" style="font-weight:600;margin:16px 0 8px">Długi i zobowiązania</div>${NW.debts.map((x, i) => `<div class="row"><input data-dn="${i}" value="${esc(x.name)}" style="flex:1" aria-label="Komu"><input data-da="${i}" type="number" inputmode="decimal" value="${+x.amount || 0}" style="width:120px" aria-label="Kwota"><button class="iconbtn flat" data-ddel="${i}" aria-label="Usuń">${svg("x", 15)}</button></div>`).join("")}
