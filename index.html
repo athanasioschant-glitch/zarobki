@@ -130,6 +130,7 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .seg::-webkit-scrollbar{display:none}
 .seg button{background:transparent;color:var(--muted);height:32px;border-radius:9px;padding:0 12px;font-weight:600;font-size:12.5px;flex:none}
 .seg button[aria-pressed="true"]{background:var(--surface2);color:var(--fg);box-shadow:0 0 0 1px var(--line2)}
+.seg.in button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .seg.in{box-shadow:none;background:var(--surface2)} .seg.in button[aria-pressed="true"]{background:var(--surface)}
 .pills{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;max-width:100%;padding:2px}
 .pills::-webkit-scrollbar{display:none}
@@ -139,6 +140,7 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 
 /* grid */
 .dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (min-width:1000px){.dash{gap:20px}}
 .dash>*{grid-column:1/-1}
 .dash>.stat{grid-column:auto}
 @media (min-width:1000px){
@@ -168,10 +170,11 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .gauge .gv{position:absolute;left:0;right:0;bottom:2px;text-align:center}
 .gauge .gv b{display:block;font:800 30px/1 var(--f);letter-spacing:-.03em}
 .gauge .gv span{font-size:12px;color:var(--muted)}
-.hsplit{display:grid;grid-template-columns:1fr;gap:6px;font-size:13px;color:var(--muted)}
+.hsplit{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12.5px;color:var(--muted)}
 @media(min-width:700px){.hsplit{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
-.hsplit .hs b{margin-left:auto}
-.hsplit .hs{display:flex;align-items:center;gap:8px;font:inherit;color:var(--muted);text-align:left;width:100%;height:auto;padding:2px 0}
+.hsplit .hs b{grid-column:1/-1;margin:2px 0 0;font-size:19px;letter-spacing:-.01em}.hsplit .hs svg{position:absolute;top:13px;right:12px;opacity:.6}
+.hsplit .hs{position:relative;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 8px;font:inherit;color:var(--muted);text-align:left;width:100%;height:auto;padding:12px 14px;border-radius:14px;background:var(--surface2)}
+.hsplit button.hs:hover{box-shadow:inset 0 0 0 1px var(--line)}
 .hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
 .hsplit i{width:8px;height:8px;border-radius:50%;flex:none}
 .splitrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
@@ -418,7 +421,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:28</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:33</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1907,12 +1910,16 @@ function renderKako() {
   { const P = M.sales.filter(s => s.partner), who = P[0] && P[0].partner;
     const soldP = P.filter(s => s.status === "sprzedane"), stockP = P.filter(s => s.status !== "sprzedane");
     const cost = P.reduce((a, s) => a + (s.cost || 0), 0), rev = soldP.reduce((a, s) => a + s.price, 0), prof = soldP.reduce((a, s) => a + s.profit, 0);
-    const k = (l, v, cls = "") => `<div><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
-    $("#k-wsp").innerHTML = who ? `<div class="card s12"><div class="ch"><div><h3>Wspólne: ${esc(who)}</h3><div class="sub">Produkty z dopiskiem „- ${esc(who)}”. Koszt i zysk dzielicie po połowie.</div></div>${ic("user", "b")}</div>
-      <div class="kv">${k("Wspólnie zainwestowane", zl(cost))}${k("Wkład " + esc(who), `${zl(NW.wklad != null ? NW.wklad : cost / 2, 2)} <button class="link small" id="wk-edit">Zmień</button>`)}${k("Przychód ze sprzedanych", zl(rev))}${k("Zysk razem", zl(prof), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2), "pos")}${k("Zysk " + esc(who) + " (½)", zl(prof / 2))}${k("Do oddania " + esc(who), zl(rev / 2), "wrn")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
+    const wk = NW.wklad != null ? NW.wklad : cost / 2, myWk = cost - wk, soldCost = soldP.reduce((a, s) => a + (s.cost || 0), 0);
+    const pOf = s => s.status === "sprzedane" ? s.price : (estSell(s) || 0), roiL = P.filter(s => s.cost && pOf(s)).map(s => pOf(s) / s.cost), avgRoi = roiL.length ? roiL.reduce((a, b) => a + b, 0) / roiL.length : null;
+    const stockEst = stockP.reduce((a, s) => a + pOf(s), 0), profAll = rev + stockEst - cost, oweNow = wk + prof / 2, oweAll = wk + profAll / 2;
+    const k = (l, v, cls = "", sub = "") => `<div><div class="l">${l}</div><div class="v ${cls}">${v}</div>${sub ? `<div class="small muted" style="margin-top:2px">${sub}</div>` : ""}</div>`;
+    $("#k-wsp").innerHTML = who ? `<div class="card s12"><div class="ch"><div><h3>Wspólne: ${esc(who)}</h3><div class="sub">${P.length} rzeczy z dopiskiem „- ${esc(who)}”. Każdy dostaje z powrotem swój wkład, zysk dzielicie po połowie.</div></div>${ic("user", "b")}</div>
+      <div class="kv">${k("Do oddania " + esc(who) + " teraz", zl(oweNow, 2), "wrn", `wkład ${zl(wk, 2)} + ½ zysku ze sprzedanych ${zl(prof / 2, 2)}`)}${k("Gdy sprzedasz resztę", zl(oweAll, 2), "", stockP.length ? `${stockP.length} szt. za ok. ${zl(stockEst)}` : "wszystko sprzedane")}${k("Średni ROI", mult(avgRoi), "pos", "średnia z " + roiL.length + " rzeczy (cena ÷ koszt)")}</div>
+      <div class="kv" style="margin-top:14px">${k("Wspólnie zainwestowane", zl(cost, 2))}${k("Wkład " + esc(who), `${zl(wk, 2)} <button class="link small" id="wk-edit">Zmień</button>`)}${k("Twój wkład", zl(myWk, 2))}${k("Przychód ze sprzedanych", zl(rev, 2))}${k("Zysk ze sprzedanych", zl(prof, 2), sgn(prof))}${k("Twój zysk (½)", zl(prof / 2, 2), "pos")}${k("Sztuk sprzedanych", soldP.length + " z " + P.length)}</div>
       ${pSum.length ? `<div class="small muted" style="font-weight:600;margin:18px 0 8px">Z arkusza (${esc(pSheet)})</div><div class="kv">${pSum.map(([l, v]) => k(esc(cap(l.toLowerCase())), zl(v, 2))).join("")}</div>` : ""}
       <form id="wk-form" class="actions" hidden style="margin-top:12px"><input id="wk-in" type="number" step="0.01" inputmode="decimal" value="${NW.wklad != null ? NW.wklad : (cost / 2).toFixed(2)}" aria-label="Wkład wspólnika" style="width:140px"><button class="primary sm" type="submit">Zapisz wkład</button><span class="small muted">puste = połowa kosztów (${zl(cost / 2, 2)})</span></form>
-      <p class="note">„Do oddania” = jego połowa przychodu ze sprzedanych (zwrot wkładu + połowa zysku). Kwota z arkusza może się różnić, jeśli część już mu przekazałeś.</p></div>
+      <p class="note">„Do oddania teraz” = jego wkład + połowa zysku z tego, co już sprzedane. Kwota z arkusza może się różnić, jeśli część już mu przekazałeś albo arkusz liczy inaczej (np. połowę kosztów zamiast wkładu).</p></div>
       <div class="card s12"><div class="ch"><div><h3>Produkty wspólne</h3><div class="sub">${P.length} szt.</div></div></div><div class="list">${P.map(s => drow(`<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), s.platform && s.platform + " · " + (s.account || "konto główne"), s.sheetStatus].filter(Boolean).map(esc).join(" · ")}</div></div><div class="end"><span class="pill p-${s.status}">${STATUS[s.status]}</span><span class="amt">${s.status === "sprzedane" ? "zysk " + zl(s.profit / 2) + " / " + zl(s.profit) : "koszt ½ " + zl((s.cost || 0) / 2)}</span></div></div>`, s)).join("")}</div></div>` : `<div class="card s12 empty">Brak produktów wspólnych (z dopiskiem „- Imię” w nazwie produktu).</div>`; }
 
   { const we = $("#wk-edit"), wf = $("#wk-form"); if (we && wf) { we.onclick = () => { wf.hidden = !wf.hidden; }; wf.onsubmit = async e => { e.preventDefault(); const v = $("#wk-in").value.trim(); NW.wklad = v === "" ? null : Math.max(0, +v || 0); await store.save("networth", NW); toast("Wkład zapisany"); keepView(renderKako); }; } }
