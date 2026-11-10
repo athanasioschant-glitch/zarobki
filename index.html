@@ -413,7 +413,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:03</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 20:11</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -456,6 +456,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
       <div class="card s6" id="recur" hidden></div>
       <div class="card s6" id="debts"></div>
       <div class="card s12" id="networth"></div>
+      <div class="card s12" id="hist"></div>
     </div>
   </section>
 
@@ -884,7 +885,7 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 const prevKey = k => { const [y, m] = k.split("-").map(Number); return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7); };
 const nowKey = () => new Date().toISOString().slice(0, 7);
 const YEAR = String(new Date().getFullYear());
-let toastT; const toast = t => { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1800); };
+let toastT; const toast = t => { try { const g = HIST.list[0]; if (HIST.on && g && !g.label && Date.now() - g.t < 4000 && !/…$/.test(t)) { g.label = t; histSave(); } } catch {} const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1800); };
 
 let PAID = {}, showPaid = false, heroMode = ls.get("kd_hero", "zysk");
 let M = SNAPSHOT, OTHER = [], SEARCHES = [], GROUPS = [], TX = [], ACCS = {}, GOAL = ls.get("kd_goal_10k", 10000);
@@ -898,12 +899,46 @@ const store = (() => {
   let ref = null; const ready = (async () => {
     try { const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]); if (db && user) { const id = await user.id(); if (id) ref = k => db.collection("data/users/" + id).doc(k); } } catch {}
   })();
-  return {
-    // db snapshots are frozen – return a plain editable copy, otherwise later changes are silently lost
+  const raw = {
     async load(k, d) { await ready; if (ref) { try { const s = await ref(k).get(); if (s.exists) { const v = s.data().items; return v == null ? v : JSON.parse(JSON.stringify(v)); } } catch {} } return ls.get("kd_" + k, d); },
     async save(k, items) { ls.set("kd_" + k, items); await ready; if (ref) { try { await ref(k).set({items}); } catch (e) { console.warn("db", e); } } }
   };
+  return {
+    // db snapshots are frozen – return a plain editable copy, otherwise later changes are silently lost
+    async load(k, d) { const v = await raw.load(k, d); if (!(k in LAST)) LAST[k] = JSON.stringify(v === undefined ? null : v); return v; },
+    async save(k, items) { const now = JSON.stringify(items === undefined ? null : items); if (HIST.on && !HIST_SKIP.test(k) && k in LAST && LAST[k] !== now) histLog(k, LAST[k]); LAST[k] = now; return raw.save(k, items); },
+    raw: null
+  };
 })();
+store.raw = null;
+/* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
+const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage)/, LAST = {}, HIST = {on: false, list: [], timer: null};
+const KEY_LAB = {income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
+const curSrc = () => { const h = location.hash.slice(1) || "start"; if (h.startsWith("zrodlo-")) return h.slice(7); if (/^(kako|magazyn|start-kako|wystaw)$/.test(h)) return "kako"; if (h === "start") return SRC; return "all"; };
+function histGroup() { const g = HIST.list[0]; if (g && !g.done && Date.now() - g.t < 1500) return g; const n = {id: uid(), t: Date.now(), at: new Date().toISOString(), src: curSrc(), label: "", ch: [], sheet: []}; HIST.list.unshift(n); HIST.list = HIST.list.slice(0, 40); return n; }
+function histLog(k, before) { const g = histGroup(); if (!g.ch.some(c => c.k === k)) g.ch.push({k, b: before}); histSave(); }
+function histSheet(x) { const g = histGroup(); g.sheet.push(x); histSave(); }
+function histSave() { clearTimeout(HIST.timer); HIST.timer = setTimeout(() => store.save("history", HIST.list), 1200); }
+const histWant = s => /zako[nń]czon/i.test(s) ? "in" : /portfel/i.test(s) ? "wallet" : /pieni[aą]dze w drodze/i.test(s) ? "paying" : /wys[łl]an/i.test(s) ? "shipped" : null;
+function histHTML(src) {
+  const L = HIST.list.filter(g => (src === "all" || g.src === src) && (g.ch.length || g.sheet.length)).slice(0, 8);
+  const when = iso => { const d = new Date(iso); return dShort(iso.slice(0, 10)) + ", " + d.toTimeString().slice(0, 5); };
+  return `<div class="ch"><div><h3>Ostatnie zmiany</h3><div class="sub">Coś kliknięte przez przypadek? Cofnij.</div></div>${ic("check", "")}</div>
+    <div class="list">${L.map(g => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(g.label || "Zmiana")}</div><div class="s">${esc(when(g.at))} · ${esc([...g.ch.map(c => KEY_LAB[c.k] || c.k), ...(g.sheet.length ? ["STATUS w arkuszu"] : [])].join(", "))}</div></div><button class="sm" data-undo="${g.id}">Cofnij</button></div>`).join("") || `<div class="empty">Na razie bez zmian.</div>`}</div>`;
+}
+async function undoGroup(id) {
+  const i = HIST.list.findIndex(g => g.id === id); if (i < 0) return;
+  const g = HIST.list[i], keys = new Set(g.ch.map(c => c.k));
+  const newer = HIST.list.slice(0, i).filter(x => x.ch.some(c => keys.has(c.k)));
+  if (!confirm(newer.length ? `Cofnąć „${g.label || "zmianę"}”? To cofnie też ${newer.length} późniejsz${newer.length === 1 ? "ą zmianę" : "e zmiany"} tych samych danych.` : `Cofnąć „${g.label || "zmianę"}”?`)) return;
+  const all = [...newer, g];
+  HIST.on = false; toast("Cofam…");
+  for (const x of all) for (const s of x.sheet.slice().reverse()) { const w = histWant(s.old || ""); if (w && window.KD_SHEET) { try { await window.KD_SHEET.setStatus({sheet: s.sheet, row: s.row, product: s.product, want: w}); } catch {} } }
+  for (const c of g.ch) await store.save(c.k, JSON.parse(c.b));
+  HIST.list = HIST.list.filter(x => !all.includes(x)); await store.save("history", HIST.list);
+  toast("Cofnięte"); setTimeout(() => location.reload(), 500);
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-undo]"); if (b) { e.preventDefault(); undoGroup(b.dataset.undo); } });
 const saveTimers = {};
 const autosave = (k, getter) => { clearTimeout(saveTimers[k]); saveTimers[k] = setTimeout(() => store.save(k, getter()), 600); };
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -931,7 +966,7 @@ async function setPaid(k, st) {
     try {
       toast("Zapisuję w arkuszu…");
       const j = await window.KD_SHEET.setStatus({sheet: s.sheet, row: s.row, product: s.rawProduct || s.product, want: st});
-      s.sheetStatus = j.value; s.sheetPay = base; s.sheetStage = st === "paying" ? "paying" : st === "shipped" ? "shipped" : null;
+      histSheet({sheet: s.sheet, row: s.row, product: s.rawProduct || s.product, old: j.old}); s.sheetStatus = j.value; s.sheetPay = base; s.sheetStage = st === "paying" ? "paying" : st === "shipped" ? "shipped" : null;
       if (PAID[k]) { delete PAID[k]; await store.save("paid", PAID); }
       toast(PAY_LAB[st] + " · zapisane w arkuszu"); rerender(); return;
     } catch (e) { toast("Nie zapisałem w arkuszu: " + (e && e.message || "błąd") + ". Zapisuję tylko tutaj."); }
@@ -1038,6 +1073,7 @@ const accKey = (p, a) => p + "|" + (a || "główne");
 function accounts() {
   const A = {};
   const add = (p, a, amount, date, ext) => { if (!p || p === "Prywatnie") return; const k = accKey(p, a); const x = A[k] ||= {key: k, platform: p, account: a || "główne", rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; x.all += amount; x.allN++; if (!date || date.slice(0, 4) === YEAR) { x.rev += amount; x.n++; if (ext) { x.nExt++; x.revExt += amount; } } };
+  M.sales.filter(s => s.status === "presale").forEach(s => add(s.platform, s.account, s.price || 0, s.sold));
   M.sales.filter(s => s.status === "sprzedane").forEach(s => { add(s.platform, s.account, s.price, s.sold); if (s.platform && s.platform !== "Prywatnie" && payState(s).st !== "in") A[accKey(s.platform, s.account)].pend += s.price; });
   TX.forEach(t => add(t.platform, t.account, +t.amount || 0, t.date, t.mine === false));
   Object.keys(ACCS).forEach(k => { if (!A[k]) { const [p, a] = k.split("|"); A[k] = {key: k, platform: p, account: a, rev: 0, n: 0, all: 0, allN: 0, pend: 0, nExt: 0, revExt: 0}; } });
@@ -1200,6 +1236,7 @@ function renderStartInner() {
   const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; keepView(renderStart); };
   const gt = $("#go-transit"); if (gt) gt.onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
   renderTransit(D);
+  $("#hist").innerHTML = histHTML(SRC);
   if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
   const avgSell = {}; D.sold.forEach(s => { const k = s.product; (avgSell[k] ||= []).push(s.price); });
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
@@ -1549,7 +1586,8 @@ function renderZrodlo(id) {
   $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3><div class="sub">${E.length} wpisów · przychody i koszty z opisem</div></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
       <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
-    <div class="card s5 todo-box">${todoHTML(s.id)}</div>`;
+    <div class="card s5 todo-box">${todoHTML(s.id)}</div>
+    <div class="card s12">${histHTML(s.id)}</div>`;
   bindEntryForm($("#src-page"), () => keepView(() => renderZrodlo(id)));
   bindTgl($("#src-page"), () => keepView(() => renderZrodlo(id)));
   const sp = $("#sm-prev"), sn = $("#sm-next");
@@ -2233,6 +2271,7 @@ renderAll();
   try { await loadPhotos(); } catch {}
   
   if (!TODOS.__v2) { (TODOS.kako ||= []).push({id: uid(), text: "Ogarnąć powiadomienia z OLX i innych platform sprzedażowych przy kilku kontach naraz", done: false}); TODOS.__v2 = true; store.save("todos", TODOS); }
+  HIST.list = (await store.load("history", [])) || []; HIST.on = true;
   renderAll();
 })();
 </script>
