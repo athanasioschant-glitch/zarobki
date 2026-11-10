@@ -962,7 +962,7 @@ function derive() {
   M.orders.forEach(o => { if (o.items) bump(o.orderDate && o.orderDate.slice(0, 7), "spent", o.items); if (o.ship) bump((o.shipDate || o.orderDate || "").slice(0, 7) || null, "spent", o.ship); });
   expand(OTHER).forEach(o => { bump(o.month, "rev", +o.rev || 0); bump(o.month, "profit", (+o.rev || 0) - (+o.cost || 0)); bump(o.month, "spent", +o.cost || 0); });
   const ord = {};
-  M.sales.forEach(s => { if (s.order == null) return; const o = ord[s.order] ||= {soldRev: 0, listedRev: 0, soldN: 0, n: 0, profit: 0}; o.n++; if (s.status === "sprzedane") { o.soldRev += s.price; o.soldN++; o.profit += s.profit; } if (s.status === "wystawione") o.listedRev += s.price; if (s.status === "oddane") o.profit += s.profit; });
+  M.sales.forEach(s => { if (s.order == null) return; const o = ord[s.order] ||= {soldRev: 0, listedRev: 0, soldN: 0, n: 0, profit: 0, soldCost: 0}; o.n++; if (s.status === "sprzedane") { o.soldRev += s.price; o.soldCost += s.cost || 0; o.soldN++; o.profit += s.profit; } if (s.status === "wystawione") o.listedRev += s.price; if (s.status === "oddane") o.profit += s.profit; });
   return {sold, gone, unsold, months, ord, keys: Object.keys(months).sort()};
 }
 function totals(D, p) {
@@ -1587,24 +1587,24 @@ function renderKako() {
   const D = derive(), T = totals(D, "all");
   const spent = M.orders.reduce((a, o) => a + (o.spent || 0), 0), w = M.orders.reduce((a, o) => a + (o.weight || 0), 0);
   const st = (icon, cls, lab, v, foot, vcls = "") => `<div class="stat s3"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vcls}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#kako-stats").innerHTML = st("trend", "a", "Zysk Kako", zl(T.kProfit), "ze sprzedanych rzeczy", sgn(T.kProfit)) + st("cart", "", "Wydane", zl(spent), `${M.orders.length} zamówienia · ${w.toFixed(1).replace(".", ",")} kg`) + st("pct", "b", "Zwrot (ROI)", mult(spent ? T.kRev / spent : null), "przychód ÷ wszystko wydane") + st("box", "w", "Śr. wysyłka", zl(w ? M.orders.reduce((a, o) => a + (o.ship || 0), 0) / w : null, 2), "za kilogram");
+  $("#kako-stats").innerHTML = st("trend", "a", "Zysk Kako", zl(T.kProfit), "ze sprzedanych rzeczy", sgn(T.kProfit)) + st("cart", "", "Wydane", zl(spent), `${M.orders.length} zamówienia · ${w.toFixed(1).replace(".", ",")} kg`) + st("pct", "b", "ROI sprzedanych", mult(T.kCost ? T.kRev / T.kCost : null), "przychód ÷ koszt sprzedanych sztuk") + st("box", "w", "Śr. wysyłka", zl(w ? M.orders.reduce((a, o) => a + (o.ship || 0), 0) / w : null, 2), "za kilogram");
 
   const OSk = orderStatus(), INCk = OSk.filter(x => x.qty > 0);
   $("#k-zam").innerHTML = M.orders.slice().reverse().map((o, idx) => {
     const items = M.orderItems[String(o.n)] || [], s = D.ord[o.n] || {soldRev: 0, listedRev: 0, soldN: 0, n: 0, profit: 0};
     const steps = [["Zamówione", o.orderDateText], ["Wysyłka opłacona", o.shipDate && o.shipDate.split("-").reverse().join(".")], ["Odebrane", o.received || ((M.orderItems[String(o.n)] || []).length && !INCk.some(x => x.order === o.n) ? "wszystko dotarło" : null)]];
     const inc = INCk.filter(x => x.order === o.n), incQ = inc.reduce((a, x) => a + x.qty, 0), ordQ = items.reduce((a, i) => a + (i.qty || 0), 0);
-    const roi = o.spent ? s.soldRev / o.spent : null, roiL = o.spent ? (s.soldRev + s.listedRev) / o.spent : null;
-    return `<details class="card s12" ${idx === 0 || idx === M.orders.length - 1 ? "open" : ""}><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${o.n}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(o.name)}</h3><div class="small muted">${zl(o.spent)} · ${o.weight ?? "—"} kg${s.n ? " · sprzedane " + s.soldN + " z " + s.n : ""}</div></div>
+    const roi = s.soldCost ? s.soldRev / s.soldCost : null, roiL = null;
+    return `<details class="card s12" ${idx === 0 || idx === M.orders.length - 1 ? "open" : ""}><summary><div style="display:flex;gap:12px;align-items:center"><div class="av">${o.n}</div><div style="flex:1;min-width:0"><h3 style="margin:0;font-size:15px">${esc(o.name)}</h3><div class="small muted">${zl(o.spent)} · ${o.weight ?? "—"} kg${(ordQ || s.n) ? " · sprzedane " + s.soldN + " z " + Math.max(ordQ, s.n) : ""}</div></div>
       <span class="pill ${incQ && incQ === ordQ ? "p-rezerwacja" : incQ ? "p-rezerwacja" : s.soldN && s.soldN === s.n ? "p-sprzedane" : s.soldN ? "p-wystawione" : "p-magazyn"}">${incQ && incQ === ordQ ? "W drodze z Chin" : incQ ? "Część w drodze" : s.soldN && s.soldN === s.n ? "Wyprzedane" : s.soldN ? "Sprzedaje się" : "W magazynie"}</span><svg class="i chev"><use href="#i-down"/></svg></div>
       <div class="steps">${steps.map(([l, v]) => `<span class="step ${v ? "done" : ""}"><b>${l}</b>${v ? esc(/^\d{4}-/.test(v) ? v.split("-").reverse().join(".") : v) : "—"}</span>`).join("")}</div></summary>
       ${ordQ ? `<div style="margin-top:18px"><div class="mline" style="padding-top:0"><span>Dotarło do Ciebie</span><b>${ordQ - incQ} z ${ordQ} szt.</b></div><div class="bar ${incQ ? "w" : ""}"><i style="width:${(ordQ - incQ) / ordQ * 100}%"></i></div>
-        <div class="list" style="margin-top:12px">${OSk.filter(x => x.order === o.n).map(x => `<div class="row arr"><div class="main"><div class="t" style="font-weight:500;font-size:13.5px">${esc(x.product)}</div><div class="s">${x.qty ? `<span style="color:var(--warn)">${x.qty} szt. w drodze</span>` : `<span class="pos">wszystko dotarło</span>`} · ${x.manual ? "zaznaczone ręcznie" : "wg arkusza sprzedaży"}</div></div>
-          <div class="actions" style="flex:none;gap:6px"><button class="sm" data-arr="${esc(x.key)}" data-n="${x.arrived - 1}" ${x.arrived <= 0 ? "disabled" : ""} aria-label="Mniej sztuk dotarło">−</button><b class="amt" style="min-width:46px;text-align:center">${x.arrived}/${x.ordered}</b><button class="sm" data-arr="${esc(x.key)}" data-n="${x.arrived + 1}" ${x.arrived >= x.ordered ? "disabled" : ""} aria-label="Więcej sztuk dotarło">+</button>${x.qty ? `<button class="sm primary" data-arr="${esc(x.key)}" data-n="${x.ordered}">Dotarło</button>` : x.manual ? `<button class="sm ghost" data-arr="${esc(x.key)}" data-n="">Auto</button>` : ""}</div></div>`).join("")}</div></div>` : ""}
+        <div class="list" style="margin-top:12px">${OSk.filter(x => x.order === o.n).map(x => `<div class="row arr"><div class="main"><div class="t" style="font-weight:500;font-size:13.5px">${esc(x.product)}</div><div class="s">${x.qty ? `<span style="color:var(--warn)">${x.qty} szt. w drodze</span>` : `<span class="pos">wszystko dotarło</span>`}</div></div>
+          <div class="actions" style="flex:none;gap:6px"><button class="sm" data-arr="${esc(x.key)}" data-n="${x.arrived - 1}" ${x.arrived <= 0 ? "disabled" : ""} aria-label="Mniej sztuk dotarło">−</button><b class="amt" style="min-width:46px;text-align:center">${x.arrived}/${x.ordered}</b><button class="sm" data-arr="${esc(x.key)}" data-n="${x.arrived + 1}" ${x.arrived >= x.ordered ? "disabled" : ""} aria-label="Więcej sztuk dotarło">+</button>${x.qty ? `<button class="sm primary" data-arr="${esc(x.key)}" data-n="${x.ordered}">Dotarło</button>` : ""}</div></div>`).join("")}</div></div>` : ""}
       <div class="kv" style="margin-top:20px">
         <div><div class="l">Wydane łącznie</div><div class="v">${zl(o.spent, 2)}</div></div>
         <div><div class="l">Przychód ze sprzedanych</div><div class="v">${zl(s.soldRev, 2)}</div></div>
-        <div><div class="l">Zwrot (ROI)</div><div class="v ${roi >= 1 ? "pos" : ""}">${mult(roi)}${s.listedRev ? `<span class="small muted" style="font-weight:500"> · ${mult(roiL)} z wystawionymi</span>` : ""}</div></div>
+        <div><div class="l">ROI sprzedanych</div><div class="v ${roi >= 1 ? "pos" : ""}">${mult(roi)}</div></div>
         <div><div class="l">Zysk ze sprzedanych</div><div class="v ${sgn(s.profit)}">${zl(s.profit, 2)}</div></div>
         <div><div class="l">Na plusie / minusie</div><div class="v ${sgn(s.soldRev - o.spent)}">${zl(s.soldRev - o.spent, 2)}</div></div>
         <div><div class="l">Przewidywany zysk</div><div class="v">${zl(o.expProfit, 2)}</div></div>
@@ -1618,9 +1618,9 @@ function renderKako() {
   }).join("") || `<div class="card s12 empty">Brak zamówień w arkuszu.</div>`;
 
   const counts = {}; M.sales.forEach(s => counts[s.status] = (counts[s.status] || 0) + 1);
-  const nPend = D.sold.filter(s => payState(s).st !== "in").length;
-  const fl = [["all", "Wszystko", M.sales.length], ...Object.keys(STATUS).filter(k => counts[k]).map(k => [k, STATUS[k], counts[k]]), ...(nPend ? [["transit", "W drodze", nPend]] : [])];
-  const list = M.sales.filter(s => salesFilter === "all" || (salesFilter === "transit" ? s.status === "sprzedane" && payState(s).st !== "in" : s.status === salesFilter)).slice().sort((a, b) => (b.sold || "").localeCompare(a.sold || ""));
+  const nPend = D.sold.filter(s => payState(s).st === "pending").length, nWal = D.sold.filter(s => payState(s).st === "wallet").length;
+  const fl = [["all", "Wszystko", M.sales.length], ...Object.keys(STATUS).filter(k => counts[k]).map(k => [k, STATUS[k], counts[k]]), ...(nPend ? [["transit", "W drodze", nPend]] : []), ...(nWal ? [["wallet", "W portfelu", nWal]] : [])];
+  const list = M.sales.filter(s => salesFilter === "all" || (salesFilter === "transit" ? s.status === "sprzedane" && payState(s).st === "pending" : salesFilter === "wallet" ? s.status === "sprzedane" && payState(s).st === "wallet" : s.status === salesFilter)).slice().sort((a, b) => (b.sold || "").localeCompare(a.sold || ""));
   const partner = (() => { const c = {}; M.sales.forEach(s => s.partner && (c[s.partner] = (c[s.partner] || 0) + 1)); return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null; })();
   const pkey = partner ? partner.slice(0, 4).toUpperCase() : null;
   const pSheet = Object.keys(M.summaries).find(k => (M.summaries[k] || []).some(([l]) => pkey && l.toUpperCase().includes(pkey)));
@@ -2042,6 +2042,7 @@ renderAll();
   if (goal && goal[0] != null) { GOAL = +goal[0]; ls.set("kd_goal_10k", GOAL); }
   try { await loadPhotos(); } catch {}
   
+  if (!TODOS.__v2) { (TODOS.kako ||= []).push({id: uid(), text: "Ogarnąć powiadomienia z OLX i innych platform sprzedażowych przy kilku kontach naraz", done: false}); TODOS.__v2 = true; store.save("todos", TODOS); }
   renderAll();
 })();
 </script>
