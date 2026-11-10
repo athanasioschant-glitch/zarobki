@@ -125,6 +125,10 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .seg button{background:transparent;color:var(--muted);height:32px;border-radius:9px;padding:0 12px;font-weight:600;font-size:12.5px;flex:none}
 .seg button[aria-pressed="true"]{background:var(--surface2);color:var(--fg);box-shadow:0 0 0 1px var(--line2)}
 .seg.in{box-shadow:none;background:var(--surface2)} .seg.in button[aria-pressed="true"]{background:var(--surface)}
+.pills{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;max-width:100%;padding:2px}
+.pills::-webkit-scrollbar{display:none}
+.pills button{flex:none;height:32px;padding:0 14px;border-radius:999px;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;box-shadow:inset 0 0 0 1px var(--line2)}
+.pills button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 
 /* grid */
@@ -416,7 +420,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
   <section class="view" id="v-start">
     <div class="toolbar kn" id="kn-start" hidden></div>
     <div class="toolbar"><div class="seg" id="srcs" role="group" aria-label="Źródło"></div></div>
-    <div class="toolbar"><div class="seg" id="periods" role="group" aria-label="Okres"></div></div>
+    <div class="toolbar"><div class="pills" id="periods" role="group" aria-label="Okres"></div></div>
     <div class="dash">
       <div class="card hero s8" id="hero"></div>
       <div class="card s4" id="goal"></div>
@@ -1472,11 +1476,16 @@ function renderMagazyn() {
   const groups = {};
   all.filter(s => invFilter === "all" || s.status === invFilter || (invFilter === "sprzedane" && s.status === "presale") || (invFilter === "magazyn" && s.status === "wycofane")).forEach(s => { const k = s.product + "|" + cleanColor(s.color) + "|" + (s.order ?? "inne"); (groups[k] ||= []).push(s); });
   const order = Object.entries(groups).sort((a, b) => b[1].filter(x => x.status !== "sprzedane").length - a[1].filter(x => x.status !== "sprzedane").length);
-  const incHTML = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<div class="card s6"><div class="ch" style="margin-bottom:0"><div style="min-width:0"><h3>${x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener" style="text-decoration:none">${esc(x.product)}</a>` : esc(x.product)}</h3><div class="sub">zamówienie ${x.order} · zamówione ${x.ordered} szt. · koszt ${zl(x.unitCost)}/szt</div></div><div style="text-align:right;flex:none"><div class="amt" style="font-weight:700;color:var(--warn)">${x.qty} szt.</div><div class="small muted">w drodze z Chin</div></div></div>
-      <div class="sizes">${Array.from({length: Math.min(x.qty, 24)}, () => `<span class="sz p-rezerwacja">w drodze</span>`).join("")}</div>${x.sell ? `<p class="note" style="margin-top:10px">Plan sprzedaży: ${zl(x.sell)}/szt · ok. ${zl(x.qty * x.sell)} za wszystkie</p>` : ""}</div>`).join("") : "";
-  $("#inv-list").innerHTML = incHTML + (invFilter === "chiny" ? "" : order.map(([k, items]) => { const [p, c, o] = k.split("|"); const left = items.filter(x => !["sprzedane", "oddane", "presale"].includes(x.status)).length;
-    return `<div class="card s6"><div class="ch" style="margin-bottom:0;align-items:center"><div style="display:flex;gap:12px;align-items:center;min-width:0">${thumb(p, items[0].color, 48)}<div style="min-width:0"><h3>${esc(p)}</h3><div class="sub">${[c, o === "inne" ? "inne" : "zamówienie " + o].filter(Boolean).map(esc).join(" · ")}</div></div><div style="text-align:right;flex:none"><div class="amt" style="font-weight:700">${left} / ${items.length}</div><div class="small muted">na stanie</div></div></div>
-      <div class="sizes">${items.slice().sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(s => `<span class="sz p-${s.status}" title="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.status === "sprzedane" ? " · " + zl(s.price) : s.status === "wystawione" ? " · " + zl(s.price) : ""}</span>`).join("")}</div></div>`; }).join("")) || `<div class="card s12 empty">Nic w tej grupie.</div>`;
+  const sizeChip = s => `<span class="sz p-${s.status}" title="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
+  const incRows = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt${x.sell ? " · plan " + zl(x.sell) + "/szt" : ""}</div>
+      <div class="sizes" style="margin-top:8px"><span class="sz p-rezerwacja">w drodze z Chin · ${x.qty} szt.</span></div></div><div class="end"><span class="amt wrn">${x.qty} szt.</span><span class="s">w drodze</span></div></div>`) : [];
+  const prodRows = invFilter === "chiny" ? [] : order.map(([k, items]) => { const [p, c, o] = k.split("|"); const left = items.filter(x => !["sprzedane", "oddane", "presale"].includes(x.status)).length;
+    return `<div class="row" style="align-items:flex-start">${thumb(p, items[0].color, 48)}<div class="main"><div class="t">${esc(p)}</div><div class="s">${[c, o === "inne" ? "inne" : "zamówienie " + o].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="sizes" style="margin-top:8px">${items.slice().sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(sizeChip).join("")}</div></div>
+      <div class="end"><span class="amt">${left} / ${items.length}</span><span class="s">na stanie</span></div></div>`; });
+  const rows = [...incRows, ...prodRows];
+  $("#inv-list").innerHTML = rows.length ? `<div class="card s12"><div class="list">${rows.join("")}</div></div>` : `<div class="card s12 empty">Nic w tej grupie.</div>`;
+  bindPhotos($("#inv-list"));
 }
 
 /* Kako tab strip: Dashboard · Magazyn · Zamówienia · … shared by every Kako screen */
