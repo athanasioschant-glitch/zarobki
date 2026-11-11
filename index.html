@@ -445,7 +445,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 10.11 21:52</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 11.11 20:38</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1233,7 +1233,7 @@ function renderStartInner() {
     <div style="height:14px"></div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
     <div class="hmeta">${[isRev && SRC !== "rodzina" && H.total > 0 ? `marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b>` : "", isRev && SRC !== "rodzina" ? `zysk <b>${zl(T.profitIn + T.profitPen)}</b>` : "", P ? deltaHTML(H.total, H.prev) : "", T.n ? `<b>${T.n}</b> szt. sprzedanych` : "", T.n ? (isRev ? `śr. <b>${zl(T.kRev / T.n)}</b> za sztukę` : (T.days == null ? "" : `śr. <b>${T.days.toFixed(1).replace(".", ",")} dnia</b> do sprzedaży`)) : ""].filter(Boolean).map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>')}</div>
-    <div class="hsplit" style="margin-top:18px">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}${H.wal > 0 && SRC !== "rodzina" ? `<span class="hs ghost" title="Niewliczone w ${H.lab.toLowerCase()} – liczy się tylko do majątku"><i style="background:#b18cff"></i>Zamrożone <b>${zl(H.wal, 2)}</b><small>poza sumą · w majątku</small></span>` : ""}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}
+    <div class="hsplit" style="margin-top:18px">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit" aria-expanded="${heroPen}">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}${H.wal > 0 && SRC !== "rodzina" ? `<span class="hs ghost" title="Niewliczone w ${H.lab.toLowerCase()} – liczy się tylko do majątku"><i style="background:#b18cff"></i>Zamrożone <b>${zl(H.wal, 2)}</b><small>poza sumą · w majątku</small></span>` : ""}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${heroPen ? penBreakdown(T, isRev) : ""}
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
   $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero2", heroMode); renderStart(); });
   const famM = k => expand(OTHER).filter(o => catOf(o) === "rodzina" && o.month === k).reduce((a, o) => a + (+o.rev || 0), 0);
@@ -1275,8 +1275,8 @@ function renderStartInner() {
     <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b></span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
       <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
       <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
-  const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; keepView(renderStart); };
-  const gt = $("#go-transit"); if (gt) gt.onclick = () => $("#transit").scrollIntoView({behavior: "smooth", block: "start"});
+  const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; heroPen = false; keepView(renderStart); };
+  const gt = $("#go-transit"); if (gt) gt.onclick = () => { heroPen = !heroPen; heroIn = false; keepView(renderStart); };
   renderTransit(D);
   $("#hist").innerHTML = histHTML(SRC);
   if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
@@ -1350,7 +1350,12 @@ function renderTransit(D) {
 }
 const SOURCES = [{id: "kako", name: "Kako", icon: "box", cls: "a", desc: "odsprzedaż z Kakobuy · liczy się z arkusza"}, {id: "dropshipping", name: "Dropshipping", icon: "cart", cls: "b", desc: "sklep i reklamy"}, {id: "fiszki", name: "Fiszki", icon: "tag", cls: "w", desc: "sprzedaż fiszek"}, {id: "premie", name: "Premie bankowe", icon: "shield", cls: "b", desc: "premie za konta i promocje banków"}, {id: "revolut", name: "Revolut", icon: "pct", cls: "a", desc: "zarobki i promocje w Revolut"}, {id: "inne", name: "Inne dochody", icon: "wallet", cls: "", desc: "praca, zlecenia, inne dochody"}, {id: "rodzina", name: "Stałe wpływy", icon: "user", cls: "", desc: "np. rodzina, wynajem, kieszonkowe"}];
 const catOf = o => o.cat || "inne";
-let heroIn = false;
+let heroIn = false, heroPen = false;
+function penBreakdown(T, isRev) {
+  const L = T.pen.slice().sort((a, b) => String(b.sold || "").localeCompare(String(a.sold || "")));
+  const v = x => isRev ? x.price : x.profit, sum = L.reduce((a, x) => a + v(x), 0);
+  return `<div class="small muted" style="font-weight:600;margin:14px 0 6px">W drodze · ${L.length} szt. · ${zl(sum, 2)}</div><div class="list">${L.map(x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([uiPay(x) === "paying" ? "pieniądze wysłane" : "paczka w drodze do klienta", (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt">${zl(v(x), 2)}</span></div>`).join("") || `<div class="empty">Nic nie jest w drodze.</div>`}</div>`;
+}
 function inBreakdown(T, H, isRev) {
   const rows = SOURCES.filter(s => s.id !== "kako" && (SRC === "all" || SRC === s.id)).map(s => {
     const o = expand(OTHER).filter(x => catOf(x) === s.id && x.got && (period === "all" || x.month === period));
