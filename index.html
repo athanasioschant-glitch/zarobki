@@ -445,7 +445,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 11.11 20:38</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 11.11 20:49</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1245,13 +1245,13 @@ function renderStartInner() {
   const gk = period === "all" ? (D.keys.includes(nowKey()) ? nowKey() : D.keys[D.keys.length - 1] || nowKey()) : period;
   const gp = (D.months[gk] || {profit: 0}).profit, ratio = GOAL ? Math.max(0, Math.min(1, gp / GOAL)) : 0, L = Math.PI * 80;
   const GC = 2 * Math.PI * 15;
-  $("#goal").innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--surface2)" title="Cel miesiąca: ${esc(cap(mLabel(gk)))}">
+  if (isRev) $("#goal").innerHTML = ""; else $("#goal").innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--surface2)" title="Cel miesiąca: ${esc(cap(mLabel(gk)))}">
       <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true"><circle cx="19" cy="19" r="15" fill="none" stroke="${css("--line")}" stroke-width="5"/><circle cx="19" cy="19" r="15" fill="none" stroke="${ac}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${GC * ratio} ${GC}" transform="rotate(-90 19 19)"/></svg>
       <div style="line-height:1.2"><div class="small muted">Cel miesiąca</div><b style="font-size:14px">${Math.round(ratio * 100)}% · ${zl(gp)} z ${zl(GOAL)}</b></div>
       <button class="link small" id="goal-edit" style="margin-left:4px">Zmień</button></div>
     <form id="goal-form" class="actions" hidden style="margin-top:8px;justify-content:flex-end"><input id="goal-in" type="number" inputmode="decimal" value="${GOAL}" aria-label="Cel zysku na miesiąc" style="width:120px"><button class="primary sm" type="submit">Zapisz</button></form>`;
-  $("#goal-edit").onclick = () => { const f = $("#goal-form"); f.hidden = !f.hidden; if (!f.hidden) $("#goal-in").focus(); };
-  $("#goal-form").onsubmit = e => { e.preventDefault(); GOAL = Math.max(0, +$("#goal-in").value || 0); ls.set("kd_goal_10k", GOAL); store.save("goal_10k", [GOAL]); toast("Cel zapisany"); renderStart(); };
+  if (!isRev) $("#goal-edit").onclick = () => { const f = $("#goal-form"); f.hidden = !f.hidden; if (!f.hidden) $("#goal-in").focus(); };
+  if (!isRev) $("#goal-form").onsubmit = e => { e.preventDefault(); GOAL = Math.max(0, +$("#goal-in").value || 0); ls.set("kd_goal_10k", GOAL); store.save("goal_10k", [GOAL]); toast("Cel zapisany"); renderStart(); };
 
   const stat = (el, icon, cls, lab, val, foot, vcls = "") => $(el).innerHTML = `<div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vcls}">${val}</div><div class="foot">${foot}</div>`;
   const A_ = totals(D, "all");
