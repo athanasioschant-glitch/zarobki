@@ -184,6 +184,24 @@ details.grp>summary::-webkit-details-marker{display:none}
 details.grp>summary .gt{display:flex;flex-direction:column;gap:2px;min-width:0}
 details.grp>summary>svg{transition:transform .2s;opacity:.5}details.grp[open]>summary>svg{transform:rotate(90deg)}
 #money:not(.open) .mdet{display:none}
+/* WYGLĄD „REVOLUT” – włączany w menu Inne → Wygląd; klasyczny wraca jednym kliknięciem */
+html[data-skin="rev"]{--bg:#000;--surface:#0f1012;--surface2:#1b1c20;--line:rgba(255,255,255,.07);--accent:#5aa2ff;--accent-soft:rgba(90,162,255,.14);--r:22px}
+html[data-skin="rev"] body{background:#000}
+html[data-skin="rev"] #hero{text-align:center;background:radial-gradient(120% 90% at 50% -10%,rgba(76,110,255,.55),rgba(140,70,255,.25) 45%,transparent 75%),var(--surface)}
+html[data-skin="rev"] #hero>.ch{justify-content:center;flex-wrap:wrap}
+html[data-skin="rev"] #hero .bigv{font-size:58px;letter-spacing:-.04em}
+html[data-skin="rev"] #hero .hmeta{justify-content:center}
+html[data-skin="rev"] #hero .hsplit{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+html[data-skin="rev"] #hero .hsplit .hs{background:rgba(255,255,255,.06);border-radius:18px;text-align:left}
+html[data-skin="rev"] .seg,html[data-skin="rev"] .pills button{border-radius:999px}
+html[data-skin="rev"] .seg button{border-radius:999px}
+html[data-skin="rev"] .card,html[data-skin="rev"] .stat{border-radius:22px;box-shadow:none}
+html[data-skin="rev"] .row .av,html[data-skin="rev"] .pav .av{border-radius:50%}
+html[data-skin="rev"] .rev-actions{display:flex}
+.rev-actions{display:none;justify-content:center;gap:22px;margin:18px 0 6px}
+.rev-actions button{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;color:var(--fg);font:600 12px var(--f);cursor:pointer;height:auto;padding:0}
+.rev-actions span.circ{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+
 /* telefon i wąskie okno: mniej ścisku */
 @media(max-width:600px){
   .card{padding:16px}
@@ -443,9 +461,10 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#zadania" data-v="zadania"><svg class="i"><use href="#i-check"/></svg>Wszystkie zadania</a>
     <a href="#" data-chat><svg class="i"><use href="#i-chat"/></svg>Zapytaj</a>
     <a href="#" data-hist><svg class="i"><use href="#i-check"/></svg>Ostatnie zmiany</a>
+    <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 11.11 20:49</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 12.11 22:18</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -944,7 +963,7 @@ const store = (() => {
 store.raw = null;
 /* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
 const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage)/, LAST = {}, HIST = {on: false, list: [], timer: null};
-const KEY_LAB = {income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
+const KEY_LAB = {banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
 const curSrc = () => { const h = location.hash.slice(1) || "start"; if (h.startsWith("zrodlo-")) return h.slice(7); if (/^(kako|magazyn|start-kako|wystaw)$/.test(h)) return "kako"; if (h === "start") return SRC; return "all"; };
 function histGroup() { const g = HIST.list[0]; if (g && !g.done && Date.now() - g.t < 1500) return g; const n = {id: uid(), t: Date.now(), at: new Date().toISOString(), src: curSrc(), label: "", ch: [], sheet: []}; HIST.list.unshift(n); HIST.list = HIST.list.slice(0, 40); return n; }
 function histLog(k, before) { const g = histGroup(); if (!g.ch.some(c => c.k === k)) g.ch.push({k, b: before}); histSave(); }
@@ -1182,6 +1201,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-qpay
 /* charts */
 function chart(id, cfg) {
   if (!window.Chart) return;
+  if (document.documentElement.dataset.skin === "rev" && cfg.options && cfg.options.scales) { Object.values(cfg.options.scales).forEach(s => { s.grid = {display: false}; s.border = {display: false}; }); if (cfg.options.scales.y) cfg.options.scales.y.display = false; }
   charts[id] && charts[id].destroy();
   const muted = css("--faint");
   Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif"; Chart.defaults.font.size = 11; Chart.defaults.color = muted;
@@ -1233,6 +1253,7 @@ function renderStartInner() {
     <div style="height:14px"></div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
     <div class="hmeta">${[isRev && SRC !== "rodzina" && H.total > 0 ? `marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b>` : "", isRev && SRC !== "rodzina" ? `zysk <b>${zl(T.profitIn + T.profitPen)}</b>` : "", P ? deltaHTML(H.total, H.prev) : "", T.n ? `<b>${T.n}</b> szt. sprzedanych` : "", T.n ? (isRev ? `śr. <b>${zl(T.kRev / T.n)}</b> za sztukę` : (T.days == null ? "" : `śr. <b>${T.days.toFixed(1).replace(".", ",")} dnia</b> do sprzedaży`)) : ""].filter(Boolean).map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>')}</div>
+    <div class="rev-actions"><button data-ra="in"><span class="circ">${svg("check", 18)}</span>Na koncie</button><button data-ra="pen"><span class="circ">${svg("wallet", 18)}</span>W drodze</button><button data-ra="mag"><span class="circ">${svg("box", 18)}</span>Magazyn</button><button data-ra="pod"><span class="circ">${svg("pct", 18)}</span>Podział</button></div>
     <div class="hsplit" style="margin-top:18px">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit" aria-expanded="${heroPen}">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}${H.wal > 0 && SRC !== "rodzina" ? `<span class="hs ghost" title="Niewliczone w ${H.lab.toLowerCase()} – liczy się tylko do majątku"><i style="background:#b18cff"></i>Zamrożone <b>${zl(H.wal, 2)}</b><small>poza sumą · w majątku</small></span>` : ""}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${heroPen ? penBreakdown(T, isRev) : ""}
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
   $("#hero").querySelectorAll("[data-h]").forEach(b => b.onclick = () => { heroMode = b.dataset.h; ls.set("kd_hero2", heroMode); renderStart(); });
@@ -1275,6 +1296,7 @@ function renderStartInner() {
     <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b></span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
       <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
       <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
+  $("#hero").querySelectorAll("[data-ra]").forEach(b => b.onclick = () => { const a = b.dataset.ra; if (a === "in") { heroIn = !heroIn; heroPen = false; keepView(renderStart); } else if (a === "pen") { heroPen = !heroPen; heroIn = false; keepView(renderStart); } else location.hash = a === "mag" ? "magazyn" : "podzial"; });
   const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; heroPen = false; keepView(renderStart); };
   const gt = $("#go-transit"); if (gt) gt.onclick = () => { heroPen = !heroPen; heroIn = false; keepView(renderStart); };
   renderTransit(D);
@@ -1630,6 +1652,50 @@ function renderZrodla() {
 }
 let srcMonth = null;
 const addMonths = (k, n) => { const [y, m] = k.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+
+/* PREMIE BANKOWE — plan promocji (dane ze stron promocji, stan 12.11.2026; sprawdzaj regulamin przed wnioskiem) */
+const BANKS = [
+  {id: "bnp", name: "BNP Paribas · Podróżnik z aplikacją 2", max: 1100, until: "2026-11-13", who: "nowy klient 18+, bez konta w BNP od 24 mies.; wniosek tylko w GOmobile; zgody marketingowe", src: "https://lowcabonusow.pl/bnp-paribas-promocja-konto-1100-zl/",
+    steps: [{m: [1, 12], txt: "10 płatności kartą (BLIK się nie liczy) · wpływy razem 1500 zł · logowanie do GOmobile", r: 75}, {m: [12, 12], txt: "min. 500 zł na koncie oszczędnościowym", r: 200}]},
+  {id: "alior", name: "Alior Bank · Konto z premią II (kod PREMIA800)", max: 800, until: "2027-01-11", who: "nowy klient, bez konta w Aliorze od 3 lat; kod PREMIA800 we wniosku; zgody marketingowe e-mail i telefon", src: "https://lowcabonusow.pl/alior-konto-z-premia-800-zl-obraczka/",
+    steps: [{m: [0, 0], txt: "w 10 dni: karta w Apple/Google Pay i 1 płatność (+ kod na obrączkę)", r: 200}, {m: [1, 1], txt: "3 płatności kartą/BLIK · jeden wpływ min. 1000 zł · logowanie", r: 200}, {m: [2, 5], txt: "3 płatności kartą/BLIK · jeden wpływ min. 1000 zł · logowanie", r: 100}]},
+  {id: "erste", name: "Erste · Konto Smart (do 700 zł)", max: 700, until: "2026-11-30", who: "bez konta w Erste od 1.10.2024 (byli klienci Santandera wykluczeni); wniosek online z linku promocji", src: "https://lowcabonusow.pl/promocja-konto-erste-pazdziernik-listopad/",
+    steps: [{m: [1, 3], txt: "wpływ min. 1000 zł · 7 płatności kartą/BLIK · cel oszczędnościowy · logowanie", r: 200}, {m: [3, 3], txt: "bonus za wszystkie 3 miesiące", r: 100}]},
+  {id: "mbank", name: "mBank · eKonto (Cała naprzód II)", max: 900, until: "2026-11-30", who: "bez konta w mBanku od 1.01.2023; zapis na stronie promocji i wniosek tego samego dnia; karta Mastercard", src: "https://lowcabonusow.pl/mbank-ekonto-promocja-1010-zl/",
+    steps: [{m: [0, 0], txt: "w 7 dni od otwarcia: wpływ min. 2000 zł", r: 0}, {m: [1, 1], txt: "karta min. 350 zł (bez BLIK) · 100 zł na Moich Celach na koniec miesiąca", r: 100}, {m: [2, 6], txt: "wpływ 2000 zł · karta 350 zł · +100 zł na Moich Celach (+ bon 50 zł do Biedronki)", r: 80}, {m: [6, 6], txt: "bonus: wynagrodzenie wpływało w 4 z 6 miesięcy", r: 300}]},
+  {id: "millennium", name: "Bank Millennium · konto osobiste", max: 800, until: "2027-02-18", who: "bez konta od 1.01.2023 · warunki do sprawdzenia", src: "https://lowcabonusow.pl/promocje-bankowe/", steps: []},
+  {id: "ing", name: "ING · konto osobiste", max: 900, until: "2027-01-21", who: "bez konta w ING od 28.10.2025 · 800 zł + 100 zł za kod polecający · warunki do sprawdzenia", src: "https://lowcabonusow.pl/promocje-bankowe/", steps: []},
+  {id: "pko", name: "PKO BP · konto osobiste", max: 600, until: "2026-12-31", who: "bez konta od 1.04.2025 · 100 zł + zwroty 10% (max 500 zł) · warunki do sprawdzenia", src: "https://lowcabonusow.pl/promocje-bankowe/", steps: []},
+  {id: "pekao", name: "Pekao · konto osobiste", max: 300, until: "2027-01-12", who: "bez konta od 1.09.2024 · 300 zł + zwroty · warunki do sprawdzenia", src: "https://lowcabonusow.pl/promocje-bankowe/", steps: []},
+  {id: "revolut", name: "Revolut · konto osobiste", max: 100, until: "2026-12-31", who: "nigdy wcześniej konta w Revolut · warunki do sprawdzenia", src: "https://lowcabonusow.pl/promocje-bankowe/", steps: []}
+];
+let BANKST = {};
+const BST = [["plan", "Planuję"], ["open", "Założone"], ["done", "Premia wypłacona"], ["skip", "Pomijam"]];
+const monthOff = (start, k) => addMonths(start, k);
+function bankTasks(mk) {
+  const out = [];
+  BANKS.forEach(b => { const s = BANKST[b.id] || {}; if (s.st !== "open" || !s.opened) return; const k0 = s.opened.slice(0, 7);
+    b.steps.forEach(st => { for (let m = st.m[0]; m <= st.m[1]; m++) if (monthOff(k0, m) === mk) out.push({b, txt: st.txt, r: st.r, m}); }); });
+  return out;
+}
+function bankPlanHTML() {
+  const mk = nowKey(), tasks = bankTasks(mk), daysTo = d => Math.ceil((new Date(d + "T23:59:59") - Date.now()) / 864e5);
+  const potential = BANKS.filter(b => (BANKST[b.id] || {}).st !== "skip" && (BANKST[b.id] || {}).st !== "done").reduce((a, b) => a + b.max, 0);
+  return `<div class="card s12"><div class="ch"><div><h3>Plan premii bankowych</h3><div class="sub">do zgarnięcia ${zl(potential)} · stan promocji z 12.11.2026</div></div>${ic("shield", "a")}</div>
+    <div class="small muted" style="font-weight:600;margin:4px 0 8px">Do zrobienia teraz · ${esc(mLabel(mk))}</div>
+    <div class="list">${tasks.map(x => `<div class="row"><div class="main"><div class="t" style="font-weight:500">${esc(x.b.name.split(" · ")[0])} · miesiąc ${x.m}</div><div class="s">${esc(x.txt)}</div></div>${x.r ? `<span class="amt pos">+${zl(x.r)}</span>` : ""}</div>`).join("") || `<div class="empty" style="padding:10px 0">Nic – oznacz konto jako „Założone”, a zadania na każdy miesiąc pojawią się tutaj.</div>`}</div>
+    <div class="small muted" style="font-weight:600;margin:16px 0 4px">Banki</div>
+    ${BANKS.map(b => { const s = BANKST[b.id] || {}, d = daysTo(b.until), late = d < 0;
+      return `<details class="grp"><summary><span class="gt"><b>${esc(b.name)}</b><span class="small muted">${late ? "zakończona" : d <= 3 ? `<span style="color:var(--loss)">wniosek do ${dShort(b.until)} – zostało ${d} dni</span>` : "wniosek do " + dShort(b.until)}${s.st ? " · " + BST.find(x => x[0] === s.st)[1] + (s.opened ? " " + dShort(s.opened) : "") : ""}</span></span><b>${zl(b.max)}</b>${svg("arrow", 14)}</summary>
+        <div style="padding:0 0 14px"><div class="small muted" style="margin-bottom:8px">${esc(b.who)}</div>
+        ${b.steps.length ? `<div class="list">${b.steps.map(st => `<div class="row"><div class="main"><div class="t" style="font-weight:500">Miesiąc ${st.m[0] === st.m[1] ? st.m[0] : st.m[0] + "–" + st.m[1]}</div><div class="s">${esc(st.txt)}</div></div>${st.r ? `<span class="amt">${zl(st.r)}${st.m[1] > st.m[0] ? "/mies." : ""}</span>` : ""}</div>`).join("")}</div><div class="small muted" style="margin:6px 0 10px">Miesiąc 0 = miesiąc założenia konta.</div>` : ""}
+        <div class="actions" style="flex-wrap:wrap">${BST.map(([k, l]) => `<button class="sm ${s.st === k ? "primary" : ""}" data-bank="${b.id}" data-bst="${k}">${l}</button>`).join("")}<a class="link small" href="${b.src}" target="_blank" rel="noopener">warunki</a></div>
+        ${s.st === "open" ? `<label class="small muted" style="display:flex;gap:8px;align-items:center;margin-top:10px">Data założenia <input type="date" data-bopen="${b.id}" value="${s.opened || ""}"></label>` : ""}</div></details>`; }).join("")}</div>`;
+}
+function bindBankPlan(root, after) {
+  root.querySelectorAll("[data-bank]").forEach(b => b.onclick = async () => { const s = BANKST[b.dataset.bank] ||= {}; s.st = s.st === b.dataset.bst ? null : b.dataset.bst; if (s.st === "open" && !s.opened) s.opened = new Date().toISOString().slice(0, 10); await store.save("banks", BANKST); toast("Zapisano"); after(); });
+  root.querySelectorAll("[data-bopen]").forEach(i => i.onchange = async () => { (BANKST[i.dataset.bopen] ||= {}).opened = i.value; await store.save("banks", BANKST); after(); });
+}
 function renderZrodlo(id) {
   const s = SOURCES.find(x => x.id === id) || SOURCES[SOURCES.length - 1], T = totals(derive(), "all");
   const E = OTHER.filter(o => catOf(o) === s.id).sort((a, b) => (b.recurring - a.recurring) || b.month.localeCompare(a.month));
@@ -1645,17 +1711,20 @@ function renderZrodlo(id) {
   $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
       <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
-    <div class="card s5 todo-box">${todoHTML(s.id)}</div>
+    <div class="card s5 todo-box">${todoHTML(s.id)}</div>${s.id === "premie" ? bankPlanHTML() : ""}
     <div class="card s12">${histHTML(s.id)}</div>`;
   bindEntryForm($("#src-page"), () => keepView(() => renderZrodlo(id)));
   bindTgl($("#src-page"), () => keepView(() => renderZrodlo(id)));
   const sp = $("#sm-prev"), sn = $("#sm-next");
   if (sp) sp.onclick = () => { srcMonth = addMonths(sel, -1); renderZrodlo(id); };
   if (sn) sn.onclick = () => { srcMonth = addMonths(sel, 1); renderZrodlo(id); };
+  if (s.id === "premie") bindBankPlan($("#src-page"), () => keepView(() => renderZrodlo(id)));
   bindTodo($("#src-page").querySelector(".todo-box"), s.id);
 }
 /* sales channels */
 const CHANNEL_SEED = [
+  {id: "szafa", name: "Szafa.pl", url: "https://www.szafa.pl", status: "sprawdzic", auto: "czesciowo", fee: "sprawdź aktualny cennik", note: "Polski serwis z ubraniami (jak Vinted). Brak publicznego API i importu CSV/XML. Automatyzacja możliwa tylko przez przeglądarkę: logujesz się sam, a Claude w Twojej przeglądarce wypełnia formularz ogłoszenia (zdjęcia, tytuł, opis, cena) – zawsze z Twoją zgodą przed publikacją. Sprawdź regulamin w sprawie automatów."},
+  {id: "trivaro", name: "Trivaro", url: "https://trivaro.pl", status: "sprawdzic", auto: "nie", fee: "brak publicznych informacji", note: "Nowy, ogólny marketplace (Trivaro sp. z o.o.) – aplikacja na iOS i Androida. Nie widać, czy to miejsce na ubrania z drugiej ręki ani ilu jest kupujących. Brak informacji o API. Najpierw sprawdź w aplikacji, czy da się wystawić buty/kurtki."},
   {id: "hemly", name: "Hemly", url: "https://hemly.pl", status: "sprawdzic", auto: "nie", fee: "5% (min. 2 zł) do 30.11.2026, od 1.12.2026 10%; wystawienie za darmo", note: "Nowy polski serwis z odzieżą i butami (Tarnów), jak Vinted. Sprzedają osoby prywatne i firmy, limit 25 aktywnych ogłoszeń. Brak API i brak publicznych danych o sprzedaży – ruch prawdopodobnie jeszcze mały. Warto wystawić kilka par na próbę, bo konkurencja mała."},
   {id: "vinted", name: "Vinted", url: "https://www.vinted.pl", status: "uzywam", auto: "nie", fee: "0 zł dla sprzedającego (kupujący płaci opłatę za ochronę)", note: "Oficjalne API tylko dla wybranych firm (Vinted Pro, po zgłoszeniu). Boty i nieoficjalne narzędzia grożą blokadą konta."},
   {id: "olx", name: "OLX", url: "https://www.olx.pl", status: "uzywam", auto: "czesciowo", fee: "zależy od kategorii i limitu darmowych ogłoszeń; promowanie płatne", note: "Partner API (developer.olx.pl) pozwala wystawiać ogłoszenia i czytać wiadomości po uzyskaniu dostępu."},
@@ -2214,7 +2283,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2240,6 +2309,11 @@ async function openMove() {
   };
 }
 document.querySelectorAll("[data-move]").forEach(el => el.onclick = e => { e.preventDefault(); openMove(); });
+
+/* przełącznik wyglądu (zapamiętany na tym urządzeniu i w danych) */
+const applySkin = s => { document.documentElement.dataset.skin = s === "rev" ? "rev" : ""; const l = $("#skin-lab"); if (l) l.textContent = s === "rev" ? "Revolut" : "klasyczny"; };
+applySkin(ls.get("kd_skin", ""));
+document.querySelectorAll("[data-skinbtn]").forEach(el => el.onclick = e => { e.preventDefault(); const s = document.documentElement.dataset.skin === "rev" ? "" : "rev"; ls.set("kd_skin", s); store.save("skin", [s]); applySkin(s); toast(s ? "Wygląd: Revolut (kliknij jeszcze raz, żeby wrócić)" : "Wygląd: klasyczny"); rerender(); });
 document.querySelectorAll("[data-chat]").forEach(el => el.onclick = e => { e.preventDefault(); openChat(); });
 $("#chat-x").onclick = () => { $("#chat").hidden = true; $("#fab").hidden = false; };
 $("#chat-form").onsubmit = e => { e.preventDefault(); ask($("#chat-in").value); };
@@ -2332,14 +2406,17 @@ renderAll();
   if (mcp) connect();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
+  BANKST = (await store.load("banks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
   PROFILES = profiles || []; applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
-  if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; if (CHANNELS && !CHANNELS.some(c => c.id === "hemly")) CHANNELS = [CHANNEL_SEED.find(c => c.id === "hemly"), ...CHANNELS]; ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
+  if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; if (CHANNELS) ["szafa", "trivaro", "hemly"].forEach(id => { if (!CHANNELS.some(c => c.id === id)) CHANNELS = [CHANNEL_SEED.find(c => c.id === id), ...CHANNELS]; }); ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
   if (goal && goal[0] != null) { GOAL = +goal[0]; ls.set("kd_goal_10k", GOAL); }
   try { await loadPhotos(); } catch {}
   
   if (!TODOS.__v2) { (TODOS.kako ||= []).push({id: uid(), text: "Ogarnąć powiadomienia z OLX i innych platform sprzedażowych przy kilku kontach naraz", done: false}); TODOS.__v2 = true; store.save("todos", TODOS); }
   HIST.list = (await store.load("history", [])) || []; HIST.on = true;
+  if (!window.KD_CFG && !ls.get("kd_moved", false)) { const b = document.createElement("div"); b.className = "card"; b.style.cssText = "margin:0 0 14px;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:inset 0 0 0 1px var(--warn)"; b.innerHTML = `<span class="small" style="flex:1 1 220px">Ta wersja <b>nie synchronizuje się</b> z telefonem. Przenieś dane do aplikacji i używaj jej na obu urządzeniach.</span><button class="sm primary" data-move2>Przenieś dane</button><button class="sm" data-moved>Już przeniesione</button>`; const first = document.querySelector("section.view"); first.parentElement.insertBefore(b, first); b.querySelector("[data-move2]").onclick = () => openMove(); b.querySelector("[data-moved]").onclick = () => { ls.set("kd_moved", true); b.remove(); }; }
+  { const sk = await store.load("skin", null); if (sk && sk[0] != null && sk[0] !== ls.get("kd_skin", "")) { ls.set("kd_skin", sk[0]); applySkin(sk[0]); } }
   renderAll();
 })();
 </script>
