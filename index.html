@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:00</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:35</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -504,6 +504,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
       <div class="stat s3" id="st-roi"></div>
       <div class="stat s3" id="st-spent"></div>
       <div class="stat s3" id="st-stock"></div>
+      <div class="card s12" id="stock-list" hidden></div>
       <div class="card s12" id="transit"></div>
       <div class="card s12" id="checks-mini" hidden></div>
       <div class="card s8">
@@ -1094,7 +1095,7 @@ const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.spli
 const drow = (inner, s, extra = "") => `<details class="drow"><summary>${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
-const STATUS = {sprzedane: "Sprzedane", presale: "Presale bez ceny", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
+const STATUS = {sprzedane: "Sprzedane", presale: "Presale", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
 /* recurring entries (family support, pocket money, garage…) expand into one instance per month */
 let RECV = {}, LIVING = [], NW = {assets: [], debts: []}, TRANSFERS = {};
 const monthsFrom = (a, b) => { const out = []; if (!a) return out; let [y, m] = a.split("-").map(Number); const [by, bm] = b.split("-").map(Number); while ((y < by || (y === by && m <= bm)) && out.length < 240) { out.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } } return out; };
@@ -1254,7 +1255,7 @@ function renderStart() {
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
 }
-let moneyOpen = false;
+let moneyOpen = false, stockOpen = false;
 document.addEventListener("click", e => { if (e.target.closest("#money-more")) { moneyOpen = !moneyOpen; $("#money").classList.toggle("open", moneyOpen); e.target.closest("#money-more").textContent = moneyOpen ? "Mniej" : "Szczegóły"; } });
 function renderStartInner() {
   const D = derive();
@@ -1321,8 +1322,17 @@ function renderStartInner() {
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
   const roi = T.kCost ? T.kRev / T.kCost : null;
   stat("#st-rev", "pct", "a", "ROI sprzedanych", mult(roi), `<span>${roi == null ? "brak sprzedaży" : `z 1 zł kosztu: ${zl(roi, 2)} przychodu, ${zl(roi - 1, 2)} zysku (${pct(roi - 1)})`}</span>`);
-  stat("#st-roi", "shelf", "w", "W magazynie", (D.unsold.length + notEntered().reduce((a, x) => a + x.qty, 0)) + " szt.", `<span>koszt ${zl(inv)} · wystawione za ${zl(listedVal)}</span>`);
+  stat("#st-roi", "shelf", "w", `W magazynie ${svg(stockOpen ? "x" : "arrow", 12)}`, (D.unsold.length + notEntered().reduce((a, x) => a + x.qty, 0)) + " szt.", `<span>koszt ${zl(inv)} · wystawione za ${zl(listedVal)}</span>`);
   stat("#st-spent", "spark", "b", "Potencjał magazynu", zl(pot), `<span>${potInc ? "+ ok. " + zl(potInc) + " z towaru w drodze z Chin · " : ""}jeśli sprzedasz wszystko${potEst ? ` (${potEst} szt. po średniej cenie)` : ""} · zysk ok. ${zl(pot - inv)}</span>`);
+  { const el = $("#st-roi"); el.style.cursor = "pointer"; el.setAttribute("role", "button"); el.setAttribute("aria-expanded", stockOpen); el.onclick = () => { stockOpen = !stockOpen; keepView(renderStart); }; }
+  { const sl = $("#stock-list"); sl.hidden = !(stockOpen && SRC === "kako");
+    if (!sl.hidden) { const G = {}; D.unsold.forEach(x => (G[x.product] ||= []).push(x)); const NE = notEntered();
+      const grp = (name, L, sub) => `<details class="grp"><summary><span class="gt"><b>${esc(name)}</b><span class="small muted">${sub}</span></span><b>${L.length} szt.</b>${svg("arrow", 14)}</summary><div class="list">${L.join("")}</div></details>`;
+      const row = x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([cleanColor(x.color), x.order ? "zam. " + x.order : "", x.account ? (x.platform || "") + " · " + x.account : ""].filter(Boolean).join(" · "))}</div></div><div class="end"><span class="pill p-${x.status}">${esc(STATUS[x.status] || x.status)}</span><span class="small muted">${x.price > 0 ? zl(x.price) : "koszt " + zl(x.cost || 0)}</span></div></div>`;
+      sl.innerHTML = `<div class="ch"><div><h3>W magazynie · ${D.unsold.length + NE.reduce((a, x) => a + x.qty, 0)} szt.</h3></div><button class="iconbtn flat" id="stock-close" aria-label="Zwiń">${svg("x", 15)}</button></div>
+        ${Object.entries(G).sort((a, b) => b[1].length - a[1].length).map(([n, L]) => grp(n, L.sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(row), [...new Set(L.map(x => x.size).filter(Boolean))].join(", ") + " · koszt " + zl(L.reduce((a, x) => a + (x.cost || 0), 0)))).join("")}
+        ${NE.length ? grp("Dotarło, ale nie ma w arkuszu", NE.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">zam. ${x.order} · wpisz do arkusza sprzedaży</div></div><span class="amt">${x.qty} szt.</span></div>`), NE.reduce((a, x) => a + x.qty, 0) + " szt.") : ""}`;
+      $("#stock-close").onclick = () => { stockOpen = false; keepView(renderStart); }; } }
   stat("#st-stock", "calc", "", "Śr. czas sprzedaży", T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia", `<span>od wystawienia do sprzedaży · ${T.n} szt.</span>`);
 
   const C = checks(D), serious = C.filter(c => c.lvl !== "info");
