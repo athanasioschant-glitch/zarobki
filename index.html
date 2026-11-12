@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:46</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:50</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1681,63 +1681,63 @@ const addMonths = (k, n) => { const [y, m] = k.split("-").map(Number); const d =
 
 /* PREMIE BANKOWE — plan zbudowany na regulaminach promocji (sprawdzone 12.11.2026). m = miesiąc względem miesiąca założenia konta (0 = miesiąc założenia). */
 const BANKS = [
-  {id: "bnp", tag: "BNP", col: "#3fbf7f", name: "BNP Paribas", promo: "Podróżnik z aplikacją – edycja 2", max: 1100, until: "2026-11-13", ok: true,
+  {id: "bnp", forma: "💵 gotówka na konto · 12 × 75 zł + 200 zł · nic nie musisz wydawać ponad zwykłe zakupy", tag: "BNP", col: "#3fbf7f", name: "BNP Paribas", promo: "Podróżnik z aplikacją – edycja 2", max: 1100, until: "2026-11-13", ok: true,
     kto: "Nie miałeś konta osobistego w BNP przez ostatnie 24 miesiące. 18+, PESEL nie może być zastrzeżony.",
     kod: "Bez kodu, ale wniosek TYLKO w aplikacji GOmobile. Zgody: marketing e-mail/SMS i telefoniczny; nie składaj sprzeciwu wobec profilowania.",
     kroki: ["Odwołaj zastrzeżenie PESEL w mObywatelu (jeśli masz).", "Pobierz aplikację BNP Paribas GOmobile i wybierz „Rozpocznij wnioskowanie w aplikacji”.", "Potwierdź numer telefonu kodem SMS.", "Potwierdź tożsamość: mObywatel albo dowód + nagranie twarzy.", "Wybierz Konto Otwarte na Ciebie z Kartą Otwartą na Świat.", "Zaznacz zgody marketingowe (e-mail/SMS i telefon).", "Podpisz umowę kodem SMS (Autenti) – najpóźniej 13.11.2026.", "Aktywuj kartę."],
     co: [{m: [1, 12], t: ["10 płatności Kartą Otwartą na Świat (BLIK się nie liczy)", "Wpływy min. 1500 zł (np. przelew z innego banku)", "Zaloguj się do GOmobile"]}, {m: [12, 12], t: ["Na koniec miesiąca min. 500 zł na koncie oszczędnościowym w BNP"]}],
     nag: [{m: [1, 12], a: 75, p: 1, s: 1}, {m: [12, 12], a: 200, p: 1, s: 1}],
     wyp: "75 zł do 15. dnia następnego miesiąca, 200 zł razem z ostatnią.", pul: "BLIK i wypłaty z bankomatu nie liczą się do 10 płatności. Wycofanie zgód = koniec premii. Miesiąc założenia się nie liczy.", src: "Regulamin „Podróżnik z aplikacją – edycja 2” (BNP Paribas)"},
-  {id: "erste", tag: "Erste", col: "#6c8cff", name: "Erste Bank", promo: "Do 700 zł na dowolny cel (Konto Smart)", max: 700, until: "2026-11-30", ok: true,
+  {id: "erste", forma: "💵 gotówka na konto · 3 × 200 zł + 100 zł", tag: "Erste", col: "#6c8cff", name: "Erste Bank", promo: "Do 700 zł na dowolny cel (Konto Smart)", max: 700, until: "2026-11-30", ok: true,
     kto: "Nie masz konta osobistego w PLN w Erste od 1.10.2024 (byli klienci Santandera się nie łapią).",
     kod: "Bez kodu. Wniosek TYLKO online: na erste.pl („Załóż konto” na stronie logowania) albo w aplikacji Erste przed zalogowaniem. Zgody: kontakt telefoniczny i elektroniczny w celach marketingowych, korespondencja elektroniczna (EKK), brak sprzeciwu, podaj telefon i e-mail, zaakceptuj regulamin promocji we wniosku.",
     kroki: ["Wejdź na erste.pl → „Załóż konto” albo w aplikacji Erste (przed zalogowaniem) → „Załóż konto”.", "Wybierz Konto Smart z kartą debetową i dostępem online.", "We wniosku zaznacz zgody marketingowe i zaakceptuj regulamin promocji.", "Potwierdź tożsamość (selfie lub mObywatel) i podpisz umowę – do 30.11.2026.", "Od razu dodaj cel oszczędnościowy w „Moje Cele”."],
     co: [{m: [1, 3], t: ["Wpływ min. 1000 zł z innego banku", "7 płatności kartą lub BLIKIEM (przelewy na telefon się nie liczą)", "Cel oszczędnościowy w Moje Cele musi istnieć", "Zaloguj się do aplikacji Erste"]}],
     nag: [{m: [1, 3], a: 200, p: 1, s: 1}, {m: [3, 3], a: 100, p: 1, s: 1}],
     wyp: "200 zł do końca miesiąca po spełnieniu warunków, 100 zł z ostatnią.", pul: "Miesiące liczą się od miesiąca złożenia WNIOSKU. Wniosek w oddziale = brak premii. Przelewy z innego konta w Erste i wpłaty gotówki się nie liczą.", src: "Regulamin promocji do 700 zł na dowolny cel (Erste)"},
-  {id: "alior", tag: "Alior", col: "#ff7a59", name: "Alior Bank", promo: "Alior Konto z premią II", max: 800, extra: "+ obrączka płatnicza", until: "2027-01-11", ok: true,
+  {id: "alior", forma: "💵 gotówka na konto 800 zł + 🎁 obrączka płatnicza (rzecz)", tag: "Alior", col: "#ff7a59", name: "Alior Bank", promo: "Alior Konto z premią II", max: 800, extra: "+ obrączka płatnicza", until: "2027-01-11", ok: true,
     kto: "Pełnoletni, nowy klient (bez konta osobistego w Aliorze w ostatnich latach – sprawdź w regulaminie).",
     kod: "KOD PREMIA800 – wpisz go we wniosku! Bez kodu nie ma premii. Zgody: marketing bezpośredni oraz informacje handlowe e-mail i telefon – nie odwołuj ich do wypłaty.",
     kroki: ["Odwołaj zastrzeżenie PESEL (jeśli masz).", "aliorbank.pl → Otwórz konto online (Alior Konto + karta).", "We wniosku wpisz kod PREMIA800.", "Zaznacz zgody marketingowe (e-mail i telefon).", "Potwierdź tożsamość (selfie, mObywatel, logowanie w innym banku lub przelew) i podpisz umowę – do 11.01.2027.", "W ciągu 10 dni dodaj kartę do Apple Pay / Google Pay i zapłać nią raz."],
     co: [{m: [0, 0], t: ["W 10 dni od umowy: karta w Apple/Google Pay + 1 płatność"]}, {m: [1, 1], t: ["Sprawdź SMS z kodem na obrączkę i odbierz ją w 14 dni"]}, {m: [1, 5], t: ["3 płatności kartą lub BLIKIEM", "JEDEN przelew min. 1000 zł z innego banku (dwa po 500 zł się nie liczą)", "Zaloguj się do Alior Mobile"]}],
     nag: [{m: [0, 0], a: 200, p: 1, s: 1}, {m: [1, 1], a: 200, p: 1, s: 1}, {m: [2, 5], a: 100, p: 1, s: 1}],
     wyp: "Do końca miesiąca po spełnieniu warunków.", pul: "Bez kodu PREMIA800 nic nie dostaniesz. Hazard, bilety komunikacji, rachunki za prąd/gaz/wodę i przekazy pieniężne się nie liczą. Wycofanie zgód = koniec.", src: "Regulamin sprzedaży premiowej „Alior Konto z premią II”"},
-  {id: "mbank", tag: "mBank", col: "#e8559b", name: "mBank", promo: "Cała naprzód – edycja II (eKonto do usług)", max: 900, extra: "+ bony do Biedronki", until: "2026-11-30", ok: true,
+  {id: "mbank", forma: "💵 gotówka 600 zł (+300 zł za wynagrodzenie) + 🧾 bony do Biedronki 6 × 50 zł", tag: "mBank", col: "#e8559b", name: "mBank", promo: "Cała naprzód – edycja II (eKonto do usług)", max: 900, extra: "+ bony do Biedronki", until: "2026-11-30", ok: true,
     kto: "Bez eKonta/konta oszczędnościowego w mBanku od 1.01.2023. Konto indywidualne, karta Mastercard.",
     kod: "Najpierw ZAPISZ SIĘ na stronie promocji „Cała naprzód”, potem tego samego dnia złóż wniosek tymi samymi danymi. We wniosku zaznacz otwarcie „moje cele”. Zgody: mOkazje i spersonalizowane oferty. Umowa najpóźniej do 7.12.2026.",
     kroki: ["Odwołaj zastrzeżenie PESEL.", "Wejdź na stronę promocji mBanku „Cała naprzód” i zapisz się.", "Tego samego dnia złóż wniosek o eKonto do usług z kartą Mastercard (nie Visa).", "Zaznacz otwarcie rachunku „moje cele”.", "Zaznacz zgody mOkazje / spersonalizowane oferty.", "Potwierdź tożsamość selfie albo mObywatelem (+100 zł bonusu).", "Zawrzyj umowę do 7.12.2026.", "W ciągu 7 dni od otwarcia zrób jednorazowy wpływ min. 2000 zł."],
     co: [{m: [0, 0], t: ["W 7 dni od otwarcia: jeden wpływ min. 2000 zł"]}, {m: [1, 1], t: ["Płatności kartą min. 350 zł (BLIK się nie liczy)", "Ostatniego dnia roboczego min. 100 zł na „moje cele”"]}, {m: [2, 6], t: ["Wpływ min. 2000 zł", "Płatności kartą min. 350 zł", "Saldo „moje cele” +100 zł względem poprzedniego miesiąca"]}],
     nag: [{m: [1, 1], a: 100, p: 1, s: 1}, {m: [6, 6], a: 400, p: 1, s: 1}, {m: [6, 6], a: 100, p: 1, s: 1, l: "bonus za selfie/mObywatel"}, {m: [6, 6], a: 300, p: 1, s: 0, l: "bonus za wynagrodzenie (4 z 6 mies.)"}, {m: [1, 6], a: 50, p: 1, s: 0, l: "bon do Biedronki"}],
     wyp: "Premia I do końca 2. pełnego miesiąca, reszta do końca 7. miesiąca. Bony w mOkazje.", pul: "BLIK nie liczy się do 350 zł. Wpływ z własnego konta w mBanku się nie liczy. Karta Visa = brak bonów. Bez zapisu na stronie promocji = brak premii.", src: "Regulamin „Cała naprzód – zyskuj z kontem w mBanku – edycja II”"},
-  {id: "pko", tag: "PKO", col: "#4f7cff", name: "PKO BP", promo: "Prosty zwrot", max: 600, until: "2026-12-31", ok: true,
+  {id: "pko", forma: "↩️ zwrot 10% wydatków kartą (maks. 100 zł/mies.) + 💵 100 zł gotówką", tag: "PKO", col: "#4f7cff", name: "PKO BP", promo: "Prosty zwrot", max: 600, until: "2026-12-31", ok: true,
     kto: "Nie miałeś konta osobistego w PKO między 1.04.2025 a 30.09.2026. 18+ (PKO Konto za Zero; 18–25 lat: Konto dla Młodych).",
     kod: "KOD PROSTO – wpisz go we wniosku o konto. Zgoda na marketing elektroniczny banku. Konto tylko online (aplikacja, ipko.pl lub strona banku).",
     kroki: ["Otwórz PKO Konto za Zero z kartą przez aplikację IKO, ipko.pl lub stronę pkobp.pl.", "We wniosku wpisz kod PROSTO.", "Zaznacz zgodę na marketing elektroniczny.", "Zainstaluj aplikację IKO i aktywuj kartę."],
     co: [{m: [1, 5], t: ["Zaloguj się do aplikacji IKO (ipko w przeglądarce się nie liczy)", "Min. 1 płatność kartą – zwrot 10% wydatków kartą, maks. 100 zł (pełne 100 zł przy 1000 zł płatności)"]}],
     nag: [{m: [1, 5], a: 100, p: 1, s: 0, l: "zwrot 10%"}, {m: [5, 5], a: 100, p: 1, s: 1, l: "za komplet 5 miesięcy"}],
     wyp: "Co miesiąc na konto.", pul: "BLIK, wypłaty i przelewy z karty się nie liczą. Zwroty towarów zmniejszają bazę. Brak jednego miesiąca = brak dodatkowych 100 zł.", src: "Regulamin promocji online „Prosty zwrot” (PKO BP)"},
-  {id: "ing", tag: "ING", col: "#ff8a00", name: "ING Bank Śląski", promo: "Konta pełne korzyści", max: 700, extra: "+100 zł z kodem polecającym", until: "2026-11-25", ok: true,
+  {id: "ing", forma: "💵 gotówka na konto · 100 zł + 6 × 100 zł", tag: "ING", col: "#ff8a00", name: "ING Bank Śląski", promo: "Konta pełne korzyści", max: 700, extra: "+100 zł z kodem polecającym", until: "2026-11-25", ok: true,
     kto: "Brak konta i jakiegokolwiek produktu w ING (od 28.10.2025). Wniosek do 25.11.2026 = krótszy harmonogram (późniejszy do 21.01.2027 przesuwa wszystko o 2 miesiące).",
     kod: "Wniosek TYLKO w aplikacji Moje ING: przed zalogowaniem „Załóż konto”. Konto w Planie (ING Go – 0 zł) RAZEM z OKO i kartą. Zgody na marketing i profilowanie najpóźniej w 14 dni. Kod polecający od znajomego (+100 zł) można wpisać tylko we wniosku.",
     kroki: ["Pobierz aplikację Moje ING → „Załóż konto” (przed zalogowaniem).", "Wybierz Konto w Planie ING Go + konto oszczędnościowe OKO + karta Visa.", "Jeśli masz kod polecający od znajomego – wpisz go teraz.", "Potwierdź tożsamość i podpisz umowę – do 25.11.2026.", "W 14 dni zaznacz zgody na marketing i profilowanie."],
     co: [{m: [0, 1], t: ["Wpływy min. 3000 zł – w DWÓCH różnych miesiącach (listopad i grudzień)", "Płatności kartą/BLIK razem min. 500 zł", "Min. 600 zł na OKO przez 1 dzień"]}, {m: [2, 7], t: ["Wpływ min. 3000 zł", "5 płatności kartą lub BLIKIEM", "Zaloguj się do Moje ING", "Przelew na telefon BLIK min. 5 zł", "Min. 600 zł na OKO przez 1 dzień"]}],
     nag: [{m: [1, 1], a: 100, p: 1, s: 1, l: "etap I"}, {m: [2, 7], a: 100, p: 0, pm: 8, s: 1, l: "etap II"}],
     wyp: "Etap I do 31.01.2027, etap II jednorazowo do 31.07.2027.", pul: "Wpływ musi przyjść z innego banku (nie gotówka, nie z ING). Konto założone w oddziale się nie liczy.", src: "Regulamin promocji „Konta pełne korzyści” (ING)"},
-  {id: "pekao", tag: "Pekao", col: "#d9534f", name: "Bank Pekao", promo: "Otwórz konto online i ruszaj po więcej – edycja V", max: 300, until: "2027-01-12", ok: true,
+  {id: "pekao", forma: "💵 gotówka na konto · 3 × 100 zł", tag: "Pekao", col: "#d9534f", name: "Bank Pekao", promo: "Otwórz konto online i ruszaj po więcej – edycja V", max: 300, until: "2027-01-12", ok: true,
     kto: "Bez konta osobistego w Pekao od 1.09.2024 i bez produktu kredytowego w dniu wniosku (wg opisu promocji).",
     kod: "Wniosek przez stronę www.pekao.com.pl/konto (nie w PeoPay ani w oddziale). Tego samego dnia zaloguj się do Pekao24 lub PeoPay. Zgoda na udział w promocji i informacje handlowe.",
     kroki: ["Wejdź na www.pekao.com.pl/konto i złóż wniosek o Konto Przekorzystne z kartą.", "Zaznacz zgody i zaakceptuj regulamin promocji.", "Potwierdź tożsamość (logowanie w innym banku lub selfie).", "Tego samego dnia zaloguj się do PeoPay lub Pekao24."],
     co: [{m: [1, 3], t: ["10 płatności kartą (BLIK się nie liczy)"]}],
     nag: [{m: [1, 3], a: 100, p: 1, s: 1}],
     wyp: "Po każdym miesiącu (ok. 15. dnia następnego miesiąca).", pul: "Brak 10 płatności w pierwszym miesiącu = tracisz całość. Wniosek w aplikacji lub oddziale = brak premii.", src: "Regulamin „Otwórz konto online i ruszaj po więcej – edycja V” (Pekao)"},
-  {id: "revolut", tag: "Revolut", col: "#9aa3b2", name: "Revolut", promo: "100 zł na start", max: 100, until: "2026-12-31", ok: false,
+  {id: "revolut", forma: "💵 gotówka na konto", tag: "Revolut", col: "#9aa3b2", name: "Revolut", promo: "100 zł na start", max: 100, until: "2026-12-31", ok: false,
     kto: "Nigdy wcześniej nie miałeś konta w Revolut.",
     kod: "Rejestracja TYLKO przez link promocyjny (podajesz numer telefonu na stronie promocji i pobierasz aplikację z linku). Aplikacja pobrana normalnie ze sklepu = brak premii.",
     kroki: ["Wejdź na stronę promocji Revolut i podaj numer telefonu.", "Pobierz aplikację z otrzymanego linku i zarejestruj się.", "Utwórz kartę wirtualną.", "W ciągu miesiąca zapłać kartą łącznie min. 100 zł."],
     co: [{m: [1, 1], t: ["Płatności kartą Revolut łącznie min. 100 zł"]}],
     nag: [{m: [1, 1], a: 100, p: 0, s: 1}],
     wyp: "Kilka dni po spełnieniu warunku.", pul: "Przelewy się nie liczą, tylko płatności kartą. Regulamin niedostępny – sprawdź warunki w aplikacji.", src: "Opis promocji (lowcabonusow.pl) – regulamin niezweryfikowany"},
-  {id: "ca", tag: "CA", col: "#20b2aa", name: "Credit Agricole", promo: "Smaczne zwroty II", max: 1000, until: "2026-11-30", ok: false,
+  {id: "ca", forma: "↩️ zwrot za płatności w restauracjach (10 zł za każde 50 zł)", tag: "CA", col: "#20b2aa", name: "Credit Agricole", promo: "Smaczne zwroty II", max: 1000, until: "2026-11-30", ok: false,
     kto: "Bez rachunku w Credit Agricole od 1.01.2025. Konto dla Ciebie MAX, MOVE! lub Prime z kartą.",
     kod: "Zgody marketingowe telefoniczne i elektroniczne. Szczegóły zgłoszenia – SPRAWDŹ W REGULAMINIE przed wnioskiem (nie udało się go odczytać).",
     kroki: ["Złóż wniosek w aplikacji CA24 Mobile.", "Wybierz konto z kartą debetową.", "Zaznacz zgody marketingowe.", "Przeczytaj regulamin „Smaczne zwroty II” – czy trzeba się dodatkowo zapisać."],
@@ -1768,7 +1768,7 @@ function bankPlanHTML() {
   return `<div class="card s12 bankplan"><div class="ch"><div><h3>Plan premii bankowych</h3><div class="sub">zrobione ${done} z ${allT.length} zadań · pewne ${zl(S)} · maksymalnie ${zl(X)}</div></div>
       <label class="small muted" style="display:flex;gap:6px;align-items:center">Zakładam konta w <input type="month" id="bank-start" value="${bStart()}" style="width:150px"></label></div>
     <div class="bar" style="margin:4px 0 18px"><i style="width:${allT.length ? done / allT.length * 100 : 0}%"></i></div>
-    <div class="bgrid">${BANKS.map(b => { const d = days(b.until), off = !bOn(b); return `<details class="bcard${off ? " off" : ""}" style="--bc:${b.col}"><summary><div class="bn">${esc(b.name)}${b.ok ? "" : ` <span class="small" style="color:var(--warn)">· do sprawdzenia</span>`}</div><div class="ba">${zl(b.max)}${b.extra ? ` <span class="small muted">${esc(b.extra)}</span>` : ""}</div><div class="small muted">Wniosek do ${dShort(b.until)} ${b.until.slice(0, 4)}</div><span class="bdays ${d < 0 ? "x" : d <= 5 ? "w" : ""}">${d < 0 ? "zakończona" : off ? "pomijasz" : d === 0 ? "ostatni dzień!" : d === 1 ? "został 1 dzień" : "zostało " + d + " dni"}</span></summary>
+    <div class="bgrid">${BANKS.map(b => { const d = days(b.until), off = !bOn(b); return `<details class="bcard${off ? " off" : ""}" style="--bc:${b.col}"><summary><div class="bn">${esc(b.name)}${b.ok ? "" : ` <span class="small" style="color:var(--warn)">· do sprawdzenia</span>`}</div><div class="ba">${zl(b.max)}${b.extra ? ` <span class="small muted">${esc(b.extra)}</span>` : ""}</div><div class="small" style="color:var(--fg);opacity:.85">${esc(b.forma || "")}</div><div class="small muted">Wniosek do ${dShort(b.until)} ${b.until.slice(0, 4)}</div><span class="bdays ${d < 0 ? "x" : d <= 5 ? "w" : ""}">${d < 0 ? "zakończona" : off ? "pomijasz" : d === 0 ? "ostatni dzień!" : d === 1 ? "został 1 dzień" : "zostało " + d + " dni"}</span></summary>
       <div class="bguide"><div class="small muted" style="margin-bottom:8px">${esc(b.promo)}</div>
         <div class="bkod"><b>Kod, link i zgody – bez tego nie ma premii</b><div>${esc(b.kod)}</div></div>
         <div class="bh">Kto może</div><div class="small">${esc(b.kto)}</div>
@@ -1783,7 +1783,7 @@ function bankPlanHTML() {
     <div class="bmonths">${Object.keys(byM).sort().map(k => `<div class="bmonth${k === cur ? " now" : ""}"><div class="bmh"><b>${esc(cap(mLabel(k)))}</b><span class="small muted">${byM[k].length} zadań</span></div>${byM[k].map(chk).join("")}</div>`).join("")}</div>
     <h3 style="margin:24px 0 10px">Ile i kiedy wpłynie</h3><div class="chartbox" style="height:220px"><canvas id="ch-banks" aria-label="Premie bankowe w miesiącach"></canvas></div>
     <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Miesiąc</th><th>Pewne</th><th>Maksymalnie</th><th>Razem do tego miesiąca</th></tr></thead><tbody>${sch.map(r => { cs += r.s; cx += r.x; return `<tr><td>${esc(cap(mLabel(r.k)))}</td><td class="pos">${zl(r.s)}</td><td style="color:var(--warn)">${zl(r.x)}</td><td>${zl(cs)} / ${zl(cx)}</td></tr>`; }).join("")}</tbody></table></div>
-    <p class="note">„Pewne” = stałe premie za spełnione warunki. „Maksymalnie” = do tego zwroty zależne od wydatków, bony i bonusy (np. za wynagrodzenie). Wypłaty liczone od miesiąca, w którym zakładasz konta.</p></div>`;
+    <p class="note">💵 gotówka na konto · ↩️ zwrot zależny od wydatków · 🧾 bony · 🎁 rzecz. „Pewne” = stałe premie za spełnione warunki. „Maksymalnie” = do tego zwroty zależne od wydatków, bony i bonusy (np. za wynagrodzenie). Wypłaty liczone od miesiąca, w którym zakładasz konta.</p></div>`;
 }
 function bindBankPlan(root, after) {
   root.querySelectorAll("[data-btask]").forEach(i => i.onchange = async () => { if (i.checked) BANKDONE[i.dataset.btask] = 1; else delete BANKDONE[i.dataset.btask]; i.closest(".btask").classList.toggle("done", i.checked); root.querySelectorAll(`[data-btask="${CSS.escape(i.dataset.btask)}"]`).forEach(o => { o.checked = i.checked; o.closest(".btask").classList.toggle("done", i.checked); }); const all = root.querySelectorAll(".bankplan [data-btask]"), n = [...new Set([...all].map(x => x.dataset.btask))], dn = n.filter(id => BANKDONE[id]).length, sub = root.querySelector(".bankplan .sub"); if (sub) sub.textContent = sub.textContent.replace(/zrobione \d+ z \d+/, `zrobione ${dn} z ${n.length}`); const bar = root.querySelector(".bankplan > .bar > i"); if (bar) bar.style.width = (n.length ? dn / n.length * 100 : 0) + "%"; await store.save("bankdone", BANKDONE); });
