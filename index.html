@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:50</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:51</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1802,10 +1802,10 @@ function renderZrodlo(id) {
   const mRev = inMonth.reduce((x, e) => x + e.rev, 0), mGot = inMonth.filter(e => e.got).reduce((x, e) => x + e.rev, 0);
   const m = {rev: mRev, got: mGot, wait: mRev - mGot};
   const a = srcTotals(s.id, "all", T);
-  const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat ${s.id === "rodzina" ? "s6" : "s3"}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
+  const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat ${s.id === "rodzina" || s.id === "premie" ? "s6" : "s3"}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
   const hasRec = E.some(o => o.recurring);
   const stepper = hasRec ? `<div class="card s12" style="padding:12px 16px;display:flex;align-items:center;gap:12px"><button class="iconbtn" id="sm-prev" aria-label="Poprzedni miesiąc" ${sel <= first ? "disabled" : ""}>‹</button><div style="flex:1;text-align:center"><div style="font-weight:700;font-size:16px">${esc(cap(mLabel(sel)))}</div><div class="small muted">${sel > nowKey() ? "zaznaczasz z wyprzedzeniem" : sel === nowKey() ? "bieżący miesiąc" : "miesiąc miniony"}</div></div><button class="iconbtn" id="sm-next" aria-label="Następny miesiąc" ${sel >= last ? "disabled" : ""}>›</button></div>` : "";
-  $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
+  $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" || s.id === "premie" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
       <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>${s.id === "premie" ? bankPlanHTML() : ""}
@@ -1815,7 +1815,7 @@ function renderZrodlo(id) {
   const sp = $("#sm-prev"), sn = $("#sm-next");
   if (sp) sp.onclick = () => { srcMonth = addMonths(sel, -1); renderZrodlo(id); };
   if (sn) sn.onclick = () => { srcMonth = addMonths(sel, 1); renderZrodlo(id); };
-  if (s.id === "premie") bindBankPlan($("#src-page"), () => keepView(() => renderZrodlo(id)));
+  if (s.id === "premie") { const pg = $("#src-page"), bp = pg.querySelector(".bankplan"), wp = pg.querySelector(".card.s7"); if (bp && wp) pg.insertBefore(bp, wp); bindBankPlan(pg, () => keepView(() => renderZrodlo(id))); }
   bindTodo($("#src-page").querySelector(".todo-box"), s.id);
 }
 /* sales channels */
