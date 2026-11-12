@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:35</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:46</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1076,9 +1076,9 @@ function orderStatus() {
       const it0 = toks(it.product), cat = it0[0], keys = it0.slice(1).filter(w => !STOP.has(w));
       let got = 0;
       pool.forEach((s, i) => { if (used.has(i) || got >= it.qty) return; const st = toks(s.product); if (st[0] !== cat) return; if (keys.length && !keys.some(k => st.includes(k))) return; used.add(i); got++; });
-      const key = o.n + "|" + it.product, man = ARRIVED[key];
+      const key = o.n + "|" + it.product, recvd = !!String(o.received || "").trim(), man = recvd ? ARRIVED[key] : undefined;
       const arrived = man != null ? Math.max(0, Math.min(it.qty, man)) : got;
-      out.push({key, order: o.n, product: it.product.replace(/\s*-\s*[smlx,]+$/i, "").trim(), qty: it.qty - arrived, arrived, auto: got, manual: man != null, ordered: it.qty, unitCost: it.unitCost, sell: it.sell, link: it.link});
+      out.push({key, order: o.n, product: it.product.replace(/\s*-\s*[smlx,]+$/i, "").trim(), sizes: (it.product.match(/-\s*([smlx,\s]+)$/i) || [])[1] || "", qty: it.qty - arrived, arrived, auto: got, manual: man != null, recvd, ignoredMark: !recvd && ARRIVED[key] != null, ordered: it.qty, unitCost: it.unitCost, sell: it.sell, link: it.link});
     });
   });
   return out;
@@ -1196,6 +1196,7 @@ function checks(D) {
     if (u === "paying") q(`${nm}: pieniądze doszły na konto?`, `Wypłata ${zl(x.price)} w drodze.`, ["in"], "Jeszcze nie");
   });
   accounts().forEach(x => { const w = accWarn(x); if (w.length) out.push({lvl: "warn", t: `${x.person || x.account} · ${x.platform} ${x.account}: blisko limitu`, s: `W ${YEAR}: ${w.join(" i ")}. Limit: ${zl(x.limit)} i ${TX_LIMIT} transakcji. Szczegóły w „Konta i limity”.`}); });
+  orderStatus().filter(x => x.ignoredMark).forEach(x => add("info", `Zamówienie ${x.order}: ${x.product} – zaznaczone jako dotarłe, ale w arkuszu brak daty`, `W „Statystyki General” (kolumna E, data otrzymania paczki) zamówienie ${x.order} nie ma daty, więc liczę je jako w drodze z Chin. Gdy paczka przyjdzie, wpisz datę w arkuszu.`));
   const errs = M.errors.filter(e => CHECK_SHEETS.test(e.sheet));
   const bySheet = {}; errs.forEach(e => (bySheet[e.sheet] ||= []).push(e.cell));
   Object.entries(bySheet).forEach(([sh, cells]) => add("err", `Błędy w formułach: ${sh}`, `Komórki ${cells.slice(0, 6).join(", ")}${cells.length > 6 ? " i " + (cells.length - 6) + " więcej" : ""} pokazują #VALUE!. Zwykle to tekst w kolumnie z liczbami.`));
@@ -1327,10 +1328,11 @@ function renderStartInner() {
   { const el = $("#st-roi"); el.style.cursor = "pointer"; el.setAttribute("role", "button"); el.setAttribute("aria-expanded", stockOpen); el.onclick = () => { stockOpen = !stockOpen; keepView(renderStart); }; }
   { const sl = $("#stock-list"); sl.hidden = !(stockOpen && SRC === "kako");
     if (!sl.hidden) { const G = {}; D.unsold.forEach(x => (G[x.product] ||= []).push(x)); const NE = notEntered();
-      const grp = (name, L, sub) => `<details class="grp"><summary><span class="gt"><b>${esc(name)}</b><span class="small muted">${sub}</span></span><b>${L.length} szt.</b>${svg("arrow", 14)}</summary><div class="list">${L.join("")}</div></details>`;
+      const grp = (name, L, sub, right) => `<details class="grp"><summary><span class="gt"><b>${esc(name)}</b><span class="small muted">${sub}</span></span><b>${right || L.length + " szt."}</b>${svg("arrow", 14)}</summary><div class="list">${L.join("")}</div></details>`;
       const row = x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([cleanColor(x.color), x.order ? "zam. " + x.order : "", x.account ? (x.platform || "") + " · " + x.account : ""].filter(Boolean).join(" · "))}</div></div><div class="end"><span class="pill p-${x.status}">${esc(STATUS[x.status] || x.status)}</span><span class="small muted">${x.price > 0 ? zl(x.price) : "koszt " + zl(x.cost || 0)}</span></div></div>`;
       sl.innerHTML = `<div class="ch"><div><h3>W magazynie · ${D.unsold.length + NE.reduce((a, x) => a + x.qty, 0)} szt.</h3></div><button class="iconbtn flat" id="stock-close" aria-label="Zwiń">${svg("x", 15)}</button></div>
         ${Object.entries(G).sort((a, b) => b[1].length - a[1].length).map(([n, L]) => grp(n, L.sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(row), [...new Set(L.map(x => x.size).filter(Boolean))].join(", ") + " · koszt " + zl(L.reduce((a, x) => a + (x.cost || 0), 0)))).join("")}
+        ${(() => { const I = incoming(); if (!I.length) return ""; const byO = {}; I.forEach(x => (byO[x.order] ||= []).push(x)); return Object.entries(byO).map(([o, L]) => grp(`W drodze z Chin · zamówienie ${o}`, L.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">${x.sizes ? "rozm. " + esc(x.sizes) + " · " : ""}${x.arrived ? "dotarło już " + x.arrived + " z " + x.ordered : "jeszcze nic nie dotarło"}</div></div><span class="amt">${x.qty} szt.</span></div>`), "koszt " + zl(L.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)), L.reduce((a, x) => a + x.qty, 0) + " szt.")).join(""); })()}
         ${NE.length ? grp("Dotarło, ale nie ma w arkuszu", NE.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">zam. ${x.order} · wpisz do arkusza sprzedaży</div></div><span class="amt">${x.qty} szt.</span></div>`), NE.reduce((a, x) => a + x.qty, 0) + " szt.") : ""}`;
       $("#stock-close").onclick = () => { stockOpen = false; keepView(renderStart); }; } }
   stat("#st-stock", "calc", "", "Śr. czas sprzedaży", T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia", `<span>od wystawienia do sprzedaży · ${T.n} szt.</span>`);
