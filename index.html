@@ -464,7 +464,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 12.11 22:18</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 12.11 22:46</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1175,10 +1175,10 @@ function checks(D) {
   // pytania od pulpitu: rzeczy, które pewnie zmieniły stan, a status stoi
   M.sales.filter(x => x.status === "sprzedane" && x._k).forEach(x => {
     const u = uiPay(x), d = daysAgo(x.statusAt || x.sold), nm = [x.product, cleanColor(x.color), x.size].filter(Boolean).join(" ");
-    const q = (t, s, a) => out.push({lvl: "ask", t, s, ask: a.map(st => ({k: x._k, st}))});
-    if (u === "shipped" && d != null && d >= 5) q(`${nm}: paczka dotarła do klienta?`, `Wysłane ${d} dni temu (${x.sheet}, wiersz ${x.row}). Gdy klient zaakceptuje, pieniądze trafiają do portfela.`, ["wallet", "paying", "in"]);
-    if (u === "wallet") q(`${nm}: wypłaciłeś już z portfela?`, `${zl(x.price)} leży w portfelu ${x.platform || "platformy"}.`, ["paying", "in"]);
-    if (u === "paying") q(`${nm}: pieniądze doszły na konto?`, `Wypłata ${zl(x.price)} w drodze.`, ["in"]);
+    const sk = SNOOZE[x._k + "|" + u], q = (t, s, a, no) => { if (sk && daysAgo(sk) < 7) return; out.push({lvl: "ask", t, s, ask: a.map(st => ({k: x._k, st})), no: {k: x._k + "|" + u, l: no}}); };
+    if (u === "shipped" && d != null && d >= 5) q(`${nm}: paczka dotarła do klienta?`, `Wysłane ${d} dni temu (${x.sheet}, wiersz ${x.row}). Gdy klient zaakceptuje, pieniądze trafiają do portfela.`, ["wallet", "paying", "in"], "Jeszcze nie");
+    if (u === "wallet") q(`${nm}: wypłaciłeś już z portfela?`, `${zl(x.price)} leży w portfelu ${x.platform || "platformy"}.`, ["paying", "in"], "Nadal w portfelu");
+    if (u === "paying") q(`${nm}: pieniądze doszły na konto?`, `Wypłata ${zl(x.price)} w drodze.`, ["in"], "Jeszcze nie");
   });
   accounts().forEach(x => { const w = accWarn(x); if (w.length) out.push({lvl: "warn", t: `${x.person || x.account} · ${x.platform} ${x.account}: blisko limitu`, s: `W ${YEAR}: ${w.join(" i ")}. Limit: ${zl(x.limit)} i ${TX_LIMIT} transakcji. Szczegóły w „Konta i limity”.`}); });
   const errs = M.errors.filter(e => CHECK_SHEETS.test(e.sheet));
@@ -1195,7 +1195,9 @@ function checks(D) {
   const order = {err: 0, warn: 1, info: 2};
   return out.sort((a, b) => order[a.lvl] - order[b.lvl]);
 }
-const chkHTML = c => `<div class="chk">${ic(c.lvl === "ask" ? "chat" : c.lvl === "info" ? "info" : "alert", c.lvl === "err" ? "l" : c.lvl === "warn" ? "w" : c.lvl === "ask" ? "b" : "")}<div style="min-width:0"><div class="t">${esc(c.t)}</div><div class="s">${esc(c.s)}</div>${c.ask ? `<div class="actions" style="margin-top:8px;flex-wrap:wrap">${c.ask.map(a => `<button class="sm" data-qpay="${esc(a.k)}" data-st="${a.st}">${PAY_LAB[a.st]}</button>`).join("")}</div>` : ""}</div></div>`;
+const chkHTML = c => `<div class="chk">${ic(c.lvl === "ask" ? "chat" : c.lvl === "info" ? "info" : "alert", c.lvl === "err" ? "l" : c.lvl === "warn" ? "w" : c.lvl === "ask" ? "b" : "")}<div style="min-width:0"><div class="t">${esc(c.t)}</div><div class="s">${esc(c.s)}</div>${c.ask ? `<div class="actions" style="margin-top:8px;flex-wrap:wrap">${c.ask.map(a => `<button class="sm" data-qpay="${esc(a.k)}" data-st="${a.st}">${PAY_LAB[a.st]}</button>`).join("")}${c.no ? `<button class="sm" data-qno="${esc(c.no.k)}">${c.no.l}</button>` : ""}</div>` : ""}</div></div>`;
+let SNOOZE = {};
+document.addEventListener("click", async e => { const b = e.target.closest("[data-qno]"); if (!b) return; e.preventDefault(); e.stopPropagation(); SNOOZE[b.dataset.qno] = new Date().toISOString().slice(0, 10); await store.save("asks", SNOOZE); toast("Zapytam znowu za tydzień"); rerender(); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-qpay]"); if (!b) return; e.preventDefault(); e.stopPropagation(); setPaid(b.dataset.qpay, b.dataset.st); });
 
 /* charts */
@@ -1252,7 +1254,7 @@ function renderStartInner() {
   $("#hero").innerHTML = `<div class="ch" style="margin-bottom:0;align-items:center"><div class="seg in" role="group" aria-label="Co pokazać"><button data-h="przychod" aria-pressed="${isRev}">Przychód</button><button data-h="zysk" aria-pressed="${!isRev}">Zysk</button></div><div id="goal" style="margin-left:auto"></div></div>
     <div style="height:14px"></div>
     <div class="bigv ${H.total < 0 ? "neg" : ""}" style="color:${isRev ? "var(--fg)" : ""}">${zl(H.total, 2)}</div>
-    <div class="hmeta">${[isRev && SRC !== "rodzina" && H.total > 0 ? `marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b>` : "", isRev && SRC !== "rodzina" ? `zysk <b>${zl(T.profitIn + T.profitPen)}</b>` : "", P ? deltaHTML(H.total, H.prev) : "", T.n ? `<b>${T.n}</b> szt. sprzedanych` : "", T.n ? (isRev ? `śr. <b>${zl(T.kRev / T.n)}</b> za sztukę` : (T.days == null ? "" : `śr. <b>${T.days.toFixed(1).replace(".", ",")} dnia</b> do sprzedaży`)) : ""].filter(Boolean).map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>')}</div>
+    <div class="hmeta">${SRC === "kako" ? [`<b>${T.n}</b> szt. sprzedanych`, `<b>${D.unsold.length + notEntered().reduce((a, x) => a + x.qty, 0)}</b> szt. niesprzedanych`].map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>') : [isRev && SRC !== "rodzina" && H.total > 0 ? `marża <b style="color:var(--accent)">${pct((T.profitIn + T.profitPen) / H.total)}</b>` : "", isRev && SRC !== "rodzina" ? `zysk <b>${zl(T.profitIn + T.profitPen)}</b>` : "", P ? deltaHTML(H.total, H.prev) : "", T.n ? `<b>${T.n}</b> szt. sprzedanych` : "", T.n ? (isRev ? `śr. <b>${zl(T.kRev / T.n)}</b> za sztukę` : (T.days == null ? "" : `śr. <b>${T.days.toFixed(1).replace(".", ",")} dnia</b> do sprzedaży`)) : ""].filter(Boolean).map(x => `<span style="white-space:nowrap">${x}</span>`).join('<span class="sep">·</span>')}</div>
     <div class="rev-actions"><button data-ra="in"><span class="circ">${svg("check", 18)}</span>Na koncie</button><button data-ra="pen"><span class="circ">${svg("wallet", 18)}</span>W drodze</button><button data-ra="mag"><span class="circ">${svg("box", 18)}</span>Magazyn</button><button data-ra="pod"><span class="circ">${svg("pct", 18)}</span>Podział</button></div>
     <div class="hsplit" style="margin-top:18px">${segs.map(([v, c, l], i) => v || i === 0 ? `${i === 2 ? `<button class="link hs" id="go-transit" style="color:inherit" aria-expanded="${heroPen}">` : i === 0 ? `<button class="link hs" id="go-in" style="color:inherit" aria-expanded="${heroIn}">` : `<span class="hs">`}<i style="background:${c}"></i>${l} <b>${zl(v, 2)}</b>${i === 2 || i === 0 ? ` ${svg("arrow", 13)}</button>` : `</span>`}` : "").join("")}${H.wal > 0 && SRC !== "rodzina" ? `<span class="hs ghost" title="Niewliczone w ${H.lab.toLowerCase()} – liczy się tylko do majątku"><i style="background:#b18cff"></i>Zamrożone <b>${zl(H.wal, 2)}</b><small>poza sumą · w majątku</small></span>` : ""}</div>${heroIn ? inBreakdown(T, H, isRev) : ""}${heroPen ? penBreakdown(T, isRev) : ""}
     <div class="spark"><canvas id="ch-spark" aria-label="${H.lab} w kolejnych miesiącach"></canvas></div>`;
@@ -1264,7 +1266,7 @@ function renderStartInner() {
     options: {scales: {x: {grid: {display: false}, border: {display: false}, ticks: {color: fa}}, y: {display: true, beginAtZero: true, grid: {color: css("--line"), drawTicks: false}, border: {display: false}, ticks: {color: fa, padding: 6, maxTicksLimit: 4, callback: v => new Intl.NumberFormat("pl-PL").format(v) + " zł"}}}, layout: {padding: {top: 8, left: 0, right: 6}}}});
 
   const gk = period === "all" ? (D.keys.includes(nowKey()) ? nowKey() : D.keys[D.keys.length - 1] || nowKey()) : period;
-  const gp = (D.months[gk] || {profit: 0}).profit, ratio = GOAL ? Math.max(0, Math.min(1, gp / GOAL)) : 0, L = Math.PI * 80;
+  const Tg = totals(D, gk), gp = Tg.profitIn + Tg.profitPen, ratio = GOAL ? Math.max(0, Math.min(1, gp / GOAL)) : 0, L = Math.PI * 80;
   const GC = 2 * Math.PI * 15;
   if (isRev) $("#goal").innerHTML = ""; else $("#goal").innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--surface2)" title="Cel miesiąca: ${esc(cap(mLabel(gk)))}">
       <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true"><circle cx="19" cy="19" r="15" fill="none" stroke="${css("--line")}" stroke-width="5"/><circle cx="19" cy="19" r="15" fill="none" stroke="${ac}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${GC * ratio} ${GC}" transform="rotate(-90 19 19)"/></svg>
@@ -1282,21 +1284,12 @@ function renderStartInner() {
   const active = Math.max(0, spentAll - recCost), enroute = incCost || Math.max(0, active - inv), payback = spentAll ? A_.revIn / spentAll : 0;
   const pBar = (a, b, ca, cb) => { const s = Math.max(1, Math.max(0, a) + Math.max(0, b)); return `<div class="stack" style="margin:0 0 8px">${a > 0 ? `<i style="width:${a / s * 100}%;background:${ca}"></i>` : ""}${b > 0 ? `<i style="width:${b / s * 100}%;background:${cb}"></i>` : ""}</div>`; };
   const wn = css("--warn");
-  $("#money").innerHTML = `<div class="ch"><div><h3>Pieniądze</h3></div><button class="sm" id="money-more">${moneyOpen ? "Mniej" : "Szczegóły"}</button></div>
-    <div class="money">
-      <div class="mcol"><div class="mh">${ic("trend", "a")}Zysk łącznie</div><div class="mv ${T.profitIn + T.profitPen < 0 ? "neg" : ""}">${zl(T.profitIn + T.profitPen)}</div><div class="mdet">${pBar(T.profitIn, T.profitPen, ac, wn)}</div>
-        <div class="mline mdet"><span><i style="background:var(--accent)"></i>Otrzymany</span><b>${zl(T.profitIn)}</b></div><div class="mline mdet"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.profitPen)}</b></div></div>
-      <div class="mcol"><div class="mh">${ic("wallet", "b")}Przychód łącznie</div><div class="mv">${zl(T.revIn + T.revPen)}</div><div class="mdet">${pBar(T.revIn, T.revPen, rv, wn)}</div>
-        <div class="mline mdet"><span><i style="background:var(--rev)"></i>Na koncie</span><b>${zl(T.revIn)}</b></div><div class="mline mdet"><span><i style="background:var(--warn)"></i>W drodze</span><b>${zl(T.revPen)}</b></div></div>
-      <div class="mcol"><div class="mh">${ic("box", "w")}Włożone łącznie</div><div class="mv">${zl(spentAll)}</div><div class="mdet">${pBar(recCost, active, fa, wn)}</div>
-        <div class="mline mdet"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div>
-        <div class="mline mdet"><span style="padding-left:16px">w magazynie · w drodze z Chin (${incN} szt.)</span><b>${zl(inv)} · ${zl(enroute)}</b></div>
-        <div class="mline mdet"><span><i style="background:var(--faint)"></i>Już sprzedane (koszt)</span><b>${zl(recCost)}</b></div></div>
-    </div>
-    <div class="payback"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Zwrot inwestycji</b></span><b class="${payback >= 1 ? "pos" : ""}">${pct(payback)}</b></div>
-      <div class="bar ${payback >= 1 ? "" : "w"}"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
-      <div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły, reszta to czysty zysk." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}. W drodze jest ${zl(A_.revPen)}, a towar wystawiony za ${zl(listedVal)}.`}</div></div>`;
+  $("#money").innerHTML = `<div class="ch" style="margin-bottom:10px"><div><h3>Włożone łącznie</h3></div><button class="sm" id="money-more">${moneyOpen ? "Mniej" : "Szczegóły"}</button></div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="mv" style="font:800 30px/1.1 var(--f);letter-spacing:-.03em">${zl(spentAll)}</div><div class="small muted">zwrot inwestycji <b class="${payback >= 1 ? "pos" : ""}" style="font-size:15px">${pct(payback)}</b></div></div>
+    <div class="bar ${payback >= 1 ? "" : "w"}" style="margin-top:10px"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
+    <div class="mdet" style="margin-top:12px"><div class="mline"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div><div class="mline"><span style="padding-left:16px">w magazynie · w drodze z Chin (${incN} szt.)</span><b>${zl(inv)} · ${zl(enroute)}</b></div><div class="mline"><span><i style="background:var(--faint)"></i>Już sprzedane (koszt)</span><b>${zl(recCost)}</b></div><div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}.`}</div></div>`;
   $("#hero").querySelectorAll("[data-ra]").forEach(b => b.onclick = () => { const a = b.dataset.ra; if (a === "in") { heroIn = !heroIn; heroPen = false; keepView(renderStart); } else if (a === "pen") { heroPen = !heroPen; heroIn = false; keepView(renderStart); } else location.hash = a === "mag" ? "magazyn" : "podzial"; });
+  bindPay($("#hero"));
   const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; heroPen = false; keepView(renderStart); };
   const gt = $("#go-transit"); if (gt) gt.onclick = () => { heroPen = !heroPen; heroIn = false; keepView(renderStart); };
   renderTransit(D);
@@ -1376,7 +1369,7 @@ let heroIn = false, heroPen = false;
 function penBreakdown(T, isRev) {
   const L = T.pen.slice().sort((a, b) => String(b.sold || "").localeCompare(String(a.sold || "")));
   const v = x => isRev ? x.price : x.profit, sum = L.reduce((a, x) => a + v(x), 0);
-  return `<div class="small muted" style="font-weight:600;margin:14px 0 6px">W drodze · ${L.length} szt. · ${zl(sum, 2)}</div><div class="list">${L.map(x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([uiPay(x) === "paying" ? "pieniądze wysłane" : "paczka w drodze do klienta", (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt">${zl(v(x), 2)}</span></div>`).join("") || `<div class="empty">Nic nie jest w drodze.</div>`}</div>`;
+  return `<div class="small muted" style="font-weight:600;margin:14px 0 6px">W drodze · ${L.length} szt. · ${zl(sum, 2)}</div><div class="list">${L.map(x => drow(`<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([uiPay(x) === "paying" ? "pieniądze wysłane" : "paczka w drodze do klienta", (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt">${zl(v(x), 2)}</span></div>`, x, `<div class="small muted" style="margin-bottom:6px">Zmień status:</div>${pay3HTML(x)}`)).join("") || `<div class="empty">Nic nie jest w drodze.</div>`}</div>`;
 }
 function inBreakdown(T, H, isRev) {
   const rows = SOURCES.filter(s => s.id !== "kako" && (SRC === "all" || SRC === s.id)).map(s => {
@@ -1385,7 +1378,7 @@ function inBreakdown(T, H, isRev) {
   }).filter(r => r.v);
   const kIn = [...T.sold.filter(x => payState(x).st === "in"), ...(period === "all" ? derive().gone.map(x => ({...x, status: "oddane"})) : [])].sort((a, b) => String(b.sold || "").localeCompare(String(a.sold || "")));
   if (SRC === "all" || SRC === "kako") rows.unshift({name: "Kako", n: kIn.filter(x => x.status !== "oddane").length, v: H.inn - rows.reduce((a, r) => a + r.v, 0), kako: 1});
-  return `<div class="list" style="margin-top:12px">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${r.kako ? r.n + " szt. sprzedanych, pieniądze na koncie" : r.n + (r.n === 1 ? " wpis otrzymany" : " wpisy otrzymane")}</div></div><span class="amt">${zl(r.v, 2)}</span></div>`).join("") || `<div class="empty">Na razie nic.</div>`}</div>${kIn.length && (SRC === "all" || SRC === "kako") ? `<div class="small muted" style="font-weight:600;margin:14px 0 6px">Sprzedaże Kako na koncie · ${period === "all" ? "od początku" : mLabel(period)}</div><div class="list">${kIn.map(x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc(x.status === "oddane" ? [cleanColor(x.color), "oddane za darmo" + (x.recipient ? " (" + x.recipient + ")" : "") + " · strata to koszt"].filter(Boolean).join(" · ") : [cleanColor(x.color), (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt ${(isRev ? x.price : x.profit) < 0 ? "neg" : ""}">${zl(isRev ? x.price || 0 : x.profit, 2)}</span></div>`).join("")}</div>` : ""}`;
+  return `<div class="list" style="margin-top:12px">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${r.kako ? r.n + " szt. sprzedanych, pieniądze na koncie" : r.n + (r.n === 1 ? " wpis otrzymany" : " wpisy otrzymane")}</div></div><span class="amt">${zl(r.v, 2)}</span></div>`).join("") || `<div class="empty">Na razie nic.</div>`}</div>${kIn.length && (SRC === "all" || SRC === "kako") ? `<div class="small muted" style="font-weight:600;margin:14px 0 6px">Sprzedaże Kako na koncie · ${period === "all" ? "od początku" : mLabel(period)}</div><div class="list">${kIn.map(x => drow(`<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc(x.status === "oddane" ? [cleanColor(x.color), "oddane za darmo" + (x.recipient ? " (" + x.recipient + ")" : "") + " · strata to koszt"].filter(Boolean).join(" · ") : [cleanColor(x.color), (x.platform || "") + (x.account ? " · " + x.account : ""), x.sold ? dShort(x.sold) : ""].filter(Boolean).join(" · "))}</div></div><span class="amt ${(isRev ? x.price : x.profit) < 0 ? "neg" : ""}">${zl(isRev ? x.price || 0 : x.profit, 2)}</span></div>`, x, x.status === "oddane" ? "" : `<div class="small muted" style="margin-bottom:6px">Zmień status:</div>${pay3HTML(x)}`)).join("")}</div>` : ""}`;
 }
 function srcTotals(id, p, T) {
   if (id === "kako") return {rev: T.kRev, profit: T.kProfit};
@@ -2283,7 +2276,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2406,7 +2399,7 @@ renderAll();
   if (mcp) connect();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
-  BANKST = (await store.load("banks", {})) || {};
+  BANKST = (await store.load("banks", {})) || {}; SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
   PROFILES = profiles || []; applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
   if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; if (CHANNELS) ["szafa", "trivaro", "hemly"].forEach(id => { if (!CHANNELS.some(c => c.id === id)) CHANNELS = [CHANNEL_SEED.find(c => c.id === id), ...CHANNELS]; }); ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
