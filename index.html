@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 01:10</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 01:14</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -821,7 +821,8 @@ function parseKako(XLSX, wb) {
       const stRaw = c.st >= 0 && r[c.st] != null ? String(r[c.st]).trim() : '', stl = stRaw.toLowerCase();
       let sheetPay = null;
       if (stl && stl !== '-') {
-        if (/zakończon|zakonczon/.test(stl)) { status = 'sprzedane'; sheetPay = 'in'; }
+        if (/chin/.test(stl)) status = 'chiny';  // „W drodze z Chin” = jeszcze nie dotarło, NIE sprzedane
+        else if (/zakończon|zakonczon/.test(stl)) { status = 'sprzedane'; sheetPay = 'in'; }
         else if (/portfel/.test(stl)) { status = 'sprzedane'; sheetPay = 'wallet'; }
         else if (/wysłan|wyslan|w drodze|sprzedan/.test(stl)) { status = 'sprzedane'; sheetPay = 'pending'; }
         else if (/negocj/.test(stl)) status = 'negocjacje';
@@ -1063,20 +1064,21 @@ const bindPay = root => root.querySelectorAll("[data-pay]").forEach(b => b.oncli
 
 /* goods paid but not yet in the sales sheets = still on the way from China */
 const STOP = new Set(["kurtka", "buty", "torebka", "kolczyki", "bezrękawnik", "the", "face", "s", "m", "l", "xl"]);
-const SYN = {polo: "ralph", lauren: "ralph", rl: "ralph"};
+const SYN = {polo: "ralph", lauren: "ralph", rl: "ralph", tnf: "north", bag: "torebka"};
+const CATS = new Set(["kurtka", "buty", "torebka", "kolczyki", "bezrękawnik"]);
 const toks = s => String(s).toLowerCase().replace(/[()\-,]/g, " ").split(/\s+/).filter(w => w.length > 1).map(w => SYN[w] || w);
 let ARRIVED = {};
 function orderStatus() {
   const out = [];
   M.orders.forEach(o => {
     const items = M.orderItems[String(o.n)] || [];
-    const pool = M.sales.filter(s => s.order === o.n && !s.future);
+    const pool = M.sales.filter(s => s.order === o.n && !s.future && s.status !== "chiny");
     const used = new Set();
     items.forEach(it => {
       const it0 = toks(it.product), cat = it0[0], keys = it0.slice(1).filter(w => !STOP.has(w));
       let got = 0;
-      pool.forEach((s, i) => { if (used.has(i) || got >= it.qty) return; const st = toks(s.product); if (st[0] !== cat) return; if (keys.length && !keys.some(k => st.includes(k))) return; used.add(i); got++; });
-      const key = o.n + "|" + it.product, recvd = !!String(o.received || "").trim(), man = recvd ? ARRIVED[key] : undefined;
+      pool.forEach((s, i) => { if (used.has(i) || got >= it.qty) return; const st = toks(s.product); if (st[0] !== cat && (CATS.has(st[0]) || !st.includes(cat))) return; if (keys.length && !keys.some(k => st.includes(k))) return; used.add(i); got++; });
+      const key = o.n + "|" + it.product, recvd = /\d{1,2}[.\/-]\d{1,2}|^\d{5}$/.test(String(o.received || "").trim()), man = recvd ? ARRIVED[key] : undefined;
       const arrived = man != null ? Math.max(0, Math.min(it.qty, man)) : got;
       out.push({key, order: o.n, product: it.product.replace(/\s*-\s*[smlx,]+$/i, "").trim(), sizes: (it.product.match(/-\s*([smlx,\s]+)$/i) || [])[1] || "", qty: it.qty - arrived, arrived, auto: got, manual: man != null, recvd, ignoredMark: !recvd && ARRIVED[key] != null, ordered: it.qty, unitCost: it.unitCost, sell: it.sell, link: it.link});
     });
@@ -1095,7 +1097,7 @@ const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.spli
 const drow = (inner, s, extra = "") => `<details class="drow"><summary>${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
-const STATUS = {sprzedane: "Sprzedane", presale: "Presale", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
+const STATUS = {sprzedane: "Sprzedane", presale: "Presale", chiny: "W drodze z Chin", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
 /* recurring entries (family support, pocket money, garage…) expand into one instance per month */
 let RECV = {}, LIVING = [], NW = {assets: [], debts: []}, TRANSFERS = {};
 const monthsFrom = (a, b) => { const out = []; if (!a) return out; let [y, m] = a.split("-").map(Number); const [by, bm] = b.split("-").map(Number); while ((y < by || (y === by && m <= bm)) && out.length < 240) { out.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } } return out; };
@@ -1335,7 +1337,9 @@ function renderStartInner() {
         ${(() => { const I = incoming(); if (!I.length) return ""; const byO = {}; I.forEach(x => (byO[x.order] ||= []).push(x)); return Object.entries(byO).map(([o, L]) => grp(`W drodze z Chin · zamówienie ${o}`, L.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">${x.sizes ? "rozm. " + esc(x.sizes) + " · " : ""}${x.arrived ? "dotarło już " + x.arrived + " z " + x.ordered : "jeszcze nic nie dotarło"}</div></div><span class="amt">${x.qty} szt.</span></div>`), "koszt " + zl(L.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)), L.reduce((a, x) => a + x.qty, 0) + " szt.")).join(""); })()}
         ${NE.length ? grp("Dotarło, ale nie ma w arkuszu", NE.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">zam. ${x.order} · wpisz do arkusza sprzedaży</div></div><span class="amt">${x.qty} szt.</span></div>`), NE.reduce((a, x) => a + x.qty, 0) + " szt.") : ""}`;
       $("#stock-close").onclick = () => { stockOpen = false; keepView(renderStart); }; } }
-  stat("#st-stock", "calc", "", "Śr. czas sprzedaży", T.days == null ? "—" : T.days.toFixed(1).replace(".", ",") + " dnia", `<span>od wystawienia do sprzedaży · ${T.n} szt.</span>`);
+  { const I = incoming(), q = I.reduce((a, x) => a + x.qty, 0), c = I.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0), ords = [...new Set(I.map(x => x.order))];
+    stat("#st-stock", "box", "w", `W drodze z Chin ${svg(stockOpen ? "x" : "arrow", 12)}`, q + " szt.", `<span>${q ? "koszt " + zl(c) + " · zamówienie " + ords.join(", ") : "nic nie jest w drodze"}</span>`);
+    const el = $("#st-stock"); el.style.cursor = "pointer"; el.setAttribute("role", "button"); el.onclick = () => { stockOpen = !stockOpen; keepView(renderStart); }; }
 
   const C = checks(D), serious = C.filter(c => c.lvl !== "info");
   const cm = $("#checks-mini"); cm.hidden = !C.length;
