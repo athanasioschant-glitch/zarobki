@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 22:06</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 22:09</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1087,7 +1087,15 @@ function orderStatus() {
   });
   return out;
 }
-const incoming = () => orderStatus().filter(x => x.qty > 0);
+// „W drodze z Chin”: jeśli zamówienie ma zakładkę sprzedaży – liczymy z niej (STATUS „W drodze z Chin” + presale z nieodebranego zamówienia); jeśli nie ma – z listy zamówienia
+const orderHasSheet = n => M.sales.some(s => s.order === n && !s.future && /sprzeda/i.test(s.sheet || ""));
+const orderRecvd = n => { const o = M.orders.find(x => x.n === n); return !!o && /\d{1,2}[.\/-]\d{1,2}|^\d{5}$/.test(String(o.received || "").trim()); };
+const incoming = () => {
+  const out = orderStatus().filter(x => x.qty > 0 && !orderHasSheet(x.order)), G = {};
+  M.sales.filter(s => !s.future && (s.status === "chiny" || (s.status === "presale" && s.order && !orderRecvd(s.order)))).forEach(s => { const k = s.order + "|" + s.product, g = G[k] ||= {key: k, order: s.order, product: s.product, qty: 0, ordered: 0, arrived: 0, sz: [], presold: 0, unitCost: 0, cost: 0}; g.qty++; g.ordered++; g.cost += s.cost || 0; if (s.size) g.sz.push(s.size); if (s.status === "presale") g.presold++; });
+  Object.values(G).forEach(g => { g.unitCost = g.qty ? g.cost / g.qty : 0; g.sizes = [...new Set(g.sz)].sort((a, b) => String(a).localeCompare(String(b), "pl", {numeric: true})).join(", "); out.push(g); });
+  return out;
+};
 const notEntered = () => orderStatus().filter(x => x.arrived > x.auto).map(x => ({...x, qty: x.arrived - x.auto}));
 const notEnteredCost = () => notEntered().reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
 async function setArrived(key, n) { if (n == null) delete ARRIVED[key]; else ARRIVED[key] = n; await store.save("arrived", ARRIVED); toast("Zapisano stan dostawy"); rerender(); }
@@ -1200,6 +1208,9 @@ function checks(D) {
     if (u === "paying") q(`${nm}: pieniądze doszły na konto?`, `Wypłata ${zl(x.price)} w drodze.`, ["in"], "Jeszcze nie");
   });
   accounts().forEach(x => { const w = accWarn(x); if (w.length) out.push({lvl: "warn", t: `${x.person || x.account} · ${x.platform} ${x.account}: blisko limitu`, s: `W ${YEAR}: ${w.join(" i ")}. Limit: ${zl(x.limit)} i ${TX_LIMIT} transakcji. Szczegóły w „Konta i limity”.`}); });
+  orderStatus().filter(x => x.qty > 0 && orderHasSheet(x.order) && orderRecvd(x.order)).forEach(x => add("warn", `Zamówienie ${x.order}: ${x.product} – zamówiono ${x.ordered}, w arkuszu ${x.ordered - x.qty}`, `Brakuje ${x.qty} szt. w „${x.order} - sprzedaż”. Dopisz je (z właściwym STATUSEM) albo sprawdź, czy nie zginęły.`));
+  const inSheet = x => M.sales.filter(s => s.order === x.order && !s.future && toks(s.product)[0] === toks(x.product)[0]).length;
+  orderStatus().filter(x => orderHasSheet(x.order) && !orderRecvd(x.order) && inSheet(x) < x.ordered).forEach(x => add("info", `Zamówienie ${x.order}: ${x.product} – w arkuszu sprzedaży ${inSheet(x)} z ${x.ordered}`, `Brakuje ${x.ordered - inSheet(x)} szt. w zakładce sprzedaży. Jeśli są w drodze, dopisz je ze STATUSEM „W drodze z Chin”.`));
   orderStatus().filter(x => x.ignoredMark).forEach(x => add("info", `Zamówienie ${x.order}: ${x.product} – zaznaczone jako dotarłe, ale w arkuszu brak daty`, `W „Statystyki General” (kolumna E, data otrzymania paczki) zamówienie ${x.order} nie ma daty, więc liczę je jako w drodze z Chin. Gdy paczka przyjdzie, wpisz datę w arkuszu.`));
   const errs = M.errors.filter(e => CHECK_SHEETS.test(e.sheet));
   const bySheet = {}; errs.forEach(e => (bySheet[e.sheet] ||= []).push(e.cell));
