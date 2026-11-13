@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 00:51</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 13.11 01:09</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1683,8 +1683,8 @@ const addMonths = (k, n) => { const [y, m] = k.split("-").map(Number); const d =
 const BANKS = [
   {id: "bnp", forma: "💵 gotówka na konto · 12 × 75 zł + 200 zł · nic nie musisz wydawać ponad zwykłe zakupy", tag: "BNP", col: "#3fbf7f", name: "BNP Paribas", promo: "Podróżnik z aplikacją – edycja 2", max: 1100, until: "2026-11-13", ok: true,
     kto: "Nie miałeś konta osobistego w BNP przez ostatnie 24 miesiące. 18+, PESEL nie może być zastrzeżony.",
-    kod: "Bez kodu, ale wniosek TYLKO w aplikacji GOmobile. Zgody: marketing e-mail/SMS i telefoniczny; nie składaj sprzeciwu wobec profilowania.",
-    kroki: ["Odwołaj zastrzeżenie PESEL w mObywatelu (jeśli masz).", "Pobierz aplikację BNP Paribas GOmobile i wybierz „Rozpocznij wnioskowanie w aplikacji”.", "Potwierdź numer telefonu kodem SMS.", "Potwierdź tożsamość: mObywatel albo dowód + nagranie twarzy.", "Wybierz Konto Otwarte na Ciebie z Kartą Otwartą na Świat.", "Zaznacz zgody marketingowe (e-mail/SMS i telefon).", "Podpisz umowę kodem SMS (Autenti) – najpóźniej 13.11.2026.", "Aktywuj kartę."],
+    kod: "ZANIM ZACZNIESZ: wniosek TYLKO w aplikacji GOmobile, tożsamość TYLKO przez Wideoweryfikację w aplikacji. Zaznacz zgodę na informacje handlowe e-mail/SMS/PUSH ORAZ zgodę na kontakt telefoniczny, nie składaj sprzeciwu wobec profilowania, zaakceptuj regulamin promocji. Pole „kod polecający od pracownika” zostaw puste. Zgody muszą być zaznaczone przy umowie – później jest za późno.",
+    kroki: ["Odwołaj zastrzeżenie PESEL w mObywatelu (jeśli masz).", "Pobierz aplikację BNP Paribas GOmobile → „Jesteś nowym klientem” → „Załóż nowe konto” → konto osobiste w promocji z kartą i kontem oszczędnościowym (do 1100 zł).", "Potwierdź numer telefonu kodem SMS.", "Zaznacz zgodę na informacje handlowe e-mail/SMS/PUSH i zgodę na kontakt telefoniczny; NIE składaj sprzeciwu wobec profilowania.", "Zaakceptuj regulamin „Podróżnik z aplikacją – edycja 2”. Kod polecający od pracownika – zostaw puste.", "Wybierz Kartę Otwartą na Świat.", "Potwierdź tożsamość przez Wideoweryfikację w aplikacji (nie mObywatel).", "Podpisz umowę kodem SMS (Autenti) – najpóźniej 13.11.2026.", "Aktywuj kartę."],
     co: [{m: [1, 12], t: ["10 płatności Kartą Otwartą na Świat (BLIK się nie liczy)", "Wpływy min. 1500 zł (np. przelew z innego banku)", "Zaloguj się do GOmobile"]}, {m: [12, 12], t: ["Na koniec miesiąca min. 500 zł na koncie oszczędnościowym w BNP"]}],
     nag: [{m: [1, 12], a: 75, p: 1, s: 1}, {m: [12, 12], a: 200, p: 1, s: 1}],
     wyp: "75 zł do 15. dnia następnego miesiąca, 200 zł razem z ostatnią.", pul: "BLIK i wypłaty z bankomatu nie liczą się do 10 płatności. Wycofanie zgód = koniec premii. Miesiąc założenia się nie liczy.", src: "Regulamin „Podróżnik z aplikacją – edycja 2” (BNP Paribas)"},
