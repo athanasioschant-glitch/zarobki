@@ -498,7 +498,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:13</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:17</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -603,9 +603,9 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
           
           <label>Dostawa<select id="gen-ship"><option>Wysyłka i odbiór osobisty</option><option>Tylko wysyłka</option><option>Tylko odbiór osobisty</option></select></label>
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
-          <div class="full" id="photo-plan"></div>
-          <div class="full"><div class="small muted" style="margin-bottom:6px">Zdjęcia · 1 = okładka · przeciągnij kafelek na inne miejsce</div><input id="gen-photos" type="file" accept="image/*,.heic,.heif" multiple hidden></div>
+          <div class="full small muted">Zdjęcia · 1 = okładka · przeciągnij kafelek na inne miejsce</div>
           <div class="full" id="gen-thumbs"></div>
+          <div class="full small" id="ph-msg"></div>
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
           <label class="full">Szczegóły<textarea id="gen-extra" placeholder="Wymiary, materiał, jak leży, ewentualne wady"></textarea></label>
@@ -2310,8 +2310,8 @@ async function loadPhotos() {
   PHOTOS = await Promise.all(L.map(async p => { if (!p) return null; if (p.k) { const v = await store.load(p.k, null); return v && v[0] ? {...p, url: v[0]} : null; } return p.url ? p : null; }));
   renderThumbs();
 }
-$("#gen-photos").onchange = async e => {
-  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0, at = PH_AT, why = ""; e.target.value = "";
+const onPhotosPicked = async e => {
+  const files = [...e.target.files], msg = $("#ph-msg"); let bad = 0, at = PH_AT, why = ""; e.target.value = "";
   msg.textContent = `Wczytuję ${files.length} zdj.…`;
   for (const f of files) {
     at = PHOTOS.length; if (at >= PHOTO_MAX) break;
@@ -2319,20 +2319,20 @@ $("#gen-photos").onchange = async e => {
       msg.textContent = `Wczytuję ${at + 1}/${files.length}…`;
       const src = await toJpegSource(f);
       const ai = await shrink(src); let url = null, k = null;
-      if (assetsNS) { try { url = (await assetsNS.upload(await shrinkTo(src, 1600, .86))).url; } catch (e) { why = why || "zapis w schowku strony: " + (e.code || e.message); } }
+      if (assetsNS) { try { url = (await Promise.race([assetsNS.upload(await shrinkTo(src, 1600, .86)), new Promise((_, no) => setTimeout(() => no(new Error("przekroczony czas")), 20000))])).url; } catch (e) { why = why || "zapis w schowku strony: " + (e.code || e.message); } }
       if (!url) { url = await toDataURL(await shrinkTo(src, 560, .72)); k = "lp_" + Date.now().toString(36) + at; await store.save(k, [url]); }
       PHOTOS[at] = {url, name: f.name, blob: ai, k}; at++; renderThumbs();
     } catch (err) { bad++; why = why || (err && err.message) || String(err); console.warn("zdjęcie", f.name, f.type, err); }
   }
   savePhotos();
-  msg.textContent = bad ? `Nie udało się wczytać ${bad} zdj. Powód: ${why}` : why ? `Zdjęcia dodane, ale zapisane w mniejszej jakości (${why}).` : "";
+  msg.textContent = bad ? `Wczytane: ${files.length - bad} z ${files.length}. Powód błędu: ${why}` : why ? `Wczytane: ${files.length}, ale w mniejszej jakości (${why}).` : `Wczytane: ${files.length} zdj. ✓`; msg.className = "full small " + (bad ? "neg" : "pos");
   fillFromPhotos();
 };
 function movePhoto(from, to) { if (from === to || from == null) return; const [p] = PHOTOS.splice(from, 1); PHOTOS.splice(Math.min(to, PHOTOS.length), 0, p); savePhotos(); }
 function renderThumbs() {
   const el = $("#gen-thumbs"); renderPhotoPlan(); PHOTOS = PHOTOS.filter(Boolean);
-  if (!PHOTOS.length) { el.innerHTML = `<button type="button" class="primary" id="ph-pick">${svg("plus", 16)}Wybierz zdjęcia</button>`; $("#ph-pick").onclick = () => $("#gen-photos").click(); return; }
-  el.innerHTML = `<div class="thumbs">${PHOTOS.map((p, i) => `<div class="thumb${i === 0 ? " cover" : ""}${PH_SEL === i ? " sel" : ""}" data-pi="${i}"><img src="${p.url}" alt="Zdjęcie ${i + 1}" draggable="false" style="touch-action:none"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-px="${i}" aria-label="Usuń">×</button></div></div>`).join("")}${PHOTOS.length < PHOTO_MAX ? `<button type="button" class="thumb empty" data-pi="${PHOTOS.length}" id="ph-add" aria-label="Dodaj zdjęcia">+</button>` : ""}</div><div class="small muted" style="margin-top:6px">${PHOTOS.length} zdj.${assetsNS ? " · zapisane w dashboardzie" : " · zapisane (mniejsza jakość w aplikacji)"}${PH_SEL != null ? " · kliknij miejsce, gdzie ma trafić zdjęcie " + (PH_SEL + 1) : ""}</div>`;
+  if (!PHOTOS.length) { el.innerHTML = `<label class="btn primary" style="position:relative;cursor:pointer">${svg("plus", 16)}Wybierz zdjęcia<input type="file" accept="image/*,.heic,.heif" multiple class="ph-in" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>`; el.querySelector(".ph-in").onchange = onPhotosPicked; return; }
+  el.innerHTML = `<div class="thumbs">${PHOTOS.map((p, i) => `<div class="thumb${i === 0 ? " cover" : ""}${PH_SEL === i ? " sel" : ""}" data-pi="${i}"><img src="${p.url}" alt="Zdjęcie ${i + 1}" draggable="false" style="touch-action:none"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-px="${i}" aria-label="Usuń">×</button></div></div>`).join("")}${PHOTOS.length < PHOTO_MAX ? `<label class="thumb empty" data-pi="${PHOTOS.length}" id="ph-add" aria-label="Dodaj zdjęcia" style="position:relative">+<input type="file" accept="image/*,.heic,.heif" multiple class="ph-in" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>` : ""}</div><div class="small muted" style="margin-top:6px">${PHOTOS.length} zdj.${assetsNS ? " · zapisane w dashboardzie" : " · zapisane (mniejsza jakość w aplikacji)"}${PH_SEL != null ? " · kliknij miejsce, gdzie ma trafić zdjęcie " + (PH_SEL + 1) : ""}</div>`;
   const slotAt = (x, y) => { const t = document.elementFromPoint(x, y), c = t && t.closest("[data-pi]"); return c && el.contains(c) ? +c.dataset.pi : null; };
   el.querySelectorAll(".thumb[data-pi] img").forEach(im => { const i = +im.closest("[data-pi]").dataset.pi;
     let sx, sy, drag = false, ghost = null;
@@ -2343,7 +2343,7 @@ function renderThumbs() {
       if (was) { const to = slotAt(e.clientX, e.clientY); PH_SEL = null; if (to != null) movePhoto(i, Math.min(to, PHOTOS.length - 1)); renderThumbs(); return; }
       if (PH_SEL == null) PH_SEL = i; else { movePhoto(PH_SEL, i); PH_SEL = null; } renderThumbs(); };
     im.onpointercancel = () => { if (ghost) ghost.remove(); ghost = null; sx = null; drag = false; }; });
-  const add = $("#ph-add"); if (add) add.onclick = () => { if (PH_SEL != null) { movePhoto(PH_SEL, PHOTOS.length - 1); PH_SEL = null; renderThumbs(); } else $("#gen-photos").click(); };
+  const add = $("#ph-add"); if (add) { add.querySelector(".ph-in").onchange = onPhotosPicked; add.onclick = e => { if (PH_SEL != null) { e.preventDefault(); movePhoto(PH_SEL, PHOTOS.length - 1); PH_SEL = null; renderThumbs(); } }; }
   el.querySelectorAll("[data-px]").forEach(b => b.onclick = () => { const i = +b.dataset.px, p = PHOTOS[i];
     if (p && p.k) store.save(p.k, null); PHOTOS.splice(i, 1); PH_SEL = null; savePhotos(); renderThumbs(); });
 }
@@ -2352,11 +2352,7 @@ const PHOTO_PLANS = {
   kurtka: {n: 5, list: ["Główne: kurtka trzymana w ręce albo na wieszaku, przód", "Tył", "Logo i metka marki", "Zamek, guziki, detale", "Metka z rozmiarem i składem"]},
   inne: {n: 6, list: ["Główne: rzecz w ręce, dobre światło dzienne", "Drugie ujęcie z innej strony", "Logo lub metka", "Detale i faktura", "Ewentualne wady z bliska", "Metka z rozmiarem"]}
 };
-function renderPhotoPlan() {
-  const p = ($("#gen-prod").value || "").toLowerCase(), k = /but|ugg|sneak|trampk|kozak/.test(p) ? "buty" : /kurt|bluz|swet|bezręk|płaszcz|kamizel/.test(p) ? "kurtka" : "inne", P = PHOTO_PLANS[k];
-  $("#photo-plan").innerHTML = `<div class="card" style="background:var(--surface2);box-shadow:none;padding:14px"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Plan zdjęć</b> · ${k === "buty" ? "buty" : k === "kurtka" ? "kurtka / bluza" : "inne"}</span><b>${PH().length} / ${P.n}</b></div>
-    <ol class="small muted" style="margin:6px 0 0;padding-left:18px;line-height:1.7">${P.list.map((x, i) => `<li style="${i < PH().length ? "color:var(--accent)" : ""}">${esc(x)}</li>`).join("")}</ol><p class="note" style="margin-top:8px">Pierwsze zdjęcie jest miniaturą ogłoszenia – rzecz w ręce, jasne tło, bez filtrów. Wszystkie zdjęcia muszą pokazywać tę konkretną sztukę.</p></div>`;
-}
+function renderPhotoPlan() {}
 const AUDIT_RULES = `Jesteś audytorem ogłoszenia sprzedaży. Twoje zadanie: sprawdzić, czy tekst ogłoszenia jest w 100% zgodny ze ZDJĘCIAMI i DANYMI od sprzedającego i czy nic nie zostało wymyślone.
 Wypisz KAŻDE twierdzenie o produkcie z tytułu i opisu (typ, marka, model, kolor, rozmiar, stan, materiał, wady, wymiary, dodatki, pudełko, metki, oryginalność, historia zakupu).
 Dla każdego nadaj status:
