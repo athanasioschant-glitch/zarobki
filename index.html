@@ -498,7 +498,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:17</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:18</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2294,12 +2294,12 @@ const PH = () => PHOTOS.filter(Boolean);
 let PH_SEL = null, PH_AT = 0;
 /* zdjęcia z iPhone'a (HEIC) – przeglądarka ich nie otworzy, więc konwertuję na JPG */
 let HEIC_LIB = null;
-const loadHeic = () => HEIC_LIB || (HEIC_LIB = new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"; sc.onload = () => ok(window.heic2any); sc.onerror = () => { HEIC_LIB = null; no(new Error("nie udało się pobrać konwertera HEIC")); }; document.head.appendChild(sc); }));
+const loadHeic = () => HEIC_LIB || (HEIC_LIB = import("https://cdn.jsdelivr.net/npm/heic-to@1.6.7/dist/csp/heic-to.js").then(m => m.heicTo).catch(e => { HEIC_LIB = null; throw new Error("nie udało się pobrać konwertera HEIC (" + e.message + ")"); }));
 async function toJpegSource(f) {
   const heic = /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
   if (!heic) { try { await shrinkTo(f, 64, .5); return f; } catch {} }
   const sig = new Uint8Array(await f.slice(4, 12).arrayBuffer()), ftyp = String.fromCharCode(...sig);
-  if (heic || /ftyp(heic|heix|mif1|msf1|hevc)/.test(ftyp)) { const conv = await loadHeic(); const out = await conv({blob: f, toType: "image/jpeg", quality: .9}); return Array.isArray(out) ? out[0] : out; }
+  if (heic || /ftyp(heic|heix|mif1|msf1|hevc)/.test(ftyp)) { const conv = await loadHeic(); return await conv({blob: f, type: "image/jpeg", quality: .9}); }
   throw new Error(`nieobsługiwany format pliku ${f.name} (${f.type || "nieznany typ"})`);
 }
 async function shrinkTo(file, max, q) { const keep = window.__mx; window.__mx = [max, q]; try { return await shrink(file); } finally { window.__mx = keep; } }
