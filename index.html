@@ -494,7 +494,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:03</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:04</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -605,7 +605,8 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
           <label class="full">Szczegóły<textarea id="gen-extra" placeholder="Wymiary, materiał, jak leży, ewentualne wady"></textarea></label>
-          <div class="full actions"><button class="primary" type="submit" id="gen-go"><svg class="i" width="16" height="16"><use href="#i-spark"/></svg>Generuj opisy</button><span class="small muted" id="gen-msg"></span></div>
+          <div class="full actions"><button class="primary" type="submit" id="gen-go"><svg class="i" width="16" height="16"><use href="#i-spark"/></svg>Generuj opisy</button><button type="button" id="gen-ready" disabled>Wystaw zaakceptowane</button><span class="small muted" id="gen-msg"></span></div>
+          <div class="full small muted" id="gen-readymsg"></div>
         </form>
         <div id="gen-out" hidden></div>
         <div id="gen-audit" hidden></div>
@@ -2426,7 +2427,6 @@ function renderGenOut(D, fresh) {
         ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia: ${x.zdjecia.length} z ${PHOTOS.length}${PHOTOS.length > x.zdjecia.length ? ` (limit ${x.platforma}: ${x.zdjecia.length})` : ""}</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${PHOTOS[n - 1].url0}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
         ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><textarea class="out" id="o-${i}-d" data-ed="${i}|d" ${x.ok || !x.edit ? "readonly" : ""}>${esc(genFull(x))}</textarea>${x.tlumaczenie ? `<div class="outhead"><strong class="small muted">Tłumaczenie (PL)</strong></div><div class="out small muted" style="background:none;padding:0 2px">${esc(x.tlumaczenie)}</div>` : ""}<div class="actions" style="margin:10px 0 4px">${x.ok ? `<span class="small pos">${svg("check", 14)} Zaakceptowane</span><button class="sm" data-ga="${i}|undo">Cofnij</button>` : `<button class="sm primary" data-ga="${i}|ok">${svg("check", 14)}Zaakceptuj</button><button class="sm" data-ga="${i}|edit">${x.edit ? "Gotowe" : "Edytuj"}</button><button class="sm" data-ga="${i}|chg">${svg("refresh", 14)}Zmień</button>`}</div><div id="o-${i}-chg" hidden><input class="out" id="o-${i}-q" placeholder="Co zmienić? np. milej, bardziej szczegółowo, krócej"><div class="chips" style="margin:8px 0">${["Milej", "Bardziej szczegółowo", "Krócej", "Bardziej rzeczowo", "Więcej słów kluczowych"].map(c => `<button type="button" class="sm" data-gq="${i}|${c}">${c}</button>`).join("")}</div><div class="actions"><button class="sm primary" data-ga="${i}|redo">Wygeneruj ponownie</button><span class="small muted" id="o-${i}-cm"></span></div></div></details>`;
   out.innerHTML = L.map(block).join("") + (D.wsk && D.wsk.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${D.wsk.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button><span class="small muted" id="gen-saved"></span></div>
-      <div class="actions" style="margin-top:8px"><button class="primary" id="gen-ready" ${L.some(x => x.ok) ? "" : "disabled"}>Wystaw zaakceptowane (${L.filter(x => x.ok).length})</button></div><div class="small muted" id="gen-readymsg" style="margin-top:6px">${D.ready ? readyTxt(D) : L.some(x => x.ok) ? "" : "Najpierw zaakceptuj opisy."}</div>
       <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
   out.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const [i, f] = b.dataset.cp.split("|"); copy($("#o-" + i + "-" + f)); });
   out.querySelectorAll("[data-ed]").forEach(t => { const [i, f] = t.dataset.ed.split("|"), x = L[+i];
@@ -2434,7 +2434,9 @@ function renderGenOut(D, fresh) {
     t.oninput = () => { if (f === "t") { x.tytul = t.value; $("#o-" + i + "-n").textContent = [...t.value].length; } else { x.full = t.value; grow(t); }
       $("#gen-saved").textContent = "Zapisano zmiany"; autosave("gendraft", () => GEN_DRAFT); }; });
   $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
-  $("#gen-ready").onclick = () => { D.ready = Date.now(); store.save("gendraft", D); $("#gen-readymsg").innerHTML = readyTxt(D); };
+  { const rb = $("#gen-ready"), nOk = L.filter(x => x.ok).length; rb.disabled = !nOk; rb.textContent = "Wystaw zaakceptowane" + (nOk ? ` (${nOk})` : ""); rb.className = nOk ? "primary" : "";
+    $("#gen-readymsg").innerHTML = D.ready ? readyTxt(D) : "";
+    rb.onclick = () => { D.ready = Date.now(); store.save("gendraft", D); $("#gen-readymsg").innerHTML = readyTxt(D); toast("Przekazane do wystawienia"); }; }
   out.querySelectorAll("details[data-gi]").forEach(d => d.addEventListener("toggle", () => { if (d.open) D.open = +d.dataset.gi; }));
   out.querySelectorAll("[data-gq]").forEach(b => b.onclick = () => { const [i, c] = b.dataset.gq.split("|"), q = $("#o-" + i + "-q"); q.value = q.value.trim() ? q.value.trim() + ", " + c.toLowerCase() : c; });
   const keep = () => { store.save("gendraft", D); renderGenOut(D, false); };
