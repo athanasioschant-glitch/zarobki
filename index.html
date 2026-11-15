@@ -478,7 +478,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:10</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:17</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1481,7 +1481,7 @@ function renderSources(T) {
   const el = $("#sources"), all = T.profit;
   el.innerHTML = `<div class="ch"><div><h3>Źródła dochodu</h3></div><button class="sm" data-addentry>${svg("plus", 14)}Wpisz dochód</button></div>
     ${entryForm(null)}
-    <div class="list">${SOURCES.map(s => { const x0 = srcTotals(s.id, period, T), x = s.id === "kako" ? {rev: x0.rev - T.revWal, profit: x0.profit - T.profitWal} : {...x0, profit: (x0.got || 0) - ((x0.rev || 0) - (x0.profit || 0)), rev: x0.got || 0}; return `<a class="row" href="#${s.id === "kako" ? "start-kako" : "zrodlo-" + s.id}" style="text-decoration:none">${ic(s.icon, s.cls)}<div class="main"><div class="t">${s.name}</div><div class="s">${s.id === "kako" ? (x.rev ? "przychód " + zl(x.rev) + " · marża " + pct(x.rev ? x.profit / x.rev : null) : s.desc) : x0.rev ? "otrzymane " + zl(x0.got || 0) + (x0.wait > 0 ? " · czeka " + zl(x0.wait) : "") : s.desc}</div></div><div class="end"><span class="amt ${sgn(x.profit)}">${zl(x.profit)}</span><span class="s">${all > 0 && x.profit > 0 ? pct(x.profit / all) + " zysku" : "zysk"}</span></div></a>`; }).join("")}</div>`;
+    <div class="list">${SOURCES.map(s => { const x0 = srcTotals(s.id, period, T), x = s.id === "kako" ? {rev: x0.rev - T.revWal, profit: x0.profit - T.profitWal} : {...x0, profit: (x0.got || 0) - ((x0.rev || 0) - (x0.profit || 0)), rev: x0.got || 0}; return `<a class="row" href="#${s.id === "kako" ? "start-kako" : "zrodlo-" + s.id}" style="text-decoration:none">${ic(s.icon, s.cls)}<div class="main"><div class="t">${s.name}</div><div class="s">${s.id === "kako" ? (x.rev ? "przychód " + zl(x.rev) + " · marża " + pct(x.rev ? x.profit / x.rev : null) : s.desc) : x0.rev ? (() => { const G = {}; expand(OTHER).filter(o => catOf(o) === s.id && o.got && (period === "all" || o.month === period)).forEach(o => { const n = o.desc || o.name; G[n] = (G[n] || 0) + (+o.rev || 0); }); const names = Object.entries(G).map(([n, v]) => esc(n) + " " + zl(v)).join(" · "); return (names ? "otrzymane: " + names : "otrzymane 0 zł") + (x0.wait > 0 ? " · czeka " + zl(x0.wait) : ""); })() : s.desc}</div></div><div class="end"><span class="amt ${sgn(x.profit)}">${zl(x.profit)}</span><span class="s">${all > 0 && x.profit > 0 ? pct(x.profit / all) + " zysku" : "zysk"}</span></div></a>`; }).join("")}</div>`;
   bindEntryForm(el, renderStart);
 }
 const tglHTML = (inst, got) => `<div class="tgl" role="group" aria-label="Czy otrzymane"><button data-tgl="${esc(inst)}" data-v="0" aria-pressed="${!got}">Nieotrzymane</button><button data-tgl="${esc(inst)}" data-v="1" aria-pressed="${!!got}">Otrzymane</button></div>`;
@@ -2230,7 +2230,7 @@ async function runAudit(data, r) {
 }
 const PLAT_RULES = {
   "OLX": {h: 0, r: "OLX: tytuł do 70 znaków, najważniejsze słowa (typ, marka, model, rozmiar, kolor) na początku, bez CAPS LOCKA i wykrzykników. Wyszukiwarka czyta tytuł najmocniej, potem opis – w opisie naturalnie powtórz kluczowe słowa 2–3 razy i dodaj synonimy (np. „buty zimowe”, „śniegowce”). Bez hashtagów – OLX ich nie używa, zamiast nich słowa kluczowe w treści. Podaj miasto i formę dostawy."},
-  "Vinted": {h: 1, r: "Vinted: tytuł do ok. 50 znaków: typ + marka/model + kolor + rozmiar. Opis zwięzły, w punktach. Na końcu 6–10 hashtagów bez polskich znaków (np. #ugg #zimowebuty #sniegowce) – algorytm Vinted je czyta."},
+  "Vinted": {h: 1, manual: 1, r: "Vinted: tytuł do ok. 50 znaków: typ + marka/model + kolor + rozmiar. Opis zwięzły, w punktach. Na końcu 6–10 hashtagów bez polskich znaków (np. #ugg #zimowebuty #sniegowce) – algorytm Vinted je czyta."},
   "Facebook Marketplace": {h: 1, r: "Facebook Marketplace: tytuł do 60 znaków; pierwsze zdanie sprzedaje (widać je w podglądzie). Krótko, ciepło, z ceną i odbiorem/wysyłką, podaj miasto. Na końcu 3–5 hashtagów – pomagają w wyszukiwaniu."},
   "Grupa na Facebooku": {h: 0, r: "Post do grupy na Facebooku: jedna linijka nagłówka z ceną i rozmiarem, potem 3–5 krótkich linijek, na końcu „pisz na priv”. Bez hashtagów. Ma brzmieć jak wpis zwykłej osoby, nie reklama."},
   "Vestiaire Collective": {h: 0, r: "Vestiaire Collective: rzeczowo i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: stan bardzo dokładnie (każda wada), wymiary, materiał, co jest w zestawie. Kupujący to klienci premium – konkret, zero przesady."},
@@ -2238,10 +2238,10 @@ const PLAT_RULES = {
   "Szafa.pl": {h: 0, r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki i rzeczowy w punktach (rozmiar, wymiary, stan, materiał). Bez hashtagów."},
   "Hemly": {h: 1, r: "Hemly: jak Vinted – krótki tytuł (typ + marka + kolor + rozmiar), opis w punktach, na końcu 4–6 hashtagów bez polskich znaków."}
 };
-let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["Vinted", "OLX", "Facebook Marketplace"]; })();
+let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["OLX", "Facebook Marketplace", "Grupa na Facebooku", "Vestiaire Collective", "Allegro Lokalnie", "Szafa.pl", "Hemly"]; })();
 function renderGenPlats() {
   const el = $("#gen-plats"); if (!el) return;
-  el.innerHTML = Object.keys(PLAT_RULES).map(p => `<button type="button" data-gp="${esc(p)}" aria-pressed="${GEN_PLATS.includes(p)}">${esc(p)}</button>`).join("");
+  el.innerHTML = Object.keys(PLAT_RULES).map(p => `<button type="button" data-gp="${esc(p)}" aria-pressed="${GEN_PLATS.includes(p)}" title="${PLAT_RULES[p].manual ? "Tylko opis do ręcznego wystawienia – Vinted banuje za automatyczne wystawianie" : ""}">${esc(p)}${PLAT_RULES[p].manual ? " (ręcznie)" : ""}</button>`).join("");
   el.querySelectorAll("[data-gp]").forEach(b => b.onclick = () => { const p = b.dataset.gp; GEN_PLATS = GEN_PLATS.includes(p) ? GEN_PLATS.filter(x => x !== p) : [...GEN_PLATS, p]; try { localStorage.setItem("kd_genplats", JSON.stringify(GEN_PLATS)); } catch {} renderGenPlats(); });
 }
 renderGenPlats();
