@@ -184,6 +184,11 @@ details.grp>summary::-webkit-details-marker{display:none}
 details.grp>summary .gt{display:flex;flex-direction:column;gap:2px;min-width:0}
 details.grp>summary>svg{transition:transform .2s;opacity:.5}details.grp[open]>summary>svg{transform:rotate(90deg)}
 #money:not(.open) .mdet{display:none}
+.list .row{transition:background .15s, box-shadow .15s}
+.list .row:hover,.drow>summary:hover .row{background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(95,224,181,.35);border-radius:10px}
+.sz{position:relative;cursor:default;transition:background .15s, box-shadow .15s}
+.sz:hover{background:var(--accent-soft)!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.sz[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface2);color:var(--fg);padding:6px 9px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap;box-shadow:0 0 0 1px var(--line2);z-index:30;pointer-events:none}
 .bankplan .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .bcard{background:var(--surface2);border-radius:14px;border-top:3px solid var(--bc);padding:14px 16px}
 .bcard.off{opacity:.45}.bcard[open]{grid-column:1/-1}
@@ -478,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:17</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:24</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -577,7 +582,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
           <label>Kolor<input id="gen-color"></label>
           <label>Rozmiar<input id="gen-size"></label>
           <label>Stan<select id="gen-state"><option>Nowy z metką</option><option>Nowy bez metki</option><option>Bardzo dobry</option><option>Dobry</option><option>Zadowalający</option></select></label>
-          <label>Cena (zł)<input id="gen-price" type="number" inputmode="decimal" step="0.01"></label>
+          <label>Cena (zł)<input id="gen-price" type="number" inputmode="decimal" step="0.01"><span class="small muted" id="gen-pricehint" style="display:block;margin-top:4px"></span></label>
           
           <label>Dostawa<select id="gen-ship"><option>Wysyłka i odbiór osobisty</option><option>Tylko wysyłka</option><option>Tylko odbiór osobisty</option></select></label>
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
@@ -1092,9 +1097,11 @@ function orderStatus() {
 // „W drodze z Chin”: jeśli zamówienie ma zakładkę sprzedaży – liczymy z niej (STATUS „W drodze z Chin” + presale z nieodebranego zamówienia); jeśli nie ma – z listy zamówienia
 const orderHasSheet = n => M.sales.some(s => s.order === n && !s.future && /sprzeda/i.test(s.sheet || ""));
 const orderRecvd = n => { const o = M.orders.find(x => x.n === n); return !!o && /\d{1,2}[.\/-]\d{1,2}|^\d{5}$/.test(String(o.received || "").trim()); };
+const inTransitOrder = n => !!n && !orderRecvd(n) && M.sales.some(s => s.order === n && s.status === "chiny");
+const isTransit = s => !s.future && (s.status === "chiny" || inTransitOrder(s.order));
 const incoming = () => {
   const out = orderStatus().filter(x => x.qty > 0 && !orderHasSheet(x.order)), G = {};
-  M.sales.filter(s => !s.future && (s.status === "chiny" || (s.status === "presale" && s.order && !orderRecvd(s.order)))).forEach(s => { const k = s.order + "|" + s.product, g = G[k] ||= {key: k, order: s.order, product: s.product, qty: 0, ordered: 0, arrived: 0, sz: [], presold: 0, unitCost: 0, cost: 0}; g.qty++; g.ordered++; g.cost += s.cost || 0; if (s.size) g.sz.push(s.size); if (s.status === "presale") g.presold++; });
+  M.sales.filter(s => isTransit(s) || (!s.future && s.status === "presale" && s.order && !orderRecvd(s.order))).forEach(s => { const k = s.order + "|" + s.product, g = G[k] ||= {key: k, order: s.order, product: s.product, qty: 0, ordered: 0, arrived: 0, sz: [], presold: 0, unitCost: 0, cost: 0}; g.qty++; g.ordered++; g.cost += s.cost || 0; if (s.size) g.sz.push(s.size); if (s.status === "presale" || s.status === "sprzedane") g.presold++; });
   Object.values(G).forEach(g => { g.unitCost = g.qty ? g.cost / g.qty : 0; g.sizes = [...new Set(g.sz)].sort((a, b) => String(a).localeCompare(String(b), "pl", {numeric: true})).join(", "); out.push(g); });
   return out;
 };
@@ -1106,7 +1113,7 @@ const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.spli
   const rows = [["Cena", s.price != null ? zl(s.price, 2) + (s.est ? " (szacunek)" : "") : null], ["Koszt łącznie", c != null ? zl(c, 2) : null], ["Kupno", s.buy != null ? zl(s.buy, 2) : null], ["Fracht", s.freight ? zl(s.freight, 2) : null], ["Wysyłka", s.ship != null ? zl(s.ship, 2) : null],
     ["Zysk", s.profit != null ? zl(s.profit, 2) : null], ["Marża", s.price && s.profit != null ? pct(s.profit / s.price) : null], ["Platforma · konto", s.platform ? s.platform + " · " + (s.account || "konto główne") : null], ["Kupujący", s.buyer], ["Wystawione", f(s.listed)], ["Sprzedane", f(s.sold)], ["W arkuszu", s.sheet ? s.sheet + ", wiersz " + s.row : null]];
   return `<div class="dkv">${rows.filter(([, v]) => v).map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>`; };
-const drow = (inner, s, extra = "") => `<details class="drow"><summary>${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
+const drow = (inner, s, extra = "") => `<details class="drow"><summary title="${s ? esc((STATUS[s.status] || "") + (s.status === "sprzedane" ? " · " + (PAY_LAB[uiPay(s)] || "") : "")) : ""}">${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
 const STATUS = {sprzedane: "Sprzedane", presale: "Presale", chiny: "W drodze z Chin", wystawione: "Wystawione", magazyn: "Niewystawione", wycofane: "Wycofane z oferty", rezerwacja: "Rezerwacja", negocjacje: "Negocjacje", oddane: "Oddane"};
@@ -1122,7 +1129,7 @@ function derive() {
   const est = M.sales.filter(s => s.status === "presale").map(s => { const a = avgP[s.product]; if (!a) return null; const price = Math.round(a.reduce((x, y) => x + y, 0) / a.length), cost = s.cost ?? s.estCost ?? 0; return {...s, price, cost, profit: Math.round((price - cost) * 100) / 100, est: true}; }).filter(Boolean);
   const sold = real.map(s => s.partner ? {...s, profit: Math.round(s.profit * 50) / 100, fullProfit: s.profit} : s);
   const gone = M.sales.filter(s => s.status === "oddane");
-  const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
+  const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status) && !isTransit(s));
   const months = {};
   const bump = (k, f, v) => { if (!k) return; (months[k] ||= {rev: 0, profit: 0, spent: 0})[f] += v; };
   sold.forEach(s => { const k = smonth(s); bump(k, "rev", s.price); bump(k, "profit", s.profit); });
@@ -1979,10 +1986,10 @@ function renderMagazyn() {
   $("#inv-mode").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.m === invMode); b.onclick = () => { invMode = b.dataset.m; renderMagazyn(); }; });
   $("#inv-stan").hidden = invMode !== "stan"; $("#inv-prod").hidden = invMode !== "prod";
   if (invMode === "prod") return renderProducts();
-  const all = M.sales, cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
+  const all = M.sales.filter(s => !isTransit(s) && !(s.status === "presale" && s.order && !orderRecvd(s.order))), cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
   const val = st => all.filter(s => s.status === st).reduce((a, s) => a + (s.cost || 0), 0);
   const tile = (icon, cls, lab, n, foot, f) => `<div class="stat s3" role="button" tabindex="0" data-tile="${f}" style="cursor:pointer;${invFilter === f ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v">${n} szt.</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", (cnt.sprzedane || 0) + (cnt.presale || 0), (cnt.presale ? `w tym ${cnt.presale} presale bez ceny · ` : "") + "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
+  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", (cnt.sprzedane || 0) + (cnt.presale || 0), (cnt.presale ? `w tym ${cnt.presale} presale · ` : "") + "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
   $("#inv-stats").querySelectorAll("[data-tile]").forEach(el => { const go = () => { invFilter = invFilter === el.dataset.tile ? "all" : el.dataset.tile; renderMagazyn(); $("#inv-seg").scrollIntoView({behavior: "smooth", block: "start"}); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   const incN = INCm.reduce((a, x) => a + x.qty, 0);
   const fl = [["all", "Wszystko", all.length + incN], ...Object.keys(STATUS).filter(k => cnt[k]).map(k => [k, STATUS[k], cnt[k]]), ...(incN ? [["chiny", "W drodze z Chin", incN]] : [])];
@@ -1991,7 +1998,7 @@ function renderMagazyn() {
   const groups = {};
   all.filter(s => invFilter === "all" || s.status === invFilter || (invFilter === "sprzedane" && s.status === "presale") || (invFilter === "magazyn" && s.status === "wycofane")).forEach(s => { const k = s.product + "|" + cleanColor(s.color) + "|" + (s.order ?? "inne"); (groups[k] ||= []).push(s); });
   const order = Object.entries(groups).sort((a, b) => b[1].filter(x => x.status !== "sprzedane").length - a[1].filter(x => x.status !== "sprzedane").length);
-  const sizeChip = s => `<span class="sz p-${s.status}" title="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
+  const sizeChip = s => `<span class="sz p-${s.status}" data-tip="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
   const incRows = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt${x.sell ? " · plan " + zl(x.sell) + "/szt" : ""}</div>
       <div class="sizes" style="margin-top:8px"><span class="sz p-rezerwacja">w drodze z Chin · ${x.qty} szt.</span></div></div><div class="end"><span class="amt wrn">${x.qty} szt.</span><span class="s">w drodze</span></div></div>`) : [];
   const NE = notEntered();
@@ -2175,7 +2182,8 @@ function renderWystaw() {
   const prev = $("#gen-pick").value;
   $("#gen-pick").innerHTML = `<option value="">Wpiszę ręcznie</option>` + items.map((s, i) => `<option value="${i}">${esc([s.product, cleanColor(s.color), s.size].filter(Boolean).join(" · "))}</option>`).join("");
   $("#gen-pick").value = prev;
-  $("#gen-pick").onchange = e => { const s = items[e.target.value]; if (!s) return; setTimeout(renderPhotoPlan); $("#gen-prod").value = s.product; $("#gen-color").value = cleanColor(s.color); $("#gen-size").value = s.size || ""; $("#gen-price").value = s.price || ""; };
+  $("#gen-pick").onchange = e => { const s = items[e.target.value]; if (!s) return; setTimeout(renderPhotoPlan); $("#gen-prod").value = s.product; $("#gen-color").value = cleanColor(s.color); $("#gen-size").value = s.size || ""; $("#gen-price").value = s.price || ""; if (/ugg/i.test(s.product)) { const a = $("#gen-addons"), x = $("#gen-extra"); if (!a.value.trim()) a.value = "dodatkowe sznurówki"; if (!/pudełk/i.test(x.value)) x.value = (x.value.trim() ? x.value.trim() + "\n" : "") + "Pudełko bardzo delikatnie uszkodzone."; } priceHint(); };
+  $("#gen-prod").addEventListener("input", priceHint);
   $("#w-count").textContent = items.length + " szt. czeka na sprzedaż";
   $("#w-list").innerHTML = items.map((s, i) => `<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), STATUS[s.status]].filter(Boolean).map(esc).join(" · ")}</div></div><button class="sm" data-gen="${i}">${svg("pen", 14)}Opis</button></div>`).join("") || `<div class="empty">Wszystko sprzedane.</div>`;
   $("#w-list").querySelectorAll("[data-gen]").forEach(b => b.onclick = () => { $("#gen-pick").value = b.dataset.gen; $("#gen-pick").onchange({target: $("#gen-pick")}); $("#gen-form").scrollIntoView({behavior: "smooth", block: "start"}); });
@@ -2224,19 +2232,29 @@ async function runAudit(data, r) {
       <div class="ch" style="margin-bottom:10px"><div style="display:flex;gap:12px;align-items:center">${ic(bad.length ? "alert" : "shield", bad.length ? "w" : "a")}<div><h3>Audyt zgodności</h3><div class="sub">${bad.length ? bad.length + " do poprawy z " + pts.length + " twierdzeń" : "Wszystkie " + pts.length + " twierdzeń zgodne"}${PHOTOS.length ? " · sprawdzone ze zdjęciami" : " · bez zdjęć, tylko z danymi"}</div></div></div></div>
       ${a.uwaga ? `<p class="small muted" style="margin:0 0 10px">${esc(a.uwaga)}</p>` : ""}
       <div class="list">${pts.map(p => `<div class="row" style="align-items:flex-start"><span class="pill ${pillOf(p.status)}" style="flex:none">${esc(p.status)}</span><div class="main"><div class="t" style="font-weight:500;font-size:13.5px">${esc(p.tekst)}</div>${p.status !== "zgodne" && p.dlaczego ? `<div class="s">${esc(p.dlaczego)}</div>` : ""}</div></div>`).join("")}</div>
-      ${bad.length && a.poprawiony_opis ? `<div class="actions" style="margin-top:14px"><button class="sm primary" id="use-fixed">${svg("check", 14)}Użyj poprawionej wersji</button></div>` : ""}</div>`;
+      ${bad.length && a.poprawiony_opis && !r.multi ? `<div class="actions" style="margin-top:14px"><button class="sm primary" id="use-fixed">${svg("check", 14)}Użyj poprawionej wersji</button></div>` : ""}</div>`;
     const u = $("#use-fixed"); if (u) u.onclick = () => { if (a.poprawiony_tytul) $("#o-t").textContent = a.poprawiony_tytul; $("#o-d").textContent = a.poprawiony_opis; toast("Wstawiono poprawioną wersję"); u.closest(".actions").innerHTML = `<span class="small pos">Poprawiona wersja wstawiona wyżej – możesz kopiować.</span>`; };
   } catch (e) { box.innerHTML = `<p class="small muted" style="margin-top:12px">Audyt się nie udał. Sprawdź opis ręcznie albo napisz go jeszcze raz.</p>`; }
 }
+/* sugerowana cena – liczy kod z Twoich sprzedaży tego produktu (bez zgadywania przez model) */
+function priceHint() {
+  const el = $("#gen-pricehint"); if (!el) return; const q = toks($("#gen-prod").value || ""); if (q.length < 2) { el.textContent = ""; return; }
+  const same = M.sales.filter(s => { const st = toks(s.product); return st[0] === q[0] && q.slice(1).filter(w => !STOP.has(w)).every(w => st.includes(w)); });
+  const sold = same.filter(s => s.status === "sprzedane" && s.price > 0).map(s => s.price), listed = same.filter(s => ["wystawione", "negocjacje"].includes(s.status) && s.price > 0).map(s => s.price);
+  if (!sold.length && !listed.length) { el.textContent = "Brak Twoich sprzedaży tego produktu – cenę ustal sam."; return; }
+  const P = (sold.length ? sold : listed).slice().sort((a, b) => a - b), qq = f => P[Math.min(P.length - 1, Math.max(0, Math.round(f * (P.length - 1))))], lo = P.length >= 4 ? qq(.25) : P[0], hi = P.length >= 4 ? qq(.75) : P[P.length - 1], avg = Math.round(qq(.5));
+  el.innerHTML = `Sugerowana: <b>${zl(lo)}–${zl(hi)}</b> (najczęściej ${zl(avg)} · z ${P.length} ${sold.length ? "Twoich sprzedaży" : "wystawionych"}) <button type="button" class="link small" id="gen-useprice">wstaw ${zl(avg)}</button>`;
+  $("#gen-useprice").onclick = () => { $("#gen-price").value = avg; };
+}
 const PLAT_RULES = {
-  "OLX": {h: 0, r: "OLX: tytuł do 70 znaków, najważniejsze słowa (typ, marka, model, rozmiar, kolor) na początku, bez CAPS LOCKA i wykrzykników. Wyszukiwarka czyta tytuł najmocniej, potem opis – w opisie naturalnie powtórz kluczowe słowa 2–3 razy i dodaj synonimy (np. „buty zimowe”, „śniegowce”). Bez hashtagów – OLX ich nie używa, zamiast nich słowa kluczowe w treści. Podaj miasto i formę dostawy."},
-  "Vinted": {h: 1, manual: 1, r: "Vinted: tytuł do ok. 50 znaków: typ + marka/model + kolor + rozmiar. Opis zwięzły, w punktach. Na końcu 6–10 hashtagów bez polskich znaków (np. #ugg #zimowebuty #sniegowce) – algorytm Vinted je czyta."},
-  "Facebook Marketplace": {h: 1, r: "Facebook Marketplace: tytuł do 60 znaków; pierwsze zdanie sprzedaje (widać je w podglądzie). Krótko, ciepło, z ceną i odbiorem/wysyłką, podaj miasto. Na końcu 3–5 hashtagów – pomagają w wyszukiwaniu."},
-  "Grupa na Facebooku": {h: 0, r: "Post do grupy na Facebooku: jedna linijka nagłówka z ceną i rozmiarem, potem 3–5 krótkich linijek, na końcu „pisz na priv”. Bez hashtagów. Ma brzmieć jak wpis zwykłej osoby, nie reklama."},
-  "Vestiaire Collective": {h: 0, r: "Vestiaire Collective: rzeczowo i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: stan bardzo dokładnie (każda wada), wymiary, materiał, co jest w zestawie. Kupujący to klienci premium – konkret, zero przesady."},
-  "Allegro Lokalnie": {h: 0, r: "Allegro Lokalnie: tytuł do 75 znaków z najważniejszymi słowami na początku (typ, marka, model, rozmiar, kolor). Opis jak na OLX: konkret, słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
-  "Szafa.pl": {h: 0, r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki i rzeczowy w punktach (rozmiar, wymiary, stan, materiał). Bez hashtagów."},
-  "Hemly": {h: 1, r: "Hemly: jak Vinted – krótki tytuł (typ + marka + kolor + rozmiar), opis w punktach, na końcu 4–6 hashtagów bez polskich znaków."}
+  "OLX": {h: 0, k: ["Dodaj ogłoszenie → kategoria Moda → Buty/Odzież", "Tytuł (do 70 znaków), opis, cena, stan, rozmiar", "Zdjęcia: do 8, pierwsze najważniejsze", "Lokalizacja i dostawa OLX (opcjonalnie)"], r: "OLX: tytuł do 70 znaków, najważniejsze słowa (typ, marka, model, rozmiar, kolor) na początku, bez CAPS LOCKA i wykrzykników. OPIS: zacznij od krótkiego, ludzkiego wstępu („Siemanko! Mam do sprzedania …”, 1–2 zdania), potem dane techniczne w punktach NA KOŃCU (rozmiar, kolor, stan, co w zestawie, wymiary). Naturalnie powtórz kluczowe słowa 2–3 razy i dodaj synonimy (np. „buty zimowe”, „śniegowce”). BEZ hashtagów. Podaj miasto i formę dostawy."},
+  "Vinted": {h: 1, manual: 1, k: ["Sprzedaj → zdjęcia (do 20)", "Tytuł, opis, kategoria, marka, rozmiar, stan, kolor", "Cena i rozmiar paczki", "Wystawiasz RĘCZNIE – Vinted banuje za automaty"], r: "Vinted: tytuł do ok. 50 znaków: typ + marka/model + kolor + rozmiar. OPIS: zacznij od „Siemanko! Mam do sprzedania …” (1–2 zdania po ludzku), potem dane w punktach (rozmiar, kolor, stan, co w zestawie), na końcu 6–10 hashtagów bez polskich znaków (np. #ugg #zimowebuty #sniegowce)."},
+  "Facebook Marketplace": {h: 1, k: ["Marketplace → Utwórz ogłoszenie → Przedmiot na sprzedaż", "Zdjęcia, tytuł, cena, kategoria, stan", "Opis i lokalizacja", "Opcjonalnie: wysyłka"], r: "Facebook Marketplace: tytuł do 60 znaków. OPIS KRÓTKI i naturalny (3–5 linijek): „Mam do sprzedania …”, rozmiar, stan, co w zestawie, odbiór/wysyłka i miasto. Na końcu 3–5 hashtagów."},
+  "Grupa na Facebooku": {h: 0, k: ["Wejdź w grupę → Sprzedaj coś / Napisz post", "Zdjęcia + krótki opis z ceną", "Sprawdź regulamin grupy (format posta, ceny)"], r: "Post do grupy na Facebooku: jedna linijka nagłówka z ceną i rozmiarem, potem 3–5 krótkich linijek, na końcu „pisz na priv”. Bez hashtagów. Ma brzmieć jak wpis zwykłej osoby, nie reklama."},
+  "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, wymiary", "Zdjęcia według wymagań (tło, detale, metki)", "Cena – Vestiaire weryfikuje rzecz przed wysyłką do kupującego"], r: "Vestiaire Collective: rzeczowo i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: stan bardzo dokładnie (każda wada), wymiary, materiał, co jest w zestawie. Kupujący to klienci premium – konkret, zero przesady."},
+  "Allegro Lokalnie": {h: 0, k: ["Dodaj ogłoszenie → kategoria", "Tytuł (do 75 znaków), parametry, stan", "Zdjęcia, cena, lokalizacja, dostawa"], r: "Allegro Lokalnie: tytuł do 75 znaków z najważniejszymi słowami na początku (typ, marka, model, rozmiar, kolor). Opis jak na OLX: konkret, słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
+  "Szafa.pl": {h: 0, k: ["Dodaj ogłoszenie → kategoria, marka, rozmiar", "Zdjęcia, opis, stan, cena", "Sposób wysyłki"], r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki i rzeczowy w punktach (rozmiar, wymiary, stan, materiał). Bez hashtagów."},
+  "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (typ + marka + kolor + rozmiar), opis w punktach, na końcu 4–6 hashtagów bez polskich znaków."}
 };
 let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["OLX", "Facebook Marketplace", "Grupa na Facebooku", "Vestiaire Collective", "Allegro Lokalnie", "Szafa.pl", "Hemly"]; })();
 function renderGenPlats() {
@@ -2263,6 +2281,7 @@ Każdy opis ma ten sam układ:
 Zasady platform:
 ${plats.map(p => "- " + PLAT_RULES[p].r + (PLAT_RULES[p].h ? " [hashtagi: TAK]" : " [hashtagi: NIE]")).join("\n")}
 
+Każda platforma dostaje INNY tekst (inne zdania, inny układ zgodny z jej zasadami) – nie kopiuj tego samego opisu między platformami.
 Styl: naturalnie, jak zwykła konkretna osoba, nie marketingowiec. Konkret zamiast przymiotników. Uprzedź obawy (rozmiarówka, wysyłka, dodatkowe zdjęcia). Bez sztucznej presji.
 
 Uczciwość – bezwzględnie:
@@ -2283,14 +2302,14 @@ Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna na
     const block = (x, i) => { const full = x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
       return `<details class="grp" ${i === 0 ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
         <div class="outhead"><span><strong>Tytuł</strong> · ${[...x.tytul].length} znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-t">${esc(x.tytul)}</div>
-        <div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-d" style="white-space:pre-wrap">${esc(full)}</div></details>`; };
+        ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-d" style="white-space:pre-wrap">${esc(full)}</div></details>`; };
     out.innerHTML = L.map(block).join("") + (Array.isArray(r.wskazowki) && r.wskazowki.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${r.wskazowki.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button></div>
       <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
     out.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const [i, f] = b.dataset.cp.split("|"); copy($("#o-" + i + "-" + f)); });
     $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
     msg.textContent = "";
     $("#o-t").textContent = L[0].tytul; $("#o-d").textContent = L[0].opis;
-    runAudit(data, {tytul: L[0].tytul, opis: L[0].opis});
+    runAudit(data, {tytul: L.map(x => x.platforma + ": " + x.tytul).join(" | "), opis: L.map(x => "=== " + x.platforma + " ===\n" + x.opis + (x.hashtagi && x.hashtagi.length ? "\n" + x.hashtagi.join(" ") : "")).join("\n\n"), multi: true});
   } catch (err) {
     msg.textContent = err && err.code === "no_key" ? "Brak klucza Claude w skrypcie Google (ANTHROPIC_API_KEY)." : err && err.code === "not_granted" ? "Nie zezwolono na pytania do Claude. Włącz to w menu Uprawnienia tej strony." : err && err.code === "rate_limited" ? "Limit zapytań – spróbuj za chwilę." : "Nie udało się napisać – spróbuj jeszcze raz.";
   } finally { btn.disabled = false; }
