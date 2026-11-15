@@ -483,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:51</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:55</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -713,7 +713,7 @@ function parseKako(XLSX, wb) {
   const col = (hdr, ...keys) => hdr.findIndex(h => keys.some(k => U(h).startsWith(k)));
   const link = (ws, r, c) => { const cell = ws[XLSX.utils.encode_cell({ r, c })]; return cell && cell.l && cell.l.Target || null; };
 
-  const platName = s => { const l = String(s || '').toLowerCase(); return /v\w*ted/.test(l) ? 'Vinted' : /olx/.test(l) ? 'OLX' : /\bfb\b|facebook|mess/.test(l) ? 'Facebook' : /allegro/.test(l) ? 'Allegro' : /vestiaire/.test(l) ? 'Vestiaire' : null; };
+  const platName = s => { const l = String(s || '').toLowerCase(); return /v\w*ted/.test(l) ? 'Vinted' : /olx/.test(l) ? 'OLX' : /\bfb\b|facebook|mess/.test(l) ? 'Facebook' : /allegro\s*lokal/.test(l) ? 'Allegro Lokalnie' : /allegro/.test(l) ? 'Allegro' : /vestiaire/.test(l) ? 'Vestiaire' : /szaf/.test(l) ? 'Szafa.pl' : /hemly/.test(l) ? 'Hemly' : /trivaro/.test(l) ? 'Trivaro' : null; };
   const cleanBuyer = s => String(s).replace(/\(.*?(\)|$)/g, '').replace(/^\s*presale\s*-\s*/i, '').replace(/\s-\s*\d[\d.,]*\s*(zł|zl|pln)?.*$/i, '').replace(/\+?\d[\d\s-]{5,}\d/g, '').replace(/\s*-\s*$/, '').trim() || null;
   const model = { errors: [], orders: [], orderItems: {}, wishlist: [], sales: [], summaries: {}, group: [], sellers: [] };
 
