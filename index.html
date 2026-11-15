@@ -483,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:34</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:41</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -542,7 +542,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
   <!-- MAGAZYN -->
   <section class="view" id="v-magazyn" hidden>
     <div class="toolbar kn" id="kn-magazyn"></div>
-    <div class="toolbar"><div class="seg" id="inv-mode" role="group" aria-label="Widok magazynu"><button data-m="stan" aria-pressed="true">Stany</button><button data-m="prod" aria-pressed="false">Statystyki produktów</button></div></div>
+    <div class="toolbar"><div class="seg" id="inv-mode" role="group" aria-label="Widok magazynu"><button data-m="stan" aria-pressed="true">Stany</button><button data-m="list" aria-pressed="false">Wystawione</button><button data-m="prod" aria-pressed="false">Statystyki produktów</button></div></div>
     <div id="inv-stan">
     <div class="dash" id="inv-stats"></div>
     <div class="toolbar" style="margin-top:16px"><div class="seg" id="inv-seg" role="group" aria-label="Filtr magazynu"></div></div>
@@ -550,6 +550,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <div class="dash" id="inv-list"></div>
     </div>
     <div class="dash" id="inv-prod" hidden></div>
+    <div class="dash" id="inv-listed" hidden></div>
   </section>
 
   <!-- KAKO -->
@@ -1992,8 +1993,9 @@ function renderMagazyn() {
   renderKakoNav("magazyn", "magazyn");
   const INCm = incoming();
   $("#inv-mode").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.m === invMode); b.onclick = () => { invMode = b.dataset.m; renderMagazyn(); }; });
-  $("#inv-stan").hidden = invMode !== "stan"; $("#inv-prod").hidden = invMode !== "prod";
+  $("#inv-stan").hidden = invMode !== "stan"; $("#inv-prod").hidden = invMode !== "prod"; $("#inv-listed").hidden = invMode !== "list";
   if (invMode === "prod") return renderProducts();
+  if (invMode === "list") return renderListed();
   const all = M.sales.filter(s => !isTransit(s) && !(s.status === "presale" && s.order && !orderRecvd(s.order))), cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
   const val = st => all.filter(s => s.status === st).reduce((a, s) => a + (s.cost || 0), 0);
   const tile = (icon, cls, lab, n, foot, f) => `<div class="stat s3" role="button" tabindex="0" data-tile="${f}" style="cursor:pointer;${invFilter === f ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v">${n} szt.</div><div class="foot"><span>${foot}</span></div></div>`;
@@ -2183,6 +2185,17 @@ document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { k
 
 /* WYSTAW */
 let sample = null;
+let INTEREST = {};
+function renderListed() {
+  const L = M.sales.filter(s => LISTINGS[lkey(s)] && !["sprzedane", "oddane"].includes(s.status)), el = $("#inv-listed");
+  const plats = {}; L.forEach(s => Object.keys(LISTINGS[lkey(s)]).forEach(p => plats[p] = (plats[p] || 0) + 1));
+  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wystawione · ${L.length} szt.</h3><div class="sub">${Object.entries(plats).map(([p, n]) => p + " " + n).join(" · ") || "nic jeszcze nie oznaczono"}</div></div></div>
+    <div class="list">${L.sort((a, b) => Math.min(...Object.values(LISTINGS[lkey(a)]).map(d => +new Date(d))) - Math.min(...Object.values(LISTINGS[lkey(b)]).map(d => +new Date(d)))).map(s => { const k = lkey(s), first = Object.values(LISTINGS[k]).sort()[0], n = INTEREST[k] || 0;
+      return `<div class="row" style="flex-wrap:wrap">${pav(s)}<div class="main" style="flex:1 1 200px"><div class="t">${esc(pname(s))}</div><div class="s">${esc([cleanColor(s.color), STATUS[s.status], s.price ? zl(s.price) : ""].filter(Boolean).join(" · "))} · wystawione ${daysSince(first)} dni temu</div>${listedChips(s)}</div>
+        <div class="end"><span class="small muted">zainteresowani</span><span style="display:flex;gap:6px;align-items:center"><button class="iconbtn flat" data-int="${esc(k)}" data-d="-1" aria-label="Mniej">−</button><b>${n}</b><button class="iconbtn flat" data-int="${esc(k)}" data-d="1" aria-label="Więcej">+</button></span></div></div>`; }).join("") || `<div class="empty">Oznacz rzeczy w „Wystaw → Do wystawienia”, a pojawią się tutaj.</div>`}</div>
+    <p class="note">„Zainteresowani” liczysz na razie sam (+ przy każdej wiadomości lub komentarzu). Gdy podłączymy powiadomienia, będą się dopisywać same.</p></div>`;
+  el.querySelectorAll("[data-int]").forEach(b => b.onclick = async () => { const k = b.dataset.int; INTEREST[k] = Math.max(0, (INTEREST[k] || 0) + +b.dataset.d); await store.save("interest", INTEREST); renderListed(); });
+}
 function renderWystaw() {
   renderKakoNav("wystaw", "wystaw");
   $("#gen-prod").oninput = renderPhotoPlan; setTimeout(renderPhotoPlan);
@@ -2203,10 +2216,26 @@ async function shrink(file) {
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   return new Promise(r => c.toBlob(r, "image/jpeg", .82));
 }
+{ const c = $("#gen-city"); try { c.value = localStorage.getItem("kd_gencity") || c.value; } catch {} c.addEventListener("change", () => { try { localStorage.setItem("kd_gencity", c.value); } catch {} }); }
+/* uzupełnij pola ze zdjęć – tylko to, co widać; puste zostaje puste */
+async function fillFromPhotos() {
+  const msg = $("#gen-msg"); if (!sample || !PHOTOS.length) return;
+  msg.textContent = "Odczytuję zdjęcia…";
+  try {
+    const r = await sample.json(`Na zdjęciach jest rzecz na sprzedaż. Odczytaj TYLKO to, co wyraźnie widać (np. na metce, pudełku, podeszwie). Jeśli czegoś nie widać – zostaw pusty tekst "". Nie zgaduj marki, modelu ani rozmiaru.
+Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "kolor": "", "rozmiar": "", "stan": "Nowy z metką|Nowy bez metki|Bardzo dobry|Dobry|Zadowalający|", "w_zestawie": "np. pudełko, dodatkowe sznurówki – jeśli widać", "uwagi": "widoczne wady lub nic"}`, {cache: false, images: PHOTOS});
+    const set = (id, v) => { const el = $(id); if (v && !el.value.trim()) el.value = v; };
+    set("#gen-prod", r.produkt); set("#gen-color", r.kolor); set("#gen-size", r.rozmiar); set("#gen-addons", r.w_zestawie);
+    if (r.stan && [...$("#gen-state").options].some(o => o.value === r.stan)) $("#gen-state").value = r.stan;
+    if (r.uwagi && !/^(nic|brak)/i.test(r.uwagi)) { const x = $("#gen-extra"); if (!x.value.includes(r.uwagi)) x.value = (x.value.trim() ? x.value.trim() + "\n" : "") + r.uwagi; }
+    if (/ugg/i.test($("#gen-prod").value)) { const a = $("#gen-addons"); if (!/sznur/i.test(a.value)) a.value = (a.value.trim() ? a.value.trim() + ", " : "") + "dodatkowe sznurówki"; }
+    priceHint(); msg.textContent = "Uzupełnione ze zdjęć – sprawdź pola.";
+  } catch { msg.textContent = "Nie udało się odczytać zdjęć – uzupełnij ręcznie."; }
+}
 $("#gen-photos").onchange = async e => {
   PHOTOS = [];
   for (const f of [...e.target.files].slice(0, 9)) { try { PHOTOS.push(await shrink(f)); } catch {} }
-  renderPhotoPlan();
+  renderPhotoPlan(); fillFromPhotos();
   $("#gen-thumbs").innerHTML = PHOTOS.map(b => `<img src="${URL.createObjectURL(b)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:10px">`).join("") + (PHOTOS.length ? `<span class="small muted" style="align-self:center">${PHOTOS.length} zdj. dołączone</span>` : "");
 };
 const PHOTO_PLANS = {
@@ -2286,6 +2315,8 @@ Każdy opis ma ten sam układ:
 3. Dostawa / odbiór i zachęta do kontaktu – jedno krótkie zdanie.
 4. Hashtagi – TYLKO na platformach, gdzie algorytm ich używa (zaznaczone poniżej). Gdzie ich nie ma – pusta lista.
 
+Zdjęcia (jeśli są dołączone, numeracja od 1 w kolejności przesłania): dla każdej platformy wybierz najlepsze i ułóż kolejność, w limicie platformy (OLX 8, Marketplace 10, Vinted 20, Vestiaire 10, Allegro Lokalnie 8, Szafa.pl 8, Hemly 8, grupa FB 6). Okładka (1. zdjęcie): para trzymana w ręce – jeden but w dłoni, drugi w pudełku – albo najładniejsze ujęcie całej rzeczy. Potem: przód, bok zewnętrzny, drugi bok, tył, podeszwa, metka/rozmiar, pudełko i dodatki. Pomiń nieostre i powtórzenia.
+
 Zasady platform:
 ${plats.map(p => "- " + PLAT_RULES[p].r + (PLAT_RULES[p].h ? " [hashtagi: TAK]" : " [hashtagi: NIE]")).join("\n")}
 
@@ -2300,7 +2331,7 @@ Uczciwość – bezwzględnie:
 Dane:
 ${JSON.stringify(data, null, 1)}
 
-Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "kategoria": "sugerowana kategoria"}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
+Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "kategoria": "sugerowana kategoria", "zdjecia": [1, 2, 3]}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
   btn.disabled = true; msg.textContent = `Piszę dla ${plats.length} platform…`; out.hidden = true; $("#gen-audit").hidden = true;
   try {
     const r = await sample.json(prompt, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
@@ -2309,7 +2340,7 @@ Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna na
     out.hidden = false;
     const block = (x, i) => { const full = x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
       return `<details class="grp" ${i === 0 ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
-        <div class="outhead"><span><strong>Tytuł</strong> · ${[...x.tytul].length} znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-t">${esc(x.tytul)}</div>
+        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia w tej kolejności (${x.zdjecia.length}):</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${URL.createObjectURL(PHOTOS[n - 1])}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · ${[...x.tytul].length} znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-t">${esc(x.tytul)}</div>
         ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-d" style="white-space:pre-wrap">${esc(full)}</div></details>`; };
     out.innerHTML = L.map(block).join("") + (Array.isArray(r.wskazowki) && r.wskazowki.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${r.wskazowki.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button></div>
       <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
@@ -2454,7 +2485,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2578,7 +2609,7 @@ renderAll();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
-  LISTINGS = (await store.load("listings", {})) || {};
+  LISTINGS = (await store.load("listings", {})) || {}; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
