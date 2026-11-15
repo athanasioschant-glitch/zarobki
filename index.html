@@ -483,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:49</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:51</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -569,6 +569,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <div id="k-plan" class="dash" hidden></div>
     <div id="k-kanaly" class="dash" hidden></div>
     <div id="k-todo" class="dash" hidden></div>
+    <div id="k-msg" class="dash" hidden></div>
   </section>
 
   <!-- WYSTAW -->
@@ -932,6 +933,16 @@ function parseKako(XLSX, wb) {
       if (cl && (cl.t === 'e' || (typeof cl.v === 'string' && /^#(VALUE|REF|DIV\/0|N\/A|NAME|NUM)[!?]?/.test(cl.v)))) model.errors.push({ sheet: n.trim(), cell: a, text: cl.w || String(cl.v) });
     });
   });
+  // Wiadomości (zakładka „Wiadomości”: Data | Platforma | Ogłoszenie | Od | Treść | Link | Typ)
+  model.messages = [];
+  const msn = wb.SheetNames.find(n => /wiadomo/i.test(n));
+  if (msn) {
+    const R = rows(wb.Sheets[msn]), h = R[0] || [], ix = k => h.findIndex(x => x != null && String(x).toUpperCase().includes(k));
+    const c = {d: ix('DATA'), p: ix('PLATFORM'), o: ix('OGŁOSZ'), f: ix('OD'), t: ix('TREŚ'), l: ix('LINK'), y: ix('TYP')};
+    for (let i = 1; i < R.length; i++) { const r = R[i], tx = c.t >= 0 && r[c.t] != null ? String(r[c.t]).trim() : ''; if (!tx) continue;
+      const dv = r[c.d], dt = typeof dv === 'number' ? new Date(Math.round((dv - 25569) * 864e5)).toISOString().slice(0, 16).replace('T', ' ') : (dv == null ? '' : String(dv).trim());
+      model.messages.push({row: i + 1, date: dt, platform: c.p >= 0 && r[c.p] != null ? String(r[c.p]).trim() : 'Inne', listing: c.o >= 0 && r[c.o] != null ? String(r[c.o]).trim() : '', from: c.f >= 0 && r[c.f] != null ? String(r[c.f]).trim() : '', text: tx, link: c.l >= 0 && r[c.l] != null ? String(r[c.l]).trim() : '', type: c.y >= 0 && r[c.y] != null ? String(r[c.y]).trim() : 'wiadomość'}); }
+  }
   return model;
 }
 
@@ -2025,7 +2036,7 @@ function renderMagazyn() {
 }
 
 /* Kako tab strip: Dashboard · Magazyn · Zamówienia · … shared by every Kako screen */
-const KNAV = [["dash", "Dashboard", "start-kako"], ["magazyn", "Magazyn", "magazyn"], ["zam", "Zamówienia"], ["sprz", "Sprzedaż"], ["wystaw", "Wystaw", "wystaw"], ["konta", "Konta i limity"], ["kontrola", "Kontrola danych"], ["kanaly", "Kanały sprzedaży"], ["todo", "Do zrobienia"], ["wsp", "Wspólne"]];
+const KNAV = [["dash", "Dashboard", "start-kako"], ["magazyn", "Magazyn", "magazyn"], ["zam", "Zamówienia"], ["sprz", "Sprzedaż"], ["wystaw", "Wystaw", "wystaw"], ["konta", "Konta i limity"], ["msg", "Wiadomości"], ["kontrola", "Kontrola danych"], ["kanaly", "Kanały sprzedaży"], ["todo", "Do zrobienia"], ["wsp", "Wspólne"]];
 let ISSUES = 0;
 function updateBadges() {
   try { ISSUES = checks(derive()).filter(c => c.lvl === "err" || c.lvl === "warn" || c.lvl === "ask").length; } catch { ISSUES = 0; }
@@ -2033,7 +2044,7 @@ function updateBadges() {
 }
 function renderKakoNav(where, active) {
   const el = $("#kn-" + where); if (!el) return;
-  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}${k === "kontrola" && ISSUES ? `<span class="bang">!</span>` : ""}${k === "konta" && accounts().some(x => accWarn(x).length) ? `<span class="bang" title="Konto blisko limitu">!</span>` : ""}</button>`).join("")}</div>`;
+  el.innerHTML = `<div class="seg" role="group" aria-label="Sekcje Kako">${KNAV.map(([k, l, h]) => `<button data-kn="${k}" ${h ? `data-h="${h}"` : ""} aria-pressed="${k === active}">${l}${k === "kontrola" && ISSUES ? `<span class="bang">!</span>` : ""}${k === "msg" && unreadCount() ? `<span class="bang" style="background:var(--accent);color:var(--accent-fg)">${unreadCount()}</span>` : ""}${k === "konta" && accounts().some(x => accWarn(x).length) ? `<span class="bang" title="Konto blisko limitu">!</span>` : ""}</button>`).join("")}</div>`;
   el.querySelectorAll("[data-kn]").forEach(b => b.onclick = () => { const h = b.dataset.h; if (h) { location.hash = h; return; } kakoTab = b.dataset.kn; if (location.hash.slice(1) === "kako") renderKako(); else location.hash = "kako"; });
   const cur = el.querySelector('[aria-pressed="true"]'), seg = el.querySelector(".seg"); if (cur && seg) seg.scrollLeft = cur.offsetLeft - seg.clientWidth / 2 + cur.offsetWidth / 2;
 }
@@ -2178,7 +2189,8 @@ function renderKako() {
   $("#k-plan").querySelectorAll("[data-calc]").forEach(b => b.onclick = () => { const d = JSON.parse(b.dataset.calc); $("#c-buy").value = d.buy; $("#c-sell").value = d.sell; $("#c-cur").value = "pln"; calc(); location.hash = "licz"; });
 
   renderChannels(); $("#k-todo").innerHTML = `<div class="card s8">${todoHTML("kako")}</div>`; bindTodo($("#k-todo"), "kako");
-  ["zam", "sprz", "konta", "kontrola", "wsp", "plan", "kanaly", "todo"].forEach(k => $("#k-" + k).hidden = k !== kakoTab);
+  ["zam", "sprz", "konta", "kontrola", "wsp", "plan", "kanaly", "todo", "msg"].forEach(k => $("#k-" + k).hidden = k !== kakoTab);
+  if (kakoTab === "msg") renderInbox();
   $("#kako-stats").hidden = ["konta", "kontrola", "kanaly", "todo", "wsp", "plan"].includes(kakoTab);
   renderKakoNav("kako", kakoTab);
 }
@@ -2186,7 +2198,23 @@ document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { k
 
 /* WYSTAW */
 let sample = null;
-let INTEREST = {}, FBGROUPS = [];
+let INTEREST = {}, FBGROUPS = [], MSGREAD = {}, msgPlat = "all";
+const msgKey = m => [m.platform, m.from, m.date, m.text.slice(0, 60)].join("|");
+const MSGS = () => (M.messages || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+const unreadCount = () => MSGS().filter(m => !MSGREAD[msgKey(m)]).length;
+const HOT = /priv|pw\b|kontakt|zainteres|aktualn|ile\s|cena|kupuj|biorę|biore|wezm|rezerw|dostępn|dostepn|rozmiar|\?/i;
+function renderInbox() {
+  const el = $("#k-msg"), L = MSGS(), plats = {}; L.forEach(m => { const p = plats[m.platform] ||= {n: 0, u: 0}; p.n++; if (!MSGREAD[msgKey(m)]) p.u++; });
+  const show = L.filter(m => msgPlat === "all" || m.platform === msgPlat);
+  const byListing = {}; show.forEach(m => (byListing[m.listing || "bez ogłoszenia"] ||= []).push(m));
+  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wiadomości · ${L.length}</h3><div class="sub">${unreadCount()} nieprzeczytanych · wiadomości, komentarze i oferty ze wszystkich platform</div></div>${unreadCount() ? `<button class="sm" id="msg-allread">Oznacz wszystkie jako przeczytane</button>` : ""}</div>
+    <div class="pills" style="margin-bottom:12px"><button data-mp="all" aria-pressed="${msgPlat === "all"}">Wszystkie ${L.length}</button>${Object.entries(plats).map(([p, x]) => `<button data-mp="${esc(p)}" aria-pressed="${msgPlat === p}">${esc(p)} ${x.n}${x.u ? ` · <b style="color:var(--accent)">${x.u} nowe</b>` : ""}</button>`).join("")}</div>
+    ${Object.entries(byListing).map(([lst, ms]) => `<details class="grp" open><summary><span class="gt"><b>${esc(lst)}</b><span class="small muted">${ms.length} · ${[...new Set(ms.map(m => m.platform))].map(esc).join(", ")}</span></span><span></span>${svg("arrow", 14)}</summary><div class="list">${ms.map(m => { const k = msgKey(m), unread = !MSGREAD[k], hot = HOT.test(m.text);
+      return `<div class="row" style="align-items:flex-start;${unread ? "box-shadow:inset 3px 0 0 var(--accent)" : ""}"><div class="main"><div class="t" style="font-weight:${unread ? 700 : 500}">${esc(m.from || "ktoś")} <span class="small muted" style="font-weight:400">· ${esc(m.platform)} · ${esc(m.type)} · ${esc(m.date)}</span>${hot ? ` <span class="pill p-sprzedane">zainteresowany</span>` : ""}</div><div class="s" style="color:var(--fg);white-space:pre-wrap">${esc(m.text)}</div></div><div class="end">${m.link ? `<a class="sm" href="${esc(m.link)}" target="_blank" rel="noopener">Otwórz</a>` : ""}${unread ? `<button class="link small" data-mread="${esc(k)}">przeczytane</button>` : ""}</div></div>`; }).join("")}</div></details>`).join("") || `<div class="empty">Na razie nic. Wiadomości z OLX, Facebooka (Marketplace i komentarze w grupach), Vestiaire, Allegro Lokalnie, Szafy i Hemly pojawią się tutaj automatycznie.</div>`}</div>`;
+  el.querySelectorAll("[data-mp]").forEach(b => b.onclick = () => { msgPlat = b.dataset.mp; renderInbox(); });
+  el.querySelectorAll("[data-mread]").forEach(b => b.onclick = async () => { MSGREAD[b.dataset.mread] = 1; await store.save("msgread", MSGREAD); renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); });
+  const ar = $("#msg-allread"); if (ar) ar.onclick = async () => { L.forEach(m => MSGREAD[msgKey(m)] = 1); await store.save("msgread", MSGREAD); renderInbox(); renderKakoNav("kako", "msg"); };
+}
 function fbGroupsHTML() {
   if (!FBGROUPS.length) return "";
   const by = {}; FBGROUPS.forEach(g => (by[g.tier] ||= []).push(g));
@@ -2492,7 +2520,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2616,7 +2644,7 @@ renderAll();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
-  LISTINGS = (await store.load("listings", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
+  LISTINGS = (await store.load("listings", {})) || {}; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;

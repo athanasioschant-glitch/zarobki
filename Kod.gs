@@ -3,6 +3,7 @@
  * Zarobki – most między Twoim arkuszem Google a aplikacją na telefonie.
  *
  * CZYTA wszystkie zakładki arkusza (nic w nich nie zmienia).
+ * DOPISUJE nowe wiadomości do zakładki „Wiadomości” (skrzynka w aplikacji).
  * ZMIENIA tylko komórkę STATUS sprzedanej rzeczy, gdy klikniesz przełącznik w aplikacji.
  * ZAPISUJE tylko w jednej zakładce „Dashboard – zapis” (zaznaczenia: otrzymane pieniądze, dostawy, cel, konta, pomysły).
  * PYTA Claude (czat i generator opisów) – klucz API zostaje tutaj, w ustawieniach skryptu, nigdy na stronie.
@@ -32,10 +33,30 @@ function handle_(q) {
     if (q.a === 'set') { writeState_(String(q.k), q.v); return json_({ok: true}); }
     if (q.a === 'ask') return json_(askClaude_(q));
     if (q.a === 'status') return json_(setStatus_(q));
+    if (q.a === 'msg') return json_(addMessages_(q.items));
     return json_({error: 'unknown_action'});
   } catch (err) {
     return json_({error: String(err && err.message || err)});
   }
+}
+
+/* ---------- wiadomości: dopisuje nowe wiersze do zakładki „Wiadomości” (bez duplikatów), nic nie usuwa ---------- */
+const MSG_SHEET = 'Wiadomości';
+function addMessages_(items) {
+  if (!Array.isArray(items) || !items.length) return {ok: true, added: 0};
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(MSG_SHEET);
+  if (!sh) { sh = ss.insertSheet(MSG_SHEET); sh.getRange(1, 1, 1, 7).setValues([['DATA', 'PLATFORMA', 'OGŁOSZENIE', 'OD', 'TREŚĆ', 'LINK', 'TYP']]).setFontWeight('bold'); sh.setColumnWidth(5, 420); }
+  const last = sh.getLastRow(), seen = {};
+  if (last > 1) sh.getRange(2, 1, last - 1, 7).getDisplayValues().forEach(r => { seen[[r[1], r[3], String(r[4]).slice(0, 80), r[5]].join('|')] = 1; });
+  const rows = [];
+  items.slice(0, 200).forEach(m => {
+    const r = [String(m.data || new Date().toISOString().slice(0, 16).replace('T', ' ')), String(m.platforma || 'Inne').slice(0, 40), String(m.ogloszenie || '').slice(0, 200), String(m.od || '').slice(0, 120), String(m.tresc || '').slice(0, 2000), String(m.link || '').slice(0, 500), String(m.typ || 'wiadomość').slice(0, 40)];
+    const k = [r[1], r[3], r[4].slice(0, 80), r[5]].join('|');
+    if (!r[4] || seen[k]) return; seen[k] = 1; rows.push(r);
+  });
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+  return {ok: true, added: rows.length};
 }
 
 /* ---------- zmiana STATUSU sprzedaży: tylko jedna komórka w kolumnie STATUS, nic więcej ---------- */
