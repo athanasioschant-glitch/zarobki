@@ -494,7 +494,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 21:50</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 22:59</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -600,7 +600,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
           <label>Dostawa<select id="gen-ship"><option>Wysyłka i odbiór osobisty</option><option>Tylko wysyłka</option><option>Tylko odbiór osobisty</option></select></label>
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
           <div class="full" id="photo-plan"></div>
-          <label class="full">Zdjęcia (do 9) – do opisu i audytu<input id="gen-photos" type="file" accept="image/*" multiple></label>
+          <label class="full">Zdjęcia (do 20) – od najważniejszego<input id="gen-photos" type="file" accept="image/*,.heic,.heif" multiple></label>
           <div class="full" id="gen-thumbs"></div>
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
@@ -2257,10 +2257,13 @@ function renderWystaw() {
 }
 let PHOTOS = [];
 async function shrink(file) {
-  const img = await createImageBitmap(file), s = Math.min(1, 768 / Math.max(img.width, img.height));
-  const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  return new Promise(r => c.toBlob(r, "image/jpeg", .82));
+  const draw = (src, w, h) => { const k = Math.min(1, 1024 / Math.max(w, h)), c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(r, "image/jpeg", .82)); };
+  try { const img = await createImageBitmap(file); const b = await draw(img, img.width, img.height); if (b) return b; } catch {}
+  /* iPhone (HEIC) i starsze przeglądarki: przez zwykły <img> */
+  const url = URL.createObjectURL(file);
+  try { const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }); const b = await draw(im, im.naturalWidth, im.naturalHeight); if (b) return b; } catch {} finally { URL.revokeObjectURL(url); }
+  if (/^image\/(jpeg|png|webp)$/.test(file.type) && file.size < 8e6) return file;
+  throw new Error("format");
 }
 { const c = $("#gen-city"); try { c.value = localStorage.getItem("kd_gencity") || c.value; } catch {} c.addEventListener("change", () => { try { localStorage.setItem("kd_gencity", c.value); } catch {} }); }
 /* uzupełnij pola ze zdjęć – tylko to, co widać; puste zostaje puste */
@@ -2269,7 +2272,7 @@ async function fillFromPhotos() {
   msg.textContent = "Odczytuję zdjęcia…";
   try {
     const r = await sample.json(`Na zdjęciach jest rzecz na sprzedaż. Odczytaj TYLKO to, co wyraźnie widać (np. na metce, pudełku, podeszwie). Jeśli czegoś nie widać – zostaw pusty tekst "". Nie zgaduj marki, modelu ani rozmiaru.
-Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "kolor": "", "rozmiar": "", "stan": "Nowy z metką|Nowy bez metki|Bardzo dobry|Dobry|Zadowalający|", "w_zestawie": "np. pudełko, dodatkowe sznurówki – jeśli widać", "uwagi": "widoczne wady lub nic"}`, {cache: false, images: PHOTOS});
+Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "kolor": "", "rozmiar": "", "stan": "Nowy z metką|Nowy bez metki|Bardzo dobry|Dobry|Zadowalający|", "w_zestawie": "np. pudełko, dodatkowe sznurówki – jeśli widać", "uwagi": "widoczne wady lub nic"}`, {cache: false, images: PHOTOS.slice(0, AI_PHOTOS)});
     const set = (id, v) => { const el = $(id); if (v && !el.value.trim()) el.value = v; };
     set("#gen-prod", r.produkt); set("#gen-color", r.kolor); set("#gen-size", r.rozmiar); set("#gen-addons", r.w_zestawie);
     if (r.stan && [...$("#gen-state").options].some(o => o.value === r.stan)) $("#gen-state").value = r.stan;
@@ -2278,8 +2281,13 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
     priceHint(); msg.textContent = "Uzupełnione ze zdjęć – sprawdź pola.";
   } catch { msg.textContent = "Nie udało się odczytać zdjęć – uzupełnij ręcznie."; }
 }
+const PHOTO_MAX = 20, AI_PHOTOS = 6;   // do AI idzie tylko 6 pierwszych (oszczędność), do ogłoszeń wszystkie
+const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8};
 $("#gen-photos").onchange = async e => {
-  for (const f of [...e.target.files].slice(0, 9 - PHOTOS.length)) { try { PHOTOS.push(await shrink(f)); } catch {} }
+  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0;
+  msg.textContent = `Wczytuję ${files.length} zdj.…`;
+  for (const f of files.slice(0, PHOTO_MAX - PHOTOS.length)) { try { const b = await shrink(f); b.name0 = f.name; PHOTOS.push(b); } catch { bad++; } }
+  msg.textContent = (bad ? `Nie udało się wczytać ${bad} zdj. (format?) – zapisz je jako JPG i spróbuj jeszcze raz. ` : "") + (files.length > PHOTO_MAX ? `Maks. ${PHOTO_MAX} zdjęć.` : "");
   e.target.value = "";
   renderThumbs(); fillFromPhotos();
 };
@@ -2316,7 +2324,7 @@ async function runAudit(data, r) {
   const box = $("#gen-audit"); box.hidden = false;
   box.innerHTML = `<div class="card" style="margin-top:16px;background:var(--surface2);box-shadow:none"><div class="small muted">Sprawdzam zgodność opisu ze zdjęciami i danymi…</div></div>`;
   try {
-    const a = await sample.json(AUDIT_RULES + "\n\nDANE OD SPRZEDAJĄCEGO:\n" + JSON.stringify(data) + "\n\nOGŁOSZENIE DO SPRAWDZENIA:\nTytuł: " + r.tytul + "\nOpis:\n" + r.opis + `\n\nZdjęć dołączonych: ${PHOTOS.length}.`, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
+    const a = await sample.json(AUDIT_RULES + "\n\nDANE OD SPRZEDAJĄCEGO:\n" + JSON.stringify(data) + "\n\nOGŁOSZENIE DO SPRAWDZENIA:\nTytuł: " + r.tytul + "\nOpis:\n" + r.opis + `\n\nZdjęć dołączonych: ${PHOTOS.length}.`, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
     const pts = Array.isArray(a.punkty) ? a.punkty : [], bad = pts.filter(p => p.status !== "zgodne");
     const pillOf = s => s === "zgodne" ? "p-sprzedane" : s === "sprzeczne" ? "p-oddane" : "p-rezerwacja";
     box.innerHTML = `<div class="card" style="margin-top:16px;background:var(--surface2);box-shadow:none">
@@ -2368,7 +2376,7 @@ Każdy opis ma ten sam układ:
 3. Dostawa / odbiór i zachęta do kontaktu – jedno krótkie zdanie.
 4. Hashtagi – TYLKO na platformach, gdzie algorytm ich używa (zaznaczone poniżej). Gdzie ich nie ma – pusta lista.
 
-Zdjęcia (jeśli są dołączone, numeracja od 1 w kolejności przesłania): dla każdej platformy wybierz najlepsze i ułóż kolejność, w limicie platformy (OLX 8, Marketplace 10, Vinted 20, Vestiaire 10, Allegro Lokalnie 8, Szafa.pl 8, Hemly 8, grupa FB 6). Okładka (1. zdjęcie): para trzymana w ręce – jeden but w dłoni, drugi w pudełku – albo najładniejsze ujęcie całej rzeczy. Potem: przód, bok zewnętrzny, drugi bok, tył, podeszwa, metka/rozmiar, pudełko i dodatki. Pomiń nieostre i powtórzenia.
+Zdjęcia (jeśli są dołączone) służą tylko do opisu – kolejność zdjęć ustala sprzedający.
 
 Zasady platform:
 ${plats.map(p => "- " + PLAT_RULES[p].r + (PLAT_RULES[p].h ? " [hashtagi: TAK]" : " [hashtagi: NIE]")).join("\n")}
@@ -2386,13 +2394,13 @@ Uczciwość – bezwzględnie:
 Dane:
 ${JSON.stringify(data, null, 1)}
 
-Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "tlumaczenie": "polskie tłumaczenie opisu – tylko gdy opis jest po angielsku, inaczej pusty tekst", "kategoria": "sugerowana kategoria", "zdjecia": [1, 2, 3]}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
+Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "tlumaczenie": "polskie tłumaczenie opisu – tylko gdy opis jest po angielsku, inaczej pusty tekst", "kategoria": "sugerowana kategoria"}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
   btn.disabled = true; out.hidden = true; $("#gen-audit").hidden = true;
   const useTpl = why => { renderGenOut({key: genKey(data), data, L: tplGen(data, plats), wsk: [], tpl: 1, ts: Date.now()}); msg.textContent = why; };
   try {
     if (!sample) { useTpl("Opisy z szablonu (bez AI) – popraw je pod siebie."); return; }
     msg.textContent = `Piszę dla ${plats.length} platform…`;
-    const r = await sample.json(prompt, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
+    const r = await sample.json(prompt, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
     const L = r && Array.isArray(r.ogloszenia) ? r.ogloszenia.filter(x => x && x.tytul) : [];
     if (!L.length) throw {code: "invalid_json"};
     renderGenOut({key: genKey(data), data, L, wsk: Array.isArray(r.wskazowki) ? r.wskazowki : [], ts: Date.now()}, true);
@@ -2408,13 +2416,16 @@ let GEN_DRAFT = null;
 const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
 const genFull = x => x.full != null ? x.full : x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
 function renderGenOut(D, fresh) {
+  if (PHOTOS.length) D.L.forEach(x => { x.zdjecia = Array.from({length: Math.min(PLAT_PHOTOS[x.platforma] || 8, PHOTOS.length)}, (_, j) => j + 1); });
+  if (PHOTOS.length) D.photos = PHOTOS.map(b => b.name0 || "");
   GEN_DRAFT = D; if (fresh !== false) store.save("gendraft", D);
   const out = $("#gen-out"), L = D.L; out.hidden = false;
   const grow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 4) + "px"; };
   const block = (x, i) => `<details class="grp" data-gi="${i}" ${i === (D.open || 0) ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}${x.ok ? " ✓" : ""}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
-        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia w tej kolejności (${x.zdjecia.length}):</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${URL.createObjectURL(PHOTOS[n - 1])}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
+        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia: ${x.zdjecia.length} z ${PHOTOS.length}${PHOTOS.length > x.zdjecia.length ? ` (limit ${x.platforma}: ${x.zdjecia.length})` : ""}</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${URL.createObjectURL(PHOTOS[n - 1])}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
         ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><textarea class="out" id="o-${i}-d" data-ed="${i}|d" ${x.ok || !x.edit ? "readonly" : ""}>${esc(genFull(x))}</textarea>${x.tlumaczenie ? `<div class="outhead"><strong class="small muted">Tłumaczenie (PL)</strong></div><div class="out small muted" style="background:none;padding:0 2px">${esc(x.tlumaczenie)}</div>` : ""}<div class="actions" style="margin:10px 0 4px">${x.ok ? `<span class="small pos">${svg("check", 14)} Zaakceptowane</span><button class="sm" data-ga="${i}|undo">Cofnij</button>` : `<button class="sm primary" data-ga="${i}|ok">${svg("check", 14)}Zaakceptuj</button><button class="sm" data-ga="${i}|edit">${x.edit ? "Gotowe" : "Edytuj"}</button><button class="sm" data-ga="${i}|chg">${svg("refresh", 14)}Zmień</button>`}</div><div id="o-${i}-chg" hidden><input class="out" id="o-${i}-q" placeholder="Co zmienić? np. milej, bardziej szczegółowo, krócej"><div class="chips" style="margin:8px 0">${["Milej", "Bardziej szczegółowo", "Krócej", "Bardziej rzeczowo", "Więcej słów kluczowych"].map(c => `<button type="button" class="sm" data-gq="${i}|${c}">${c}</button>`).join("")}</div><div class="actions"><button class="sm primary" data-ga="${i}|redo">Wygeneruj ponownie</button><span class="small muted" id="o-${i}-cm"></span></div></div></details>`;
   out.innerHTML = L.map(block).join("") + (D.wsk && D.wsk.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${D.wsk.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button><span class="small muted" id="gen-saved"></span></div>
+      <div class="actions" style="margin-top:8px"><button class="primary" id="gen-ready" ${L.some(x => x.ok) ? "" : "disabled"}>Wystaw zaakceptowane (${L.filter(x => x.ok).length})</button></div><div class="small muted" id="gen-readymsg" style="margin-top:6px">${D.ready ? readyTxt(D) : L.some(x => x.ok) ? "" : "Najpierw zaakceptuj opisy."}</div>
       <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
   out.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const [i, f] = b.dataset.cp.split("|"); copy($("#o-" + i + "-" + f)); });
   out.querySelectorAll("[data-ed]").forEach(t => { const [i, f] = t.dataset.ed.split("|"), x = L[+i];
@@ -2422,6 +2433,7 @@ function renderGenOut(D, fresh) {
     t.oninput = () => { if (f === "t") { x.tytul = t.value; $("#o-" + i + "-n").textContent = [...t.value].length; } else { x.full = t.value; grow(t); }
       $("#gen-saved").textContent = "Zapisano zmiany"; autosave("gendraft", () => GEN_DRAFT); }; });
   $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
+  $("#gen-ready").onclick = () => { D.ready = Date.now(); store.save("gendraft", D); $("#gen-readymsg").innerHTML = readyTxt(D); };
   out.querySelectorAll("details[data-gi]").forEach(d => d.addEventListener("toggle", () => { if (d.open) D.open = +d.dataset.gi; }));
   out.querySelectorAll("[data-gq]").forEach(b => b.onclick = () => { const [i, c] = b.dataset.gq.split("|"), q = $("#o-" + i + "-q"); q.value = q.value.trim() ? q.value.trim() + ", " + c.toLowerCase() : c; });
   const keep = () => { store.save("gendraft", D); renderGenOut(D, false); };
@@ -2442,13 +2454,15 @@ Obecna wersja:
 Tytuł: ${x.tytul}
 Opis:
 ${genFull(x)}
-Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów", "hashtagi": ${(PLAT_RULES[x.platforma] || {}).h ? '["#..."]' : "[]"}, "tlumaczenie": "polskie tłumaczenie opisu, jeśli opis jest po angielsku, inaczej pusty tekst"}`, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
+Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów", "hashtagi": ${(PLAT_RULES[x.platforma] || {}).h ? '["#..."]' : "[]"}, "tlumaczenie": "polskie tłumaczenie opisu, jeśli opis jest po angielsku, inaczej pusty tekst"}`, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
         if (!r || !r.tytul || !r.opis) throw {code: "invalid_json"};
         Object.assign(x, {tytul: r.tytul, opis: r.opis, hashtagi: Array.isArray(r.hashtagi) ? r.hashtagi : [], tlumaczenie: r.tlumaczenie || "", full: null, edit: 0, ok: 0}); keep(); toast("Nowa wersja – " + x.platforma);
       } catch (e) { b.disabled = false; cm.textContent = e && e.code === "no_key" ? "„Zmień” potrzebuje Claude – otwórz wersję na claude.ai albo dodaj klucz." : "Nie udało się – spróbuj jeszcze raz."; }
     } });
   $("#o-t").textContent = L[0].tytul; $("#o-d").textContent = L[0].opis;
 }
+function readyTxt(D) { const ok = D.L.filter(x => x.ok).map(x => x.platforma);
+  return `Przekazane do wystawienia: ${ok.map(esc).join(", ")}. Napisz w czacie z Claude: <b>„wystaw zaakceptowane”</b> i podaj folder ze zdjęciami${D.photos && D.photos.length ? ` (kolejność: ${D.photos.slice(0, 4).map(esc).join(", ")}${D.photos.length > 4 ? "…" : ""})` : ""}. Claude wypełni ogłoszenia w Twoim Chrome i przed każdą publikacją zapyta o zgodę.`; }
 /* darmowy generator z szablonu – tylko z wpisanych danych, nic nie zmyśla */
 function tplGen(d, plats) {
   const noPl = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
