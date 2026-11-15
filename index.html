@@ -368,6 +368,10 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
 .thumb .tb{display:flex;justify-content:space-between}
 .thumb .tb button{flex:1;background:none;border:0;color:inherit;padding:4px 0;font-size:13px;cursor:pointer}
 .thumb .tb button:disabled{opacity:.25}
+.thumb.sel{box-shadow:0 0 0 3px var(--accent)}
+.thumb.empty{display:flex;align-items:center;justify-content:center;aspect-ratio:auto;min-height:100%;height:100%;border:1px dashed var(--muted);background:none;color:var(--muted);font-size:22px;cursor:pointer;width:100%}
+.thumb.empty .n{background:none;color:var(--muted)}
+.thumb img{cursor:pointer}
 .outhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:20px 0 8px;font-size:12.5px;color:var(--muted)}
 .outhead strong{color:var(--fg)}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
@@ -494,7 +498,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:04</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:11</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -600,7 +604,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
           <label>Dostawa<select id="gen-ship"><option>Wysyłka i odbiór osobisty</option><option>Tylko wysyłka</option><option>Tylko odbiór osobisty</option></select></label>
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
           <div class="full" id="photo-plan"></div>
-          <label class="full">Zdjęcia (do 20) – od najważniejszego<input id="gen-photos" type="file" accept="image/*" multiple></label>
+          <div class="full"><div class="small muted" style="margin-bottom:6px">Zdjęcia · 1 = okładka · przeciągnij kafelek na inne miejsce</div><input id="gen-photos" type="file" accept="image/*" multiple hidden></div>
           <div class="full" id="gen-thumbs"></div>
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
@@ -1010,7 +1014,7 @@ const store = (() => {
 })();
 store.raw = null;
 /* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
-const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage|gendraft)/, LAST = {}, HIST = {on: false, list: [], timer: null};
+const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage|gendraft|genphotos|lp_)/, LAST = {}, HIST = {on: false, list: [], timer: null};
 const KEY_LAB = {listings: "gdzie wystawione", banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
 const curSrc = () => { const h = location.hash.slice(1) || "start"; if (h.startsWith("zrodlo-")) return h.slice(7); if (/^(kako|magazyn|start-kako|wystaw)$/.test(h)) return "kako"; if (h === "start") return SRC; return "all"; };
 function histGroup() { const g = HIST.list[0]; if (g && !g.done && Date.now() - g.t < 1500) return g; const n = {id: uid(), t: Date.now(), at: new Date().toISOString(), src: curSrc(), label: "", ch: [], sheet: []}; HIST.list.unshift(n); HIST.list = HIST.list.slice(0, 40); return n; }
@@ -2259,7 +2263,7 @@ function renderWystaw() {
 let PHOTOS = [];
 const toDataURL = blob => new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(blob); });
 async function shrink(file) {
-  const draw = (src, w, h) => { const k = Math.min(1, 1024 / Math.max(w, h)), c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(r, "image/jpeg", .82)); };
+  const draw = (src, w, h) => { const [mx, q] = window.__mx || [1024, .82], k = Math.min(1, mx / Math.max(w, h)), c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(r, "image/jpeg", q)); };
   try { const img = await createImageBitmap(file); const b = await draw(img, img.width, img.height); if (b) return b; } catch {}
   /* iPhone (HEIC) i starsze przeglądarki: przez zwykły <img> */
   const url = await toDataURL(file);
@@ -2270,11 +2274,11 @@ async function shrink(file) {
 { const c = $("#gen-city"); try { c.value = localStorage.getItem("kd_gencity") || c.value; } catch {} c.addEventListener("change", () => { try { localStorage.setItem("kd_gencity", c.value); } catch {} }); }
 /* uzupełnij pola ze zdjęć – tylko to, co widać; puste zostaje puste */
 async function fillFromPhotos() {
-  const msg = $("#gen-msg"); if (!sample || !PHOTOS.length) return;
+  const msg = $("#gen-msg"); if (!sample || !PH().length) return;
   msg.textContent = "Odczytuję zdjęcia…";
   try {
     const r = await sample.json(`Na zdjęciach jest rzecz na sprzedaż. Odczytaj TYLKO to, co wyraźnie widać (np. na metce, pudełku, podeszwie). Jeśli czegoś nie widać – zostaw pusty tekst "". Nie zgaduj marki, modelu ani rozmiaru.
-Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "kolor": "", "rozmiar": "", "stan": "Nowy z metką|Nowy bez metki|Bardzo dobry|Dobry|Zadowalający|", "w_zestawie": "np. pudełko, dodatkowe sznurówki – jeśli widać", "uwagi": "widoczne wady lub nic"}`, {cache: false, images: PHOTOS.slice(0, AI_PHOTOS)});
+Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "kolor": "", "rozmiar": "", "stan": "Nowy z metką|Nowy bez metki|Bardzo dobry|Dobry|Zadowalający|", "w_zestawie": "np. pudełko, dodatkowe sznurówki – jeśli widać", "uwagi": "widoczne wady lub nic"}`, {cache: false, images: await aiBlobs()});
     const set = (id, v) => { const el = $(id); if (v && !el.value.trim()) el.value = v; };
     set("#gen-prod", r.produkt); set("#gen-color", r.kolor); set("#gen-size", r.rozmiar); set("#gen-addons", r.w_zestawie);
     if (r.stan && [...$("#gen-state").options].some(o => o.value === r.stan)) $("#gen-state").value = r.stan;
@@ -2285,22 +2289,51 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
 }
 const PHOTO_MAX = 20, AI_PHOTOS = 6;   // do AI idzie tylko 6 pierwszych (oszczędność), do ogłoszeń wszystkie
 const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8};
+/* zdjęcia: kafelki 1–20, dziury dozwolone; PHOTOS[i] = {url, name, blob, k} albo null */
+const PH = () => PHOTOS.filter(Boolean);
+let PH_SEL = null, PH_AT = 0;
+async function shrinkTo(file, max, q) { const keep = window.__mx; window.__mx = [max, q]; try { return await shrink(file); } finally { window.__mx = keep; } }
+async function aiBlobs() { return (await Promise.all(PH().slice(0, AI_PHOTOS).map(p => p.blob || fetch(p.url).then(r => r.blob()).catch(() => null)))).filter(Boolean); }
+function savePhotos() { store.save("genphotos", PHOTOS.map(p => p && {url: p.k ? null : p.url, k: p.k || null, name: p.name})); }
+async function loadPhotos() {
+  const L = (await store.load("genphotos", [])) || [];
+  PHOTOS = await Promise.all(L.map(async p => { if (!p) return null; if (p.k) { const v = await store.load(p.k, null); return v && v[0] ? {...p, url: v[0]} : null; } return p.url ? p : null; }));
+  renderThumbs();
+}
 $("#gen-photos").onchange = async e => {
-  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0;
+  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0, at = PH_AT; e.target.value = "";
   msg.textContent = `Wczytuję ${files.length} zdj.…`;
-  for (const f of files.slice(0, PHOTO_MAX - PHOTOS.length)) { try { const b = await shrink(f); b.name0 = f.name; b.url0 = await toDataURL(b); PHOTOS.push(b); } catch (err) { bad++; console.warn("zdjęcie", f.name, f.type, err); } }
-  msg.textContent = (bad ? `Nie udało się wczytać ${bad} zdj. (format?) – zapisz je jako JPG i spróbuj jeszcze raz. ` : "") + (files.length > PHOTO_MAX ? `Maks. ${PHOTO_MAX} zdjęć.` : "");
-  e.target.value = "";
-  renderThumbs(); fillFromPhotos();
+  for (const f of files) {
+    at = PHOTOS.length; if (at >= PHOTO_MAX) break;
+    try {
+      const ai = await shrink(f); let url, k = null;
+      if (assetsNS) { const big = await shrinkTo(f, 1600, .86); url = (await assetsNS.upload(big)).url; }
+      else { url = await toDataURL(await shrinkTo(f, 560, .72)); k = "lp_" + Date.now().toString(36) + at; await store.save(k, [url]); }
+      PHOTOS[at] = {url, name: f.name, blob: ai, k}; at++; renderThumbs();
+    } catch (err) { bad++; console.warn("zdjęcie", f.name, f.type, err); }
+  }
+  savePhotos();
+  msg.textContent = bad ? `Nie udało się wczytać ${bad} zdj. (format?) – zapisz je jako JPG i spróbuj jeszcze raz.` : "";
+  fillFromPhotos();
 };
-/* podgląd zdjęć w kolejności wyświetlania – 1 = okładka; strzałki zmieniają kolejność */
+function movePhoto(from, to) { if (from === to || from == null) return; const [p] = PHOTOS.splice(from, 1); PHOTOS.splice(Math.min(to, PHOTOS.length), 0, p); savePhotos(); }
 function renderThumbs() {
-  const el = $("#gen-thumbs"); renderPhotoPlan();
-  if (!PHOTOS.length) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="small muted" style="margin-bottom:6px">Kolejność w ogłoszeniu · 1 = okładka</div><div class="thumbs">${PHOTOS.map((b, i) => `<div class="thumb${i === 0 ? " cover" : ""}"><img src="${b.url0}" alt="Zdjęcie ${i + 1}"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-pm="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Wcześniej">‹</button><button type="button" data-pm="${i}|x" aria-label="Usuń">×</button><button type="button" data-pm="${i}|1" ${i === PHOTOS.length - 1 ? "disabled" : ""} aria-label="Później">›</button></div></div>`).join("")}</div>`;
-  el.querySelectorAll("[data-pm]").forEach(b => b.onclick = () => { const [i, d] = b.dataset.pm.split("|"), k = +i;
-    if (d === "x") PHOTOS.splice(k, 1); else { const j = k + +d; [PHOTOS[k], PHOTOS[j]] = [PHOTOS[j], PHOTOS[k]]; }
-    renderThumbs(); });
+  const el = $("#gen-thumbs"); renderPhotoPlan(); PHOTOS = PHOTOS.filter(Boolean);
+  if (!PHOTOS.length) { el.innerHTML = `<button type="button" class="primary" id="ph-pick">${svg("plus", 16)}Wybierz zdjęcia</button>`; $("#ph-pick").onclick = () => $("#gen-photos").click(); return; }
+  el.innerHTML = `<div class="thumbs">${PHOTOS.map((p, i) => `<div class="thumb${i === 0 ? " cover" : ""}${PH_SEL === i ? " sel" : ""}" data-pi="${i}"><img src="${p.url}" alt="Zdjęcie ${i + 1}" draggable="false" style="touch-action:none"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-px="${i}" aria-label="Usuń">×</button></div></div>`).join("")}${PHOTOS.length < PHOTO_MAX ? `<button type="button" class="thumb empty" data-pi="${PHOTOS.length}" id="ph-add" aria-label="Dodaj zdjęcia">+</button>` : ""}</div><div class="small muted" style="margin-top:6px">${PHOTOS.length} zdj.${assetsNS ? " · zapisane w dashboardzie" : " · zapisane (mniejsza jakość w aplikacji)"}${PH_SEL != null ? " · kliknij miejsce, gdzie ma trafić zdjęcie " + (PH_SEL + 1) : ""}</div>`;
+  const slotAt = (x, y) => { const t = document.elementFromPoint(x, y), c = t && t.closest("[data-pi]"); return c && el.contains(c) ? +c.dataset.pi : null; };
+  el.querySelectorAll(".thumb[data-pi] img").forEach(im => { const i = +im.closest("[data-pi]").dataset.pi;
+    let sx, sy, drag = false, ghost = null;
+    im.onpointerdown = e => { sx = e.clientX; sy = e.clientY; drag = false; im.setPointerCapture(e.pointerId); };
+    im.onpointermove = e => { if (sx == null) return; if (!drag && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) { drag = true; ghost = im.cloneNode(); Object.assign(ghost.style, {position: "fixed", width: "70px", height: "70px", objectFit: "cover", borderRadius: "10px", opacity: ".85", pointerEvents: "none", zIndex: 99, boxShadow: "0 6px 18px rgba(0,0,0,.4)"}); document.body.appendChild(ghost); }
+      if (drag) { ghost.style.left = (e.clientX - 35) + "px"; ghost.style.top = (e.clientY - 35) + "px"; el.querySelectorAll(".thumb").forEach(t => t.style.outline = ""); const to = slotAt(e.clientX, e.clientY); const c = to != null && el.querySelector(`[data-pi="${to}"]`); if (c) c.style.outline = "2px dashed var(--accent)"; } };
+    im.onpointerup = e => { if (ghost) ghost.remove(); ghost = null; const was = drag; sx = null; drag = false;
+      if (was) { const to = slotAt(e.clientX, e.clientY); PH_SEL = null; if (to != null) movePhoto(i, Math.min(to, PHOTOS.length - 1)); renderThumbs(); return; }
+      if (PH_SEL == null) PH_SEL = i; else { movePhoto(PH_SEL, i); PH_SEL = null; } renderThumbs(); };
+    im.onpointercancel = () => { if (ghost) ghost.remove(); ghost = null; sx = null; drag = false; }; });
+  const add = $("#ph-add"); if (add) add.onclick = () => { if (PH_SEL != null) { movePhoto(PH_SEL, PHOTOS.length - 1); PH_SEL = null; renderThumbs(); } else $("#gen-photos").click(); };
+  el.querySelectorAll("[data-px]").forEach(b => b.onclick = () => { const i = +b.dataset.px, p = PHOTOS[i];
+    if (p && p.k) store.save(p.k, null); PHOTOS.splice(i, 1); PH_SEL = null; savePhotos(); renderThumbs(); });
 }
 const PHOTO_PLANS = {
   buty: {n: 9, list: ["Główne: para trzymana w ręce, cała widoczna", "Bok zewnętrzny", "Bok wewnętrzny", "Przód (noski)", "Tył i pięta", "Podeszwa", "Wnętrze i wkładka", "Metka z rozmiarem", "Pudełko i zestaw (jeśli jest)"]},
@@ -2309,8 +2342,8 @@ const PHOTO_PLANS = {
 };
 function renderPhotoPlan() {
   const p = ($("#gen-prod").value || "").toLowerCase(), k = /but|ugg|sneak|trampk|kozak/.test(p) ? "buty" : /kurt|bluz|swet|bezręk|płaszcz|kamizel/.test(p) ? "kurtka" : "inne", P = PHOTO_PLANS[k];
-  $("#photo-plan").innerHTML = `<div class="card" style="background:var(--surface2);box-shadow:none;padding:14px"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Plan zdjęć</b> · ${k === "buty" ? "buty" : k === "kurtka" ? "kurtka / bluza" : "inne"}</span><b>${PHOTOS.length} / ${P.n}</b></div>
-    <ol class="small muted" style="margin:6px 0 0;padding-left:18px;line-height:1.7">${P.list.map((x, i) => `<li style="${i < PHOTOS.length ? "color:var(--accent)" : ""}">${esc(x)}</li>`).join("")}</ol><p class="note" style="margin-top:8px">Pierwsze zdjęcie jest miniaturą ogłoszenia – rzecz w ręce, jasne tło, bez filtrów. Wszystkie zdjęcia muszą pokazywać tę konkretną sztukę.</p></div>`;
+  $("#photo-plan").innerHTML = `<div class="card" style="background:var(--surface2);box-shadow:none;padding:14px"><div class="mline" style="padding-top:0"><span><b style="color:var(--fg)">Plan zdjęć</b> · ${k === "buty" ? "buty" : k === "kurtka" ? "kurtka / bluza" : "inne"}</span><b>${PH().length} / ${P.n}</b></div>
+    <ol class="small muted" style="margin:6px 0 0;padding-left:18px;line-height:1.7">${P.list.map((x, i) => `<li style="${i < PH().length ? "color:var(--accent)" : ""}">${esc(x)}</li>`).join("")}</ol><p class="note" style="margin-top:8px">Pierwsze zdjęcie jest miniaturą ogłoszenia – rzecz w ręce, jasne tło, bez filtrów. Wszystkie zdjęcia muszą pokazywać tę konkretną sztukę.</p></div>`;
 }
 const AUDIT_RULES = `Jesteś audytorem ogłoszenia sprzedaży. Twoje zadanie: sprawdzić, czy tekst ogłoszenia jest w 100% zgodny ze ZDJĘCIAMI i DANYMI od sprzedającego i czy nic nie zostało wymyślone.
 Wypisz KAŻDE twierdzenie o produkcie z tytułu i opisu (typ, marka, model, kolor, rozmiar, stan, materiał, wady, wymiary, dodatki, pudełko, metki, oryginalność, historia zakupu).
@@ -2326,11 +2359,11 @@ async function runAudit(data, r) {
   const box = $("#gen-audit"); box.hidden = false;
   box.innerHTML = `<div class="card" style="margin-top:16px;background:var(--surface2);box-shadow:none"><div class="small muted">Sprawdzam zgodność opisu ze zdjęciami i danymi…</div></div>`;
   try {
-    const a = await sample.json(AUDIT_RULES + "\n\nDANE OD SPRZEDAJĄCEGO:\n" + JSON.stringify(data) + "\n\nOGŁOSZENIE DO SPRAWDZENIA:\nTytuł: " + r.tytul + "\nOpis:\n" + r.opis + `\n\nZdjęć dołączonych: ${PHOTOS.length}.`, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
+    const a = await sample.json(AUDIT_RULES + "\n\nDANE OD SPRZEDAJĄCEGO:\n" + JSON.stringify(data) + "\n\nOGŁOSZENIE DO SPRAWDZENIA:\nTytuł: " + r.tytul + "\nOpis:\n" + r.opis + `\n\nZdjęć dołączonych: ${PH().length}.`, {cache: false, images: PH().length ? await aiBlobs() : undefined});
     const pts = Array.isArray(a.punkty) ? a.punkty : [], bad = pts.filter(p => p.status !== "zgodne");
     const pillOf = s => s === "zgodne" ? "p-sprzedane" : s === "sprzeczne" ? "p-oddane" : "p-rezerwacja";
     box.innerHTML = `<div class="card" style="margin-top:16px;background:var(--surface2);box-shadow:none">
-      <div class="ch" style="margin-bottom:10px"><div style="display:flex;gap:12px;align-items:center">${ic(bad.length ? "alert" : "shield", bad.length ? "w" : "a")}<div><h3>Audyt zgodności</h3><div class="sub">${bad.length ? bad.length + " do poprawy z " + pts.length + " twierdzeń" : "Wszystkie " + pts.length + " twierdzeń zgodne"}${PHOTOS.length ? " · sprawdzone ze zdjęciami" : " · bez zdjęć, tylko z danymi"}</div></div></div></div>
+      <div class="ch" style="margin-bottom:10px"><div style="display:flex;gap:12px;align-items:center">${ic(bad.length ? "alert" : "shield", bad.length ? "w" : "a")}<div><h3>Audyt zgodności</h3><div class="sub">${bad.length ? bad.length + " do poprawy z " + pts.length + " twierdzeń" : "Wszystkie " + pts.length + " twierdzeń zgodne"}${PH().length ? " · sprawdzone ze zdjęciami" : " · bez zdjęć, tylko z danymi"}</div></div></div></div>
       ${a.uwaga ? `<p class="small muted" style="margin:0 0 10px">${esc(a.uwaga)}</p>` : ""}
       <div class="list">${pts.map(p => `<div class="row" style="align-items:flex-start"><span class="pill ${pillOf(p.status)}" style="flex:none">${esc(p.status)}</span><div class="main"><div class="t" style="font-weight:500;font-size:13.5px">${esc(p.tekst)}</div>${p.status !== "zgodne" && p.dlaczego ? `<div class="s">${esc(p.dlaczego)}</div>` : ""}</div></div>`).join("")}</div>
       ${bad.length && a.poprawiony_opis && !r.multi ? `<div class="actions" style="margin-top:14px"><button class="sm primary" id="use-fixed">${svg("check", 14)}Użyj poprawionej wersji</button></div>` : ""}</div>`;
@@ -2402,7 +2435,7 @@ Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna na
   try {
     if (!sample) { useTpl("Opisy z szablonu (bez AI) – popraw je pod siebie."); return; }
     msg.textContent = `Piszę dla ${plats.length} platform…`;
-    const r = await sample.json(prompt, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
+    const r = await sample.json(prompt, {cache: false, images: PH().length ? await aiBlobs() : undefined});
     const L = r && Array.isArray(r.ogloszenia) ? r.ogloszenia.filter(x => x && x.tytul) : [];
     if (!L.length) throw {code: "invalid_json"};
     renderGenOut({key: genKey(data), data, L, wsk: Array.isArray(r.wskazowki) ? r.wskazowki : [], ts: Date.now()}, true);
@@ -2418,13 +2451,12 @@ let GEN_DRAFT = null;
 const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
 const genFull = x => x.full != null ? x.full : x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
 function renderGenOut(D, fresh) {
-  if (PHOTOS.length) D.L.forEach(x => { x.zdjecia = Array.from({length: Math.min(PLAT_PHOTOS[x.platforma] || 8, PHOTOS.length)}, (_, j) => j + 1); });
-  if (PHOTOS.length) D.photos = PHOTOS.map(b => b.name0 || "");
+  const ph = PH(); if (ph.length) { D.L.forEach(x => { x.zdjecia = Array.from({length: Math.min(PLAT_PHOTOS[x.platforma] || 8, ph.length)}, (_, j) => j + 1); }); D.photos = ph.map(p => ({name: p.name, url: p.url})); }
   GEN_DRAFT = D; if (fresh !== false) store.save("gendraft", D);
   const out = $("#gen-out"), L = D.L; out.hidden = false;
   const grow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 4) + "px"; };
   const block = (x, i) => `<details class="grp" data-gi="${i}" ${i === (D.open || 0) ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}${x.ok ? " ✓" : ""}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
-        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia: ${x.zdjecia.length} z ${PHOTOS.length}${PHOTOS.length > x.zdjecia.length ? ` (limit ${x.platforma}: ${x.zdjecia.length})` : ""}</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${PHOTOS[n - 1].url0}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
+        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PH().length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia: ${x.zdjecia.length} z ${PH().length}${PH().length > x.zdjecia.length ? ` (limit ${x.platforma}: ${x.zdjecia.length})` : ""}</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PH()[n - 1]).map((n, j) => `<span style="position:relative"><img src="${PH()[n - 1].url}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
         ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><textarea class="out" id="o-${i}-d" data-ed="${i}|d" ${x.ok || !x.edit ? "readonly" : ""}>${esc(genFull(x))}</textarea>${x.tlumaczenie ? `<div class="outhead"><strong class="small muted">Tłumaczenie (PL)</strong></div><div class="out small muted" style="background:none;padding:0 2px">${esc(x.tlumaczenie)}</div>` : ""}<div class="actions" style="margin:10px 0 4px">${x.ok ? `<span class="small pos">${svg("check", 14)} Zaakceptowane</span><button class="sm" data-ga="${i}|undo">Cofnij</button>` : `<button class="sm primary" data-ga="${i}|ok">${svg("check", 14)}Zaakceptuj</button><button class="sm" data-ga="${i}|edit">${x.edit ? "Gotowe" : "Edytuj"}</button><button class="sm" data-ga="${i}|chg">${svg("refresh", 14)}Zmień</button>`}</div><div id="o-${i}-chg" hidden><input class="out" id="o-${i}-q" placeholder="Co zmienić? np. milej, bardziej szczegółowo, krócej"><div class="chips" style="margin:8px 0">${["Milej", "Bardziej szczegółowo", "Krócej", "Bardziej rzeczowo", "Więcej słów kluczowych"].map(c => `<button type="button" class="sm" data-gq="${i}|${c}">${c}</button>`).join("")}</div><div class="actions"><button class="sm primary" data-ga="${i}|redo">Wygeneruj ponownie</button><span class="small muted" id="o-${i}-cm"></span></div></div></details>`;
   out.innerHTML = L.map(block).join("") + (D.wsk && D.wsk.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${D.wsk.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button><span class="small muted" id="gen-saved"></span></div>
       <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
@@ -2457,7 +2489,7 @@ Obecna wersja:
 Tytuł: ${x.tytul}
 Opis:
 ${genFull(x)}
-Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów", "hashtagi": ${(PLAT_RULES[x.platforma] || {}).h ? '["#..."]' : "[]"}, "tlumaczenie": "polskie tłumaczenie opisu, jeśli opis jest po angielsku, inaczej pusty tekst"}`, {cache: false, images: PHOTOS.length ? PHOTOS.slice(0, AI_PHOTOS) : undefined});
+Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów", "hashtagi": ${(PLAT_RULES[x.platforma] || {}).h ? '["#..."]' : "[]"}, "tlumaczenie": "polskie tłumaczenie opisu, jeśli opis jest po angielsku, inaczej pusty tekst"}`, {cache: false, images: PH().length ? await aiBlobs() : undefined});
         if (!r || !r.tytul || !r.opis) throw {code: "invalid_json"};
         Object.assign(x, {tytul: r.tytul, opis: r.opis, hashtagi: Array.isArray(r.hashtagi) ? r.hashtagi : [], tlumaczenie: r.tlumaczenie || "", full: null, edit: 0, ok: 0}); keep(); toast("Nowa wersja – " + x.platforma);
       } catch (e) { b.disabled = false; cm.textContent = e && e.code === "no_key" ? "„Zmień” potrzebuje Claude – otwórz wersję na claude.ai albo dodaj klucz." : "Nie udało się – spróbuj jeszcze raz."; }
@@ -2628,7 +2660,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["gendraft", "msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["gendraft", "genphotos", "msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2751,6 +2783,7 @@ renderAll();
   if (mcp) connect();
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
+  try { await loadPhotos(); } catch (e) { console.warn(e); }
   { const g = await store.load("gendraft", null); if (g && Array.isArray(g.L) && g.L.length) { try { renderGenOut(g, false); } catch (e) { console.warn(e); } } }
   LISTINGS = (await store.load("listings", {})) || {}; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
