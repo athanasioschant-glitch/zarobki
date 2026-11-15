@@ -498,7 +498,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:11</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:13</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -604,7 +604,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
           <label>Dostawa<select id="gen-ship"><option>Wysyłka i odbiór osobisty</option><option>Tylko wysyłka</option><option>Tylko odbiór osobisty</option></select></label>
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
           <div class="full" id="photo-plan"></div>
-          <div class="full"><div class="small muted" style="margin-bottom:6px">Zdjęcia · 1 = okładka · przeciągnij kafelek na inne miejsce</div><input id="gen-photos" type="file" accept="image/*" multiple hidden></div>
+          <div class="full"><div class="small muted" style="margin-bottom:6px">Zdjęcia · 1 = okładka · przeciągnij kafelek na inne miejsce</div><input id="gen-photos" type="file" accept="image/*,.heic,.heif" multiple hidden></div>
           <div class="full" id="gen-thumbs"></div>
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
@@ -2292,6 +2292,16 @@ const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa 
 /* zdjęcia: kafelki 1–20, dziury dozwolone; PHOTOS[i] = {url, name, blob, k} albo null */
 const PH = () => PHOTOS.filter(Boolean);
 let PH_SEL = null, PH_AT = 0;
+/* zdjęcia z iPhone'a (HEIC) – przeglądarka ich nie otworzy, więc konwertuję na JPG */
+let HEIC_LIB = null;
+const loadHeic = () => HEIC_LIB || (HEIC_LIB = new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"; sc.onload = () => ok(window.heic2any); sc.onerror = () => { HEIC_LIB = null; no(new Error("nie udało się pobrać konwertera HEIC")); }; document.head.appendChild(sc); }));
+async function toJpegSource(f) {
+  const heic = /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+  if (!heic) { try { await shrinkTo(f, 64, .5); return f; } catch {} }
+  const sig = new Uint8Array(await f.slice(4, 12).arrayBuffer()), ftyp = String.fromCharCode(...sig);
+  if (heic || /ftyp(heic|heix|mif1|msf1|hevc)/.test(ftyp)) { const conv = await loadHeic(); const out = await conv({blob: f, toType: "image/jpeg", quality: .9}); return Array.isArray(out) ? out[0] : out; }
+  throw new Error(`nieobsługiwany format pliku ${f.name} (${f.type || "nieznany typ"})`);
+}
 async function shrinkTo(file, max, q) { const keep = window.__mx; window.__mx = [max, q]; try { return await shrink(file); } finally { window.__mx = keep; } }
 async function aiBlobs() { return (await Promise.all(PH().slice(0, AI_PHOTOS).map(p => p.blob || fetch(p.url).then(r => r.blob()).catch(() => null)))).filter(Boolean); }
 function savePhotos() { store.save("genphotos", PHOTOS.map(p => p && {url: p.k ? null : p.url, k: p.k || null, name: p.name})); }
@@ -2301,19 +2311,21 @@ async function loadPhotos() {
   renderThumbs();
 }
 $("#gen-photos").onchange = async e => {
-  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0, at = PH_AT; e.target.value = "";
+  const files = [...e.target.files], msg = $("#gen-msg"); let bad = 0, at = PH_AT, why = ""; e.target.value = "";
   msg.textContent = `Wczytuję ${files.length} zdj.…`;
   for (const f of files) {
     at = PHOTOS.length; if (at >= PHOTO_MAX) break;
     try {
-      const ai = await shrink(f); let url, k = null;
-      if (assetsNS) { const big = await shrinkTo(f, 1600, .86); url = (await assetsNS.upload(big)).url; }
-      else { url = await toDataURL(await shrinkTo(f, 560, .72)); k = "lp_" + Date.now().toString(36) + at; await store.save(k, [url]); }
+      msg.textContent = `Wczytuję ${at + 1}/${files.length}…`;
+      const src = await toJpegSource(f);
+      const ai = await shrink(src); let url = null, k = null;
+      if (assetsNS) { try { url = (await assetsNS.upload(await shrinkTo(src, 1600, .86))).url; } catch (e) { why = why || "zapis w schowku strony: " + (e.code || e.message); } }
+      if (!url) { url = await toDataURL(await shrinkTo(src, 560, .72)); k = "lp_" + Date.now().toString(36) + at; await store.save(k, [url]); }
       PHOTOS[at] = {url, name: f.name, blob: ai, k}; at++; renderThumbs();
-    } catch (err) { bad++; console.warn("zdjęcie", f.name, f.type, err); }
+    } catch (err) { bad++; why = why || (err && err.message) || String(err); console.warn("zdjęcie", f.name, f.type, err); }
   }
   savePhotos();
-  msg.textContent = bad ? `Nie udało się wczytać ${bad} zdj. (format?) – zapisz je jako JPG i spróbuj jeszcze raz.` : "";
+  msg.textContent = bad ? `Nie udało się wczytać ${bad} zdj. Powód: ${why}` : why ? `Zdjęcia dodane, ale zapisane w mniejszej jakości (${why}).` : "";
   fillFromPhotos();
 };
 function movePhoto(from, to) { if (from === to || from == null) return; const [p] = PHOTOS.splice(from, 1); PHOTOS.splice(Math.min(to, PHOTOS.length), 0, p); savePhotos(); }
