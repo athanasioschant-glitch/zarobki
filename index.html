@@ -357,6 +357,17 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{height:30px;padding:0 10px;border-radius:999px;font-size:12px;background:var(--surface2);color:var(--muted)}
 .out{white-space:pre-wrap;background:var(--surface2);border-radius:12px;padding:14px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+input.out,textarea.out{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:14px;color:inherit;border:1px solid transparent;outline:none}
+textarea.out{resize:vertical;min-height:180px}
+input.out:focus,textarea.out:focus{border-color:var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.thumb{position:relative;border-radius:10px;overflow:hidden;background:var(--surface2)}
+.thumb img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.thumb .n{position:absolute;top:4px;left:4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.thumb.cover{box-shadow:0 0 0 2px var(--accent)}
+.thumb .tb{display:flex;justify-content:space-between}
+.thumb .tb button{flex:1;background:none;border:0;color:inherit;padding:4px 0;font-size:13px;cursor:pointer}
+.thumb .tb button:disabled{opacity:.25}
 .outhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:20px 0 8px;font-size:12.5px;color:var(--muted)}
 .outhead strong{color:var(--fg)}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
@@ -483,7 +494,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:55</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 21:50</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -590,11 +601,11 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
           <label class="full">Miasto<input id="gen-city" placeholder="np. Warszawa (dla OLX i Facebooka)"></label>
           <div class="full" id="photo-plan"></div>
           <label class="full">Zdjęcia (do 9) – do opisu i audytu<input id="gen-photos" type="file" accept="image/*" multiple></label>
-          <div class="full chips" id="gen-thumbs"></div>
+          <div class="full" id="gen-thumbs"></div>
           <label class="full">W zestawie / dodatki<input id="gen-addons" placeholder="np. dodatkowe sznurówki, pudełko, worek"></label>
           <div class="full"><div class="small muted" style="margin-bottom:6px">Gdzie wystawiasz (zaznacz kilka)</div><div class="pills" id="gen-plats"></div></div>
           <label class="full">Szczegóły<textarea id="gen-extra" placeholder="Wymiary, materiał, jak leży, ewentualne wady"></textarea></label>
-          <div class="full actions"><button class="primary" type="submit" id="gen-go"><svg class="i" width="16" height="16"><use href="#i-spark"/></svg>Generuj</button><span class="small muted" id="gen-msg"></span></div>
+          <div class="full actions"><button class="primary" type="submit" id="gen-go"><svg class="i" width="16" height="16"><use href="#i-spark"/></svg>Generuj opisy</button><span class="small muted" id="gen-msg"></span></div>
         </form>
         <div id="gen-out" hidden></div>
         <div id="gen-audit" hidden></div>
@@ -998,7 +1009,7 @@ const store = (() => {
 })();
 store.raw = null;
 /* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
-const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage)/, LAST = {}, HIST = {on: false, list: [], timer: null};
+const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage|gendraft)/, LAST = {}, HIST = {on: false, list: [], timer: null};
 const KEY_LAB = {listings: "gdzie wystawione", banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
 const curSrc = () => { const h = location.hash.slice(1) || "start"; if (h.startsWith("zrodlo-")) return h.slice(7); if (/^(kako|magazyn|start-kako|wystaw)$/.test(h)) return "kako"; if (h === "start") return SRC; return "all"; };
 function histGroup() { const g = HIST.list[0]; if (g && !g.done && Date.now() - g.t < 1500) return g; const n = {id: uid(), t: Date.now(), at: new Date().toISOString(), src: curSrc(), label: "", ch: [], sheet: []}; HIST.list.unshift(n); HIST.list = HIST.list.slice(0, 40); return n; }
@@ -2268,11 +2279,19 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
   } catch { msg.textContent = "Nie udało się odczytać zdjęć – uzupełnij ręcznie."; }
 }
 $("#gen-photos").onchange = async e => {
-  PHOTOS = [];
-  for (const f of [...e.target.files].slice(0, 9)) { try { PHOTOS.push(await shrink(f)); } catch {} }
-  renderPhotoPlan(); fillFromPhotos();
-  $("#gen-thumbs").innerHTML = PHOTOS.map(b => `<img src="${URL.createObjectURL(b)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:10px">`).join("") + (PHOTOS.length ? `<span class="small muted" style="align-self:center">${PHOTOS.length} zdj. dołączone</span>` : "");
+  for (const f of [...e.target.files].slice(0, 9 - PHOTOS.length)) { try { PHOTOS.push(await shrink(f)); } catch {} }
+  e.target.value = "";
+  renderThumbs(); fillFromPhotos();
 };
+/* podgląd zdjęć w kolejności wyświetlania – 1 = okładka; strzałki zmieniają kolejność */
+function renderThumbs() {
+  const el = $("#gen-thumbs"); renderPhotoPlan();
+  if (!PHOTOS.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="small muted" style="margin-bottom:6px">Kolejność w ogłoszeniu · 1 = okładka</div><div class="thumbs">${PHOTOS.map((b, i) => `<div class="thumb${i === 0 ? " cover" : ""}"><img src="${URL.createObjectURL(b)}" alt="Zdjęcie ${i + 1}"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-pm="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Wcześniej">‹</button><button type="button" data-pm="${i}|x" aria-label="Usuń">×</button><button type="button" data-pm="${i}|1" ${i === PHOTOS.length - 1 ? "disabled" : ""} aria-label="Później">›</button></div></div>`).join("")}</div>`;
+  el.querySelectorAll("[data-pm]").forEach(b => b.onclick = () => { const [i, d] = b.dataset.pm.split("|"), k = +i;
+    if (d === "x") PHOTOS.splice(k, 1); else { const j = k + +d; [PHOTOS[k], PHOTOS[j]] = [PHOTOS[j], PHOTOS[k]]; }
+    renderThumbs(); });
+}
 const PHOTO_PLANS = {
   buty: {n: 9, list: ["Główne: para trzymana w ręce, cała widoczna", "Bok zewnętrzny", "Bok wewnętrzny", "Przód (noski)", "Tył i pięta", "Podeszwa", "Wnętrze i wkładka", "Metka z rozmiarem", "Pudełko i zestaw (jeśli jest)"]},
   kurtka: {n: 5, list: ["Główne: kurtka trzymana w ręce albo na wieszaku, przód", "Tył", "Logo i metka marki", "Zamek, guziki, detale", "Metka z rozmiarem i składem"]},
@@ -2319,14 +2338,14 @@ function priceHint() {
   $("#gen-useprice").onclick = () => { $("#gen-price").value = avg; };
 }
 const PLAT_RULES = {
-  "OLX": {h: 0, k: ["Dodaj ogłoszenie → kategoria Moda → Buty/Odzież", "Tytuł (do 70 znaków), opis, cena, stan, rozmiar", "Zdjęcia: do 8, pierwsze najważniejsze", "Lokalizacja i dostawa OLX (opcjonalnie)"], r: "OLX: tytuł do 70 znaków, najważniejsze słowa (typ, marka, model, rozmiar, kolor) na początku, bez CAPS LOCKA i wykrzykników. OPIS: zacznij od krótkiego, ludzkiego wstępu („Siemanko! Mam do sprzedania …”, 1–2 zdania), potem dane techniczne w punktach NA KOŃCU (rozmiar, kolor, stan, co w zestawie, wymiary). Naturalnie powtórz kluczowe słowa 2–3 razy i dodaj synonimy (np. „buty zimowe”, „śniegowce”). BEZ hashtagów. Podaj miasto i formę dostawy."},
-  "Vinted": {h: 1, manual: 1, k: ["Sprzedaj → zdjęcia (do 20)", "Tytuł, opis, kategoria, marka, rozmiar, stan, kolor", "Cena i rozmiar paczki", "Wystawiasz RĘCZNIE – Vinted banuje za automaty"], r: "Vinted: tytuł do ok. 50 znaków: typ + marka/model + kolor + rozmiar. OPIS: zacznij od „Siemanko! Mam do sprzedania …” (1–2 zdania po ludzku), potem dane w punktach (rozmiar, kolor, stan, co w zestawie), na końcu 6–10 hashtagów bez polskich znaków (np. #ugg #zimowebuty #sniegowce)."},
-  "Facebook Marketplace": {h: 1, k: ["Marketplace → Utwórz ogłoszenie → Przedmiot na sprzedaż", "Zdjęcia, tytuł, cena, kategoria, stan", "Opis i lokalizacja", "Opcjonalnie: wysyłka"], r: "Facebook Marketplace: tytuł do 60 znaków. OPIS KRÓTKI i naturalny (3–5 linijek): „Mam do sprzedania …”, rozmiar, stan, co w zestawie, odbiór/wysyłka i miasto. Na końcu 3–5 hashtagów."},
-  "Grupa na Facebooku": {h: 0, k: ["Wejdź w grupę → Sprzedaj coś / Napisz post", "Zdjęcia + krótki opis z ceną", "Sprawdź regulamin grupy (format posta, ceny)"], r: "Post do grupy na Facebooku: jedna linijka nagłówka z ceną i rozmiarem, potem 3–5 krótkich linijek, na końcu „pisz na priv”. Bez hashtagów. Ma brzmieć jak wpis zwykłej osoby, nie reklama."},
-  "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, wymiary", "Zdjęcia według wymagań (tło, detale, metki)", "Cena – Vestiaire weryfikuje rzecz przed wysyłką do kupującego"], r: "Vestiaire Collective: rzeczowo i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: stan bardzo dokładnie (każda wada), wymiary, materiał, co jest w zestawie. Kupujący to klienci premium – konkret, zero przesady."},
-  "Allegro Lokalnie": {h: 0, k: ["Dodaj ogłoszenie → kategoria", "Tytuł (do 75 znaków), parametry, stan", "Zdjęcia, cena, lokalizacja, dostawa"], r: "Allegro Lokalnie: tytuł do 75 znaków z najważniejszymi słowami na początku (typ, marka, model, rozmiar, kolor). Opis jak na OLX: konkret, słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
-  "Szafa.pl": {h: 0, k: ["Dodaj ogłoszenie → kategoria, marka, rozmiar", "Zdjęcia, opis, stan, cena", "Sposób wysyłki"], r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki i rzeczowy w punktach (rozmiar, wymiary, stan, materiał). Bez hashtagów."},
-  "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (typ + marka + kolor + rozmiar), opis w punktach, na końcu 4–6 hashtagów bez polskich znaków."}
+  "OLX": {h: 0, k: ["Dodaj ogłoszenie → Moda → Buty/Odzież (najdokładniejsza kategoria)", "Tytuł do 70 znaków, parametry: rozmiar, stan, marka", "Do 8 zdjęć – pierwsze to okładka", "Opis min. 75 znaków, lokalizacja, Przesyłka OLX"], r: "OLX: tytuł do 70 znaków, najważniejsze słowa na początku: typ + marka + model + kolor + rozmiar (tak wyszukują kupujący), bez CAPS LOCKA i wykrzykników. OPIS: ciepły, ludzki wstęp („Siemanko! Mam do sprzedania …”, 1–2 zdania), potem dane w punktach: rozmiar (przy butach długość wkładki w cm, jeśli podana), kolor, materiał, stan i jak często noszone, wady, co w zestawie; na końcu dostawa/odbiór z miastem i zaproszenie do pytań. Konkret zamiast przymiotników. Słowa kluczowe naturalnie 2–3 razy + synonimy (np. „śniegowce”, „buty zimowe”). BEZ hashtagów."},
+  "Vinted": {h: 1, manual: 1, k: ["Sprzedaj → do 20 zdjęć (min. 5, najlepiej na sobie albo w dłoni)", "Tytuł: marka + typ + kolor + rozmiar", "Kategoria, marka, rozmiar, stan, kolor, materiał – wszystkie pola", "Cena i rozmiar paczki · wystawiasz RĘCZNIE (Vinted banuje automaty)"], r: "Vinted: tytuł do ok. 50 znaków: marka + typ + kolor + rozmiar (bez ozdobników typu „śliczne”). OPIS: „Siemanko! Mam do sprzedania …” (1–2 zdania po ludzku), potem punkty: rozmiar i jak wypada (przy ubraniach wymiary: pacha–pacha, długość – jeśli podane; przy butach długość wkładki), kolor, materiał, stan i jak często noszone, wady, co w zestawie; zaproszenie do pytań i informacja o szybkiej wysyłce. Na końcu 3–5 hashtagów bez polskich znaków (marka, typ, styl)."},
+  "Facebook Marketplace": {h: 0, k: ["Marketplace → Utwórz ogłoszenie → Przedmiot na sprzedaż", "Do 10 zdjęć (najlepiej min. 6), najdokładniejsza kategoria", "Tytuł, cena, stan, opis, lokalizacja", "Odpisuj szybko – Marketplace to nagradza"], r: "Facebook Marketplace: tytuł do 60 znaków: typ + marka + rozmiar + kolor, bez CAPS LOCKA, „!!!” i niepowiązanych słów (Facebook usuwa takie ogłoszenia). OPIS krótki (4–6 linijek), ciepły: „Hej! Mam do sprzedania …”, rozmiar, stan, co w zestawie, odbiór/wysyłka z miastem, zachęta do pisania. Bez hashtagów."},
+  "Grupa na Facebooku": {h: 0, k: ["Wejdź w grupę → Sprzedaj coś / Napisz post", "Zdjęcia + krótki opis z ceną", "Sprawdź regulamin grupy (format posta, limit postów, hashtagi)"], r: "Post do grupy na Facebooku: pierwsza linijka = co + rozmiar + cena (to widać w podglądzie), potem 3–5 krótkich linijek (stan, co w zestawie, odbiór/wysyłka, miasto), na końcu „pisz na priv 🙂”. Bez hashtagów, chyba że regulamin grupy ich wymaga. Ma brzmieć jak wpis sympatycznej osoby, nie reklama."},
+  "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, WYMIARY (często obowiązkowe)", "Zdjęcia: każda wada opisana musi być na zdjęciu", "Sprawdź tekst – po publikacji nie da się edytować; weryfikacja ok. 24–48 h"], r: "Vestiaire Collective: TYTUŁ I OPIS PO ANGIELSKU (kupujący z całej Europy), a w polu tlumaczenie – wierne polskie tłumaczenie opisu. Uprzejmie, ciepło i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: materiał, kolekcja/sezon (jeśli podane), rozmiar i wymiary, jak często noszone, stan i KAŻDA wada, co w zestawie (pudełko, worek, metki). Kupujący to klienci premium – konkret, zero przesady."},
+  "Allegro Lokalnie": {h: 0, k: ["Dodaj ogłoszenie → kategoria i parametry (marka, rozmiar, stan)", "Tytuł do 50 znaków", "Do 15 zdjęć – własne, nie ze strony producenta", "Cena (Kup teraz), lokalizacja, dostawa"], r: "Allegro Lokalnie: tytuł do 50 znaków, najważniejsze słowa na początku (typ, marka, model, rozmiar). Opis jak na OLX: ciepły wstęp, dane w punktach (rozmiar, kolor, materiał, stan, wady, co w zestawie), słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
+  "Szafa.pl": {h: 0, k: ["Dodaj ogłoszenie → kategoria, marka, rozmiar", "Zdjęcia (detale, faktura, prawdziwy kolor), opis, stan, cena", "Sposób wysyłki"], r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki, sympatyczny i rzeczowy w punktach (rozmiar i wymiary, materiał, stan i ślady użytkowania, co w zestawie), na końcu zaproszenie do pytań. Bez hashtagów."},
+  "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (marka + typ + kolor + rozmiar), ciepły wstęp, opis w punktach (rozmiar/wymiary, materiał, stan, wady, co w zestawie), na końcu 3–5 hashtagów bez polskich znaków."}
 };
 let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["OLX", "Facebook Marketplace", "Grupa na Facebooku", "Vestiaire Collective", "Allegro Lokalnie", "Szafa.pl", "Hemly"]; })();
 function renderGenPlats() {
@@ -2338,7 +2357,6 @@ renderGenPlats();
 $("#gen-form").onsubmit = async e => {
   e.preventDefault();
   const msg = $("#gen-msg"), out = $("#gen-out"), btn = $("#gen-go");
-  if (!sample) { msg.textContent = "Generator działa po otwarciu strony na claude.ai."; return; }
   const plats = Object.keys(PLAT_RULES).filter(p => GEN_PLATS.includes(p));
   if (!plats.length) { msg.textContent = "Zaznacz co najmniej jedną platformę."; return; }
   const data = {produkt: $("#gen-prod").value.trim(), kolor: $("#gen-color").value.trim(), rozmiar: $("#gen-size").value.trim(), stan: $("#gen-state").value, cena_zl: $("#gen-price").value, dostawa: $("#gen-ship").value, miasto: $("#gen-city").value.trim(), w_zestawie: $("#gen-addons").value.trim(), szczegoly: $("#gen-extra").value.trim()};
@@ -2355,8 +2373,10 @@ Zdjęcia (jeśli są dołączone, numeracja od 1 w kolejności przesłania): dla
 Zasady platform:
 ${plats.map(p => "- " + PLAT_RULES[p].r + (PLAT_RULES[p].h ? " [hashtagi: TAK]" : " [hashtagi: NIE]")).join("\n")}
 
+Co ma się znaleźć w każdym opisie (jeśli jest w danych): typ + marka + model, rozmiar (buty: długość wkładki w cm; ubrania: wymiary), kolor, materiał, stan i jak często noszone, KAŻDA wada, co w zestawie, dostawa/odbiór, zaproszenie do pytań. Czego brakuje w danych – NIE wymyślaj, tylko dopisz w "wskazowki", co warto uzupełnić (np. „dodaj długość wkładki w cm”).
+
 Każda platforma dostaje INNY tekst (inne zdania, inny układ zgodny z jej zasadami) – nie kopiuj tego samego opisu między platformami.
-Styl: naturalnie, jak zwykła konkretna osoba, nie marketingowiec. Konkret zamiast przymiotników. Uprzedź obawy (rozmiarówka, wysyłka, dodatkowe zdjęcia). Bez sztucznej presji.
+Styl: naturalnie i pozytywnie – jak sympatyczna, uśmiechnięta osoba, która lubi tę rzecz i chętnie pomoże kupującemu. Ciepło i z energią, 1–3 emotki tam, gdzie pasują (na Vestiaire bez emotek, uprzejmie i elegancko). Opis trochę bardziej szczegółowy: do czego/na jaką okazję się nada, jak wygląda z bliska, co kupujący dostaje – ale TYLKO na podstawie danych i zdjęć. Uprzedź obawy (rozmiarówka, wysyłka, dodatkowe zdjęcia) i zaproś do pytań. Bez sztucznej presji, bez wykrzyknika w każdym zdaniu, bez reklamowego bełkotu.
 
 Uczciwość – bezwzględnie:
 - Nigdy nie pisz, że rzecz jest oryginalna, autentyczna, „legit”, „100%”, z paragonem ani certyfikatem. Nie wymyślaj historii zakupu.
@@ -2366,30 +2386,101 @@ Uczciwość – bezwzględnie:
 Dane:
 ${JSON.stringify(data, null, 1)}
 
-Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "kategoria": "sugerowana kategoria", "zdjecia": [1, 2, 3]}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
-  btn.disabled = true; msg.textContent = `Piszę dla ${plats.length} platform…`; out.hidden = true; $("#gen-audit").hidden = true;
+Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "tlumaczenie": "polskie tłumaczenie opisu – tylko gdy opis jest po angielsku, inaczej pusty tekst", "kategoria": "sugerowana kategoria", "zdjecia": [1, 2, 3]}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
+  btn.disabled = true; out.hidden = true; $("#gen-audit").hidden = true;
+  const useTpl = why => { renderGenOut({key: genKey(data), data, L: tplGen(data, plats), wsk: [], tpl: 1, ts: Date.now()}); msg.textContent = why; };
   try {
+    if (!sample) { useTpl("Opisy z szablonu (bez AI) – popraw je pod siebie."); return; }
+    msg.textContent = `Piszę dla ${plats.length} platform…`;
     const r = await sample.json(prompt, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
     const L = r && Array.isArray(r.ogloszenia) ? r.ogloszenia.filter(x => x && x.tytul) : [];
     if (!L.length) throw {code: "invalid_json"};
-    out.hidden = false;
-    const block = (x, i) => { const full = x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
-      return `<details class="grp" ${i === 0 ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
-        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia w tej kolejności (${x.zdjecia.length}):</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${URL.createObjectURL(PHOTOS[n - 1])}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · ${[...x.tytul].length} znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-t">${esc(x.tytul)}</div>
-        ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><div class="out" id="o-${i}-d" style="white-space:pre-wrap">${esc(full)}</div></details>`; };
-    out.innerHTML = L.map(block).join("") + (Array.isArray(r.wskazowki) && r.wskazowki.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${r.wskazowki.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button></div>
-      <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
-    out.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const [i, f] = b.dataset.cp.split("|"); copy($("#o-" + i + "-" + f)); });
-    $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
+    renderGenOut({key: genKey(data), data, L, wsk: Array.isArray(r.wskazowki) ? r.wskazowki : [], ts: Date.now()}, true);
     msg.textContent = "";
-    $("#o-t").textContent = L[0].tytul; $("#o-d").textContent = L[0].opis;
     runAudit(data, {tytul: L.map(x => x.platforma + ": " + x.tytul).join(" | "), opis: L.map(x => "=== " + x.platforma + " ===\n" + x.opis + (x.hashtagi && x.hashtagi.length ? "\n" + x.hashtagi.join(" ") : "")).join("\n\n"), multi: true});
   } catch (err) {
-    msg.textContent = err && err.code === "no_key" ? "Brak klucza Claude w skrypcie Google (ANTHROPIC_API_KEY)." : err && err.code === "not_granted" ? "Nie zezwolono na pytania do Claude. Włącz to w menu Uprawnienia tej strony." : err && err.code === "rate_limited" ? "Limit zapytań – spróbuj za chwilę." : "Nie udało się napisać – spróbuj jeszcze raz.";
+    if (err && (err.code === "no_key" || err.code === "not_granted")) useTpl("Bez klucza Claude – opisy z szablonu (za darmo). Popraw je pod siebie.");
+    else msg.textContent = err && err.code === "rate_limited" ? "Limit zapytań – spróbuj za chwilę." : "Nie udało się napisać – spróbuj jeszcze raz.";
   } finally { btn.disabled = false; }
 };
+/* opisy: edytowalne per kanał, zapisywane (telefon = komputer) */
+let GEN_DRAFT = null;
+const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
+const genFull = x => x.full != null ? x.full : x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
+function renderGenOut(D, fresh) {
+  GEN_DRAFT = D; if (fresh !== false) store.save("gendraft", D);
+  const out = $("#gen-out"), L = D.L; out.hidden = false;
+  const grow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 4) + "px"; };
+  const block = (x, i) => `<details class="grp" data-gi="${i}" ${i === (D.open || 0) ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}${x.ok ? " ✓" : ""}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
+        ${Array.isArray(x.zdjecia) && x.zdjecia.length && PHOTOS.length ? `<div class="small muted" style="margin:6px 0 4px">Zdjęcia w tej kolejności (${x.zdjecia.length}):</div><div class="chips" style="gap:6px">${x.zdjecia.filter(n => PHOTOS[n - 1]).map((n, j) => `<span style="position:relative"><img src="${URL.createObjectURL(PHOTOS[n - 1])}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;${j === 0 ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><b style="position:absolute;top:2px;left:4px;font-size:11px;text-shadow:0 0 3px #000">${j + 1}</b></span>`).join("")}</div>` : ""}<div class="outhead"><span><strong>Tytuł</strong> · <span id="o-${i}-n">${[...x.tytul].length}</span> znaków</span><button class="sm" data-cp="${i}|t">${svg("copy", 14)}Kopiuj</button></div><input class="out" id="o-${i}-t" data-ed="${i}|t" value="${esc(x.tytul)}">
+        ${PLAT_RULES[x.platforma] && PLAT_RULES[x.platforma].k ? `<div class="small muted" style="margin:4px 0 8px"><b>Jak wystawić:</b> ${PLAT_RULES[x.platforma].k.map(esc).join(" → ")}</div>` : ""}<div class="outhead"><strong>Opis${x.hashtagi && x.hashtagi.length ? " + hashtagi" : ""}</strong><button class="sm" data-cp="${i}|d">${svg("copy", 14)}Kopiuj</button></div><textarea class="out" id="o-${i}-d" data-ed="${i}|d" ${x.ok || !x.edit ? "readonly" : ""}>${esc(genFull(x))}</textarea>${x.tlumaczenie ? `<div class="outhead"><strong class="small muted">Tłumaczenie (PL)</strong></div><div class="out small muted" style="background:none;padding:0 2px">${esc(x.tlumaczenie)}</div>` : ""}<div class="actions" style="margin:10px 0 4px">${x.ok ? `<span class="small pos">${svg("check", 14)} Zaakceptowane</span><button class="sm" data-ga="${i}|undo">Cofnij</button>` : `<button class="sm primary" data-ga="${i}|ok">${svg("check", 14)}Zaakceptuj</button><button class="sm" data-ga="${i}|edit">${x.edit ? "Gotowe" : "Edytuj"}</button><button class="sm" data-ga="${i}|chg">${svg("refresh", 14)}Zmień</button>`}</div><div id="o-${i}-chg" hidden><input class="out" id="o-${i}-q" placeholder="Co zmienić? np. milej, bardziej szczegółowo, krócej"><div class="chips" style="margin:8px 0">${["Milej", "Bardziej szczegółowo", "Krócej", "Bardziej rzeczowo", "Więcej słów kluczowych"].map(c => `<button type="button" class="sm" data-gq="${i}|${c}">${c}</button>`).join("")}</div><div class="actions"><button class="sm primary" data-ga="${i}|redo">Wygeneruj ponownie</button><span class="small muted" id="o-${i}-cm"></span></div></div></details>`;
+  out.innerHTML = L.map(block).join("") + (D.wsk && D.wsk.length ? `<div class="outhead" style="margin-top:12px"><strong>Wskazówki</strong></div><ul class="small muted" style="margin:0;padding-left:18px;line-height:1.6">${D.wsk.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "") + `<div class="actions" style="margin-top:16px"><button class="sm" id="gen-again">${svg("refresh", 14)}Napisz inaczej</button><span class="small muted" id="gen-saved"></span></div>
+      <div id="o-t" hidden></div><div id="o-d" hidden></div>`;
+  out.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { const [i, f] = b.dataset.cp.split("|"); copy($("#o-" + i + "-" + f)); });
+  out.querySelectorAll("[data-ed]").forEach(t => { const [i, f] = t.dataset.ed.split("|"), x = L[+i];
+    if (t.tagName === "TEXTAREA") { grow(t); t.addEventListener("toggle", () => grow(t)); t.closest("details").addEventListener("toggle", () => grow(t)); }
+    t.oninput = () => { if (f === "t") { x.tytul = t.value; $("#o-" + i + "-n").textContent = [...t.value].length; } else { x.full = t.value; grow(t); }
+      $("#gen-saved").textContent = "Zapisano zmiany"; autosave("gendraft", () => GEN_DRAFT); }; });
+  $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
+  out.querySelectorAll("details[data-gi]").forEach(d => d.addEventListener("toggle", () => { if (d.open) D.open = +d.dataset.gi; }));
+  out.querySelectorAll("[data-gq]").forEach(b => b.onclick = () => { const [i, c] = b.dataset.gq.split("|"), q = $("#o-" + i + "-q"); q.value = q.value.trim() ? q.value.trim() + ", " + c.toLowerCase() : c; });
+  const keep = () => { store.save("gendraft", D); renderGenOut(D, false); };
+  out.querySelectorAll("[data-ga]").forEach(b => b.onclick = async () => { const [i, a] = b.dataset.ga.split("|"), x = L[+i]; D.open = +i;
+    if (a === "ok") { x.ok = 1; x.edit = 0; keep(); toast("Zaakceptowano – " + x.platforma); }
+    else if (a === "undo") { x.ok = 0; keep(); }
+    else if (a === "edit") { x.edit = x.edit ? 0 : 1; keep(); if (x.edit) { const t = $("#o-" + i + "-d"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
+    else if (a === "chg") { const c = $("#o-" + i + "-chg"); c.hidden = !c.hidden; if (!c.hidden) $("#o-" + i + "-q").focus(); }
+    else if (a === "redo") { const q = $("#o-" + i + "-q").value.trim(), cm = $("#o-" + i + "-cm");
+      if (!sample) { cm.textContent = "„Zmień” działa z Claude – otwórz wersję na claude.ai."; return; }
+      b.disabled = true; cm.textContent = "Piszę od nowa…";
+      try {
+        const r = await sample.json(`Przepisz ogłoszenie sprzedaży na platformę ${x.platforma}. Zasady platformy: ${(PLAT_RULES[x.platforma] || {}).r || ""}
+Styl: naturalnie i pozytywnie – sympatyczna, uśmiechnięta osoba, która chętnie pomoże. Nie wymyślaj niczego spoza danych; nigdy nie pisz o oryginalności, „legit”, „100%”, paragonie ani certyfikacie.
+Co zmienić według sprzedającego: ${q || "napisz inaczej, świeżo"}.
+Dane: ${JSON.stringify(D.data)}
+Obecna wersja:
+Tytuł: ${x.tytul}
+Opis:
+${genFull(x)}
+Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów", "hashtagi": ${(PLAT_RULES[x.platforma] || {}).h ? '["#..."]' : "[]"}, "tlumaczenie": "polskie tłumaczenie opisu, jeśli opis jest po angielsku, inaczej pusty tekst"}`, {cache: false, images: PHOTOS.length ? PHOTOS : undefined});
+        if (!r || !r.tytul || !r.opis) throw {code: "invalid_json"};
+        Object.assign(x, {tytul: r.tytul, opis: r.opis, hashtagi: Array.isArray(r.hashtagi) ? r.hashtagi : [], tlumaczenie: r.tlumaczenie || "", full: null, edit: 0, ok: 0}); keep(); toast("Nowa wersja – " + x.platforma);
+      } catch (e) { b.disabled = false; cm.textContent = e && e.code === "no_key" ? "„Zmień” potrzebuje Claude – otwórz wersję na claude.ai albo dodaj klucz." : "Nie udało się – spróbuj jeszcze raz."; }
+    } });
+  $("#o-t").textContent = L[0].tytul; $("#o-d").textContent = L[0].opis;
+}
+/* darmowy generator z szablonu – tylko z wpisanych danych, nic nie zmyśla */
+function tplGen(d, plats) {
+  const noPl = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
+  const prod = d.produkt, size = d.rozmiar, color = d.kolor, price = d.cena_zl ? Math.round(+d.cena_zl) + " zł" : "";
+  const name = prod + (color && !prod.toLowerCase().includes(color.toLowerCase()) ? " (" + color + ")" : "");
+  const stan = {"Nowy z metką": "nowy, z metką – nienoszony", "Nowy bez metki": "nowy bez metki – nienoszony", "Bardzo dobry": "bardzo dobry", "Dobry": "dobry", "Zadowalający": "zadowalający"}[d.stan] || (d.stan || "").toLowerCase();
+  const extra = (d.szczegoly || "").split(/\n+/).map(t => t.trim()).filter(Boolean);
+  const pts = (dash) => [size && `${dash}Rozmiar: ${size}`, color && `${dash}Kolor: ${color}`, stan && `${dash}Stan: ${stan}`, d.w_zestawie && `${dash}W zestawie: ${d.w_zestawie}`, ...extra.map(t => dash + t), price && `${dash}Cena: ${price}`].filter(Boolean).join("\n");
+  const city = d.miasto ? " – " + d.miasto : "";
+  const ship = /^Tylko wysyłka/.test(d.dostawa) ? "Wysyłam paczką, szybko po zakupie." : /^Tylko odbiór/.test(d.dostawa) ? `Odbiór osobisty${city}.` : `Mogę wysłać paczką albo umówić odbiór osobisty${city}.`;
+  const cut = (t, n) => { if ([...t].length <= n) return t; const w = t.slice(0, n).split(" "); w.pop(); return w.join(" "); };
+  const title = n => cut([prod, color && !prod.toLowerCase().includes(color.toLowerCase()) ? color : "", size && "r. " + size].filter(Boolean).join(" "), n);
+  const tags = n => { const kind = /but|ugg|sneak|trampk|kozak|śniegow/i.test(prod) ? ["#buty", "#obuwie"] : /kurt|płaszcz|bluz|swet/i.test(prod) ? ["#kurtka", "#odziez"] : ["#moda"];
+    const w = noPl((prod + " " + (color || "")).toLowerCase()).split(/[^a-z0-9]+/).filter(t => t.length > 2).map(t => "#" + t);
+    return [...new Set([...w, ...kind, size && "#rozmiar" + noPl(String(size)).replace(/[^a-z0-9]/gi, ""), "#okazja"].filter(Boolean))].slice(0, n); };
+  const ask = "Masz pytania albo chcesz więcej zdjęć? Pisz śmiało – chętnie pomogę! 😊";
+  const T = {
+    "OLX": () => ({tytul: title(70), opis: `Siemanko! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
+    "Vinted": () => ({tytul: title(50), opis: `Siemanko! ✨ Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)}),
+    "Facebook Marketplace": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n${pts("")}\n${ship} Pisz śmiało!`, hashtagi: []}),
+    "Grupa na Facebooku": () => ({tytul: title(80), opis: `${[prod, size && "r. " + size, price].filter(Boolean).join(" – ")}\n${[color && "Kolor: " + color, stan && "Stan: " + stan, d.w_zestawie && "W zestawie: " + d.w_zestawie, ...extra].filter(Boolean).join("\n")}\n${ship}\nPisz na priv 🙂`, hashtagi: []}),
+    "Vestiaire Collective": () => { const en = {"Nowy z metką": "new with tags, never worn", "Nowy bez metki": "new without tags, never worn", "Bardzo dobry": "very good", "Dobry": "good", "Zadowalający": "fair"}[d.stan] || "";
+      const L1 = [size && "– Size: " + size, color && "– Colour: " + color, en && "– Condition: " + en, d.w_zestawie && "– Included: " + d.w_zestawie, ...extra.map(t => "– " + t)].filter(Boolean).join("\n");
+      return {tytul: cut([prod, color].filter(Boolean).join(" "), 80), opis: `Hello! For sale: ${prod}${color ? " in " + color : ""}.\n\n${L1}\n\nHappy to answer any questions and send extra photos.`, hashtagi: [], tlumaczenie: `Dzień dobry! Na sprzedaż: ${name}.\n\n${pts("– ")}\n\nChętnie odpowiem na pytania i prześlę dodatkowe zdjęcia.\n\n(Kolor, dodatki i szczegóły wpisane po polsku – przetłumacz je w opisie, klikając „Edytuj”.)`}; },
+    "Allegro Lokalnie": () => ({tytul: title(50), opis: `Cześć! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
+    "Szafa.pl": () => ({tytul: title(80), opis: `Hej! 🙂 Sprzedam ${name}.\n\n${pts("• ")}\n\n${ship} Pytaj śmiało!`, hashtagi: []}),
+    "Hemly": () => ({tytul: title(60), opis: `Hej! 💛 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)})
+  };
+  return plats.filter(p => T[p]).map(p => ({platforma: p, kategoria: "", ...T[p]()}));
+}
 async function copy(el) {
-  try { await navigator.clipboard.writeText(el.textContent); toast("Skopiowano"); }
+  try { await navigator.clipboard.writeText(el.value != null ? el.value : el.textContent); toast("Skopiowano"); }
   catch { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Zaznaczono – skopiuj ręcznie"); }
 }
 
@@ -2520,7 +2611,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["gendraft", "msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2641,9 +2732,9 @@ renderAll();
 (async () => {
   try { [mcp, sample, assetsNS] = await Promise.all([claude.use("mcp"), claude.use("sample"), claude.use("assets")]); } catch {}
   if (mcp) connect();
-  if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
+  { const g = await store.load("gendraft", null); if (g && Array.isArray(g.L) && g.L.length) { try { renderGenOut(g, false); } catch (e) { console.warn(e); } } }
   LISTINGS = (await store.load("listings", {})) || {}; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
