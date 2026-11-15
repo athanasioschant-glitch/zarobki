@@ -498,7 +498,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:18</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:22</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2290,62 +2290,115 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
 const PHOTO_MAX = 20, AI_PHOTOS = 6;   // do AI idzie tylko 6 pierwszych (oszczędność), do ogłoszeń wszystkie
 const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8};
 /* zdjęcia: kafelki 1–20, dziury dozwolone; PHOTOS[i] = {url, name, blob, k} albo null */
-const PH = () => PHOTOS.filter(Boolean);
-let PH_SEL = null, PH_AT = 0;
-/* zdjęcia z iPhone'a (HEIC) – przeglądarka ich nie otworzy, więc konwertuję na JPG */
+const PH = () => PHOTOS.filter(p => p && p.url);
+let PH_AT = 0, PH_LOADED = false;
 let HEIC_LIB = null;
 const loadHeic = () => HEIC_LIB || (HEIC_LIB = import("https://cdn.jsdelivr.net/npm/heic-to@1.6.7/dist/csp/heic-to.js").then(m => m.heicTo).catch(e => { HEIC_LIB = null; throw new Error("nie udało się pobrać konwertera HEIC (" + e.message + ")"); }));
-async function toJpegSource(f) {
-  const heic = /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
-  if (!heic) { try { await shrinkTo(f, 64, .5); return f; } catch {} }
-  const sig = new Uint8Array(await f.slice(4, 12).arrayBuffer()), ftyp = String.fromCharCode(...sig);
-  if (heic || /ftyp(heic|heix|mif1|msf1|hevc)/.test(ftyp)) { const conv = await loadHeic(); return await conv({blob: f, type: "image/jpeg", quality: .9}); }
-  throw new Error(`nieobsługiwany format pliku ${f.name} (${f.type || "nieznany typ"})`);
+const isHeicFile = async f => { if (/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name)) return true; const t = String.fromCharCode(...new Uint8Array(await f.slice(4, 12).arrayBuffer())); return /ftyp(heic|heix|mif1|msf1|hevc)/.test(t); };
+/* jedno dekodowanie zdjęcia → obiekt do rysowania (bitmapa albo <img>) */
+async function decodeImg(src) {
+  try { return await createImageBitmap(src); } catch {}
+  const url = await toDataURL(src);
+  return await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("przeglądarka nie otworzyła pliku")); i.src = url; });
 }
-async function shrinkTo(file, max, q) { const keep = window.__mx; window.__mx = [max, q]; try { return await shrink(file); } finally { window.__mx = keep; } }
+function drawTo(img, max, q, rot = 0) {
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight, k = Math.min(1, max / Math.max(w, h)), W = Math.round(w * k), H = Math.round(h * k), c = document.createElement("canvas"), sw = rot % 180 !== 0;
+  c.width = sw ? H : W; c.height = sw ? W : H; const g = c.getContext("2d"); g.translate(c.width / 2, c.height / 2); g.rotate(rot * Math.PI / 180); g.drawImage(img, -W / 2, -H / 2, W, H);
+  return new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("nie udało się zapisać JPG")), "image/jpeg", q));
+}
+async function storeBig(big, i) {
+  if (assetsNS) { try { return {url: (await Promise.race([assetsNS.upload(big), new Promise((_, no) => setTimeout(() => no(new Error("przekroczony czas")), 30000))])).url, k: null}; } catch (e) { console.warn("assets", e); } }
+  const small = await drawTo(await decodeImg(big), 560, .72), url = await toDataURL(small), k = "lp_" + Date.now().toString(36) + i;
+  await store.save(k, [url]); return {url, k, low: 1};
+}
+async function processPhoto(f, slot) {
+  const src = await isHeicFile(f) ? await (await loadHeic())({blob: f, type: "image/jpeg", quality: .92}) : f;
+  const img = await decodeImg(src), ai = await drawTo(img, 1024, .82);
+  slot.blob = ai; slot.prev = await toDataURL(ai); renderThumbs();          // podgląd od razu
+  const big = await drawTo(img, 1600, .86), st = await storeBig(big, Date.now());
+  Object.assign(slot, st, {busy: 0}); renderThumbs();
+}
 async function aiBlobs() { return (await Promise.all(PH().slice(0, AI_PHOTOS).map(p => p.blob || fetch(p.url).then(r => r.blob()).catch(() => null)))).filter(Boolean); }
-function savePhotos() { store.save("genphotos", PHOTOS.map(p => p && {url: p.k ? null : p.url, k: p.k || null, name: p.name})); }
-async function loadPhotos() {
+function savePhotos() { store.save("genphotos", PH().map(p => ({url: p.k ? null : p.url, k: p.k || null, name: p.name}))); }
+async function loadGenPhotos() {
+  if (PH_LOADED || PHOTOS.length) return; PH_LOADED = true;
   const L = (await store.load("genphotos", [])) || [];
-  PHOTOS = await Promise.all(L.map(async p => { if (!p) return null; if (p.k) { const v = await store.load(p.k, null); return v && v[0] ? {...p, url: v[0]} : null; } return p.url ? p : null; }));
-  renderThumbs();
+  const got = await Promise.all(L.map(async p => { if (!p) return null; if (p.k) { const v = await store.load(p.k, null); return v && v[0] ? {...p, url: v[0]} : null; } return p.url ? p : null; }));
+  if (!PHOTOS.length) { PHOTOS = got.filter(Boolean); renderThumbs(); }
 }
 const onPhotosPicked = async e => {
-  const files = [...e.target.files], msg = $("#ph-msg"); let bad = 0, at = PH_AT, why = ""; e.target.value = "";
-  msg.textContent = `Wczytuję ${files.length} zdj.…`;
-  for (const f of files) {
-    at = PHOTOS.length; if (at >= PHOTO_MAX) break;
-    try {
-      msg.textContent = `Wczytuję ${at + 1}/${files.length}…`;
-      const src = await toJpegSource(f);
-      const ai = await shrink(src); let url = null, k = null;
-      if (assetsNS) { try { url = (await Promise.race([assetsNS.upload(await shrinkTo(src, 1600, .86)), new Promise((_, no) => setTimeout(() => no(new Error("przekroczony czas")), 20000))])).url; } catch (e) { why = why || "zapis w schowku strony: " + (e.code || e.message); } }
-      if (!url) { url = await toDataURL(await shrinkTo(src, 560, .72)); k = "lp_" + Date.now().toString(36) + at; await store.save(k, [url]); }
-      PHOTOS[at] = {url, name: f.name, blob: ai, k}; at++; renderThumbs();
-    } catch (err) { bad++; why = why || (err && err.message) || String(err); console.warn("zdjęcie", f.name, f.type, err); }
-  }
-  savePhotos();
-  msg.textContent = bad ? `Wczytane: ${files.length - bad} z ${files.length}. Powód błędu: ${why}` : why ? `Wczytane: ${files.length}, ale w mniejszej jakości (${why}).` : `Wczytane: ${files.length} zdj. ✓`; msg.className = "full small " + (bad ? "neg" : "pos");
+  const files = [...e.target.files].slice(0, PHOTO_MAX - PHOTOS.length), msg = $("#ph-msg"); e.target.value = "";
+  if (!files.length) return;
+  PH_LOADED = true;
+  const slots = files.map(f => ({name: f.name, busy: 1})); PHOTOS.push(...slots); renderThumbs();
+  let done = 0, bad = 0, why = "", low = 0, next = 0;
+  msg.className = "full small muted"; msg.textContent = `Wczytuję 0/${files.length}…`;
+  const worker = async () => { while (next < files.length) { const i = next++;
+    try { await processPhoto(files[i], slots[i]); if (slots[i].low) low++; } catch (err) { bad++; why = why || (err && err.message) || String(err); const j = PHOTOS.indexOf(slots[i]); if (j >= 0) PHOTOS.splice(j, 1); console.warn("zdjęcie", files[i].name, err); }
+    done++; msg.textContent = `Wczytuję ${done}/${files.length}…`; } };
+  await Promise.all([worker(), worker(), worker()]);   // 3 naraz
+  savePhotos(); renderThumbs();
+  msg.textContent = bad ? `Wczytane: ${files.length - bad} z ${files.length}. Powód błędu: ${why}` : low && assetsNS ? `Wczytane: ${files.length}, ${low} w mniejszej jakości.` : `Wczytane: ${files.length} zdj. ✓`;
+  msg.className = "full small " + (bad ? "neg" : "pos");
   fillFromPhotos();
 };
 function movePhoto(from, to) { if (from === to || from == null) return; const [p] = PHOTOS.splice(from, 1); PHOTOS.splice(Math.min(to, PHOTOS.length), 0, p); savePhotos(); }
+const killGhost = () => document.querySelectorAll(".ph-ghost").forEach(g => g.remove());
+addEventListener("pointerup", killGhost); addEventListener("blur", killGhost);
 function renderThumbs() {
-  const el = $("#gen-thumbs"); renderPhotoPlan(); PHOTOS = PHOTOS.filter(Boolean);
-  if (!PHOTOS.length) { el.innerHTML = `<label class="btn primary" style="position:relative;cursor:pointer">${svg("plus", 16)}Wybierz zdjęcia<input type="file" accept="image/*,.heic,.heif" multiple class="ph-in" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>`; el.querySelector(".ph-in").onchange = onPhotosPicked; return; }
-  el.innerHTML = `<div class="thumbs">${PHOTOS.map((p, i) => `<div class="thumb${i === 0 ? " cover" : ""}${PH_SEL === i ? " sel" : ""}" data-pi="${i}"><img src="${p.url}" alt="Zdjęcie ${i + 1}" draggable="false" style="touch-action:none"><span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-px="${i}" aria-label="Usuń">×</button></div></div>`).join("")}${PHOTOS.length < PHOTO_MAX ? `<label class="thumb empty" data-pi="${PHOTOS.length}" id="ph-add" aria-label="Dodaj zdjęcia" style="position:relative">+<input type="file" accept="image/*,.heic,.heif" multiple class="ph-in" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>` : ""}</div><div class="small muted" style="margin-top:6px">${PHOTOS.length} zdj.${assetsNS ? " · zapisane w dashboardzie" : " · zapisane (mniejsza jakość w aplikacji)"}${PH_SEL != null ? " · kliknij miejsce, gdzie ma trafić zdjęcie " + (PH_SEL + 1) : ""}</div>`;
+  const el = $("#gen-thumbs"); if (!el) return; killGhost();
+  const IN = `<input type="file" accept="image/*,.heic,.heif" multiple class="ph-in" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">`;
+  if (!PHOTOS.length) { el.innerHTML = `<label class="btn primary" style="position:relative;cursor:pointer">${svg("plus", 16)}Wybierz zdjęcia${IN}</label>`; el.querySelector(".ph-in").onchange = onPhotosPicked; return; }
+  el.innerHTML = `<div class="thumbs">${PHOTOS.map((p, i) => `<div class="thumb${i === 0 ? " cover" : ""}" data-pi="${i}">${p.url || p.prev ? `<img src="${p.url || p.prev}" alt="Zdjęcie ${i + 1}" draggable="false" style="touch-action:none${p.busy ? ";opacity:.55" : ""}">` : `<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center" class="small muted">…</div>`}<span class="n">${i === 0 ? "1 · okładka" : i + 1}</span><div class="tb"><button type="button" data-pz="${i}" aria-label="Powiększ">⤢</button><button type="button" data-px="${i}" aria-label="Usuń">×</button></div></div>`).join("")}${PHOTOS.length < PHOTO_MAX ? `<label class="thumb empty" id="ph-add" aria-label="Dodaj zdjęcia" style="position:relative">+${IN}</label>` : ""}</div><div class="small muted" style="margin-top:6px">${PH().length} zdj. · kliknij zdjęcie, żeby powiększyć i obrócić</div>`;
+  const add = $("#ph-add"); if (add) add.querySelector(".ph-in").onchange = onPhotosPicked;
   const slotAt = (x, y) => { const t = document.elementFromPoint(x, y), c = t && t.closest("[data-pi]"); return c && el.contains(c) ? +c.dataset.pi : null; };
   el.querySelectorAll(".thumb[data-pi] img").forEach(im => { const i = +im.closest("[data-pi]").dataset.pi;
-    let sx, sy, drag = false, ghost = null;
-    im.onpointerdown = e => { sx = e.clientX; sy = e.clientY; drag = false; im.setPointerCapture(e.pointerId); };
-    im.onpointermove = e => { if (sx == null) return; if (!drag && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) { drag = true; ghost = im.cloneNode(); Object.assign(ghost.style, {position: "fixed", width: "70px", height: "70px", objectFit: "cover", borderRadius: "10px", opacity: ".85", pointerEvents: "none", zIndex: 99, boxShadow: "0 6px 18px rgba(0,0,0,.4)"}); document.body.appendChild(ghost); }
-      if (drag) { ghost.style.left = (e.clientX - 35) + "px"; ghost.style.top = (e.clientY - 35) + "px"; el.querySelectorAll(".thumb").forEach(t => t.style.outline = ""); const to = slotAt(e.clientX, e.clientY); const c = to != null && el.querySelector(`[data-pi="${to}"]`); if (c) c.style.outline = "2px dashed var(--accent)"; } };
-    im.onpointerup = e => { if (ghost) ghost.remove(); ghost = null; const was = drag; sx = null; drag = false;
-      if (was) { const to = slotAt(e.clientX, e.clientY); PH_SEL = null; if (to != null) movePhoto(i, Math.min(to, PHOTOS.length - 1)); renderThumbs(); return; }
-      if (PH_SEL == null) PH_SEL = i; else { movePhoto(PH_SEL, i); PH_SEL = null; } renderThumbs(); };
-    im.onpointercancel = () => { if (ghost) ghost.remove(); ghost = null; sx = null; drag = false; }; });
-  const add = $("#ph-add"); if (add) { add.querySelector(".ph-in").onchange = onPhotosPicked; add.onclick = e => { if (PH_SEL != null) { e.preventDefault(); movePhoto(PH_SEL, PHOTOS.length - 1); PH_SEL = null; renderThumbs(); } }; }
+    let sx = null, drag = false, ghost = null;
+    const end = () => { killGhost(); ghost = null; sx = null; drag = false; el.querySelectorAll(".thumb").forEach(t => t.style.outline = ""); };
+    im.onpointerdown = e => { sx = e.clientX; im._sy = e.clientY; drag = false; try { im.setPointerCapture(e.pointerId); } catch {} };
+    im.onpointermove = e => { if (sx == null) return; if (!drag && Math.hypot(e.clientX - sx, e.clientY - im._sy) > 8) { drag = true; ghost = im.cloneNode(); ghost.className = "ph-ghost"; Object.assign(ghost.style, {position: "fixed", width: "70px", height: "70px", objectFit: "cover", borderRadius: "10px", opacity: ".85", pointerEvents: "none", zIndex: 99, boxShadow: "0 6px 18px rgba(0,0,0,.4)"}); document.body.appendChild(ghost); }
+      if (drag) { ghost.style.left = (e.clientX - 35) + "px"; ghost.style.top = (e.clientY - 35) + "px"; el.querySelectorAll(".thumb").forEach(t => t.style.outline = ""); const to = slotAt(e.clientX, e.clientY), c = to != null && el.querySelector(`[data-pi="${to}"]`); if (c) c.style.outline = "2px dashed var(--accent)"; } };
+    im.onpointerup = e => { const was = drag, to = was ? slotAt(e.clientX, e.clientY) : null; end();
+      if (was) { if (to != null) { movePhoto(i, Math.min(to, PHOTOS.length - 1)); renderThumbs(); } return; }
+      openPhoto(i); };
+    im.onpointercancel = end; im.onlostpointercapture = () => { if (drag) end(); }; });
+  el.querySelectorAll("[data-pz]").forEach(b => b.onclick = () => openPhoto(+b.dataset.pz));
   el.querySelectorAll("[data-px]").forEach(b => b.onclick = () => { const i = +b.dataset.px, p = PHOTOS[i];
-    if (p && p.k) store.save(p.k, null); PHOTOS.splice(i, 1); PH_SEL = null; savePhotos(); renderThumbs(); });
+    if (p && p.k) store.save(p.k, null); PHOTOS.splice(i, 1); savePhotos(); renderThumbs(); });
+}
+/* podgląd: powiększanie (kółko, przyciski, kliknięcie), przesuwanie, obrót o 90° */
+function openPhoto(i) {
+  if (!PHOTOS[i]) return; let z = 1, ox = 0, oy = 0;
+  const o = document.createElement("div"); o.className = "ph-lb";
+  Object.assign(o.style, {position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.88)", display: "flex", flexDirection: "column"});
+  const draw = () => { const p = PHOTOS[i];
+    o.innerHTML = `<div style="display:flex;gap:8px;align-items:center;padding:10px 12px;color:#fff;flex-wrap:wrap"><b style="flex:1">${i + 1} / ${PHOTOS.length}${i === 0 ? " · okładka" : ""}</b>
+      <button class="sm" data-l="prev" ${i === 0 ? "disabled" : ""}>‹</button><button class="sm" data-l="next" ${i === PHOTOS.length - 1 ? "disabled" : ""}>›</button>
+      <button class="sm" data-l="out">−</button><button class="sm" data-l="in">+</button>
+      <button class="sm" data-l="rl">⟲ 90°</button><button class="sm" data-l="rr">⟳ 90°</button><button class="sm" data-l="x">Zamknij</button></div>
+      <div class="lbv" style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none;cursor:${z > 1 ? "grab" : "zoom-in"}"><img src="${p.url || p.prev}" style="max-width:100%;max-height:100%;transform:translate(${ox}px,${oy}px) scale(${z});transition:transform .12s;user-select:none" draggable="false"></div>`;
+    const v = o.querySelector(".lbv"), im = v.querySelector("img");
+    v.onwheel = e => { e.preventDefault(); z = Math.max(1, Math.min(5, z * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); if (z === 1) ox = oy = 0; im.style.transform = `translate(${ox}px,${oy}px) scale(${z})`; };
+    let px = null, py, moved = false, pts = new Map(), d0 = 0, z0 = 1;
+    v.onpointerdown = e => { pts.set(e.pointerId, [e.clientX, e.clientY]); v.setPointerCapture(e.pointerId); px = e.clientX; py = e.clientY; moved = false; if (pts.size === 2) { const [a, b] = [...pts.values()]; d0 = Math.hypot(a[0] - b[0], a[1] - b[1]); z0 = z; } };
+    v.onpointermove = e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; z = Math.max(1, Math.min(5, z0 * Math.hypot(a[0] - b[0], a[1] - b[1]) / (d0 || 1))); moved = true; }
+      else if (z > 1 && px != null) { ox += e.clientX - px; oy += e.clientY - py; px = e.clientX; py = e.clientY; moved = true; }
+      im.style.transition = "none"; im.style.transform = `translate(${ox}px,${oy}px) scale(${z})`; };
+    v.onpointerup = e => { pts.delete(e.pointerId); im.style.transition = ""; if (!moved && e.target === im) { z = z > 1 ? 1 : 2.5; if (z === 1) ox = oy = 0; im.style.transform = `translate(${ox}px,${oy}px) scale(${z})`; } if (!pts.size) px = null; };
+    o.querySelectorAll("[data-l]").forEach(b => b.onclick = async () => { const a = b.dataset.l;
+      if (a === "x") { o.remove(); renderThumbs(); return; }
+      if (a === "prev" || a === "next") { i += a === "prev" ? -1 : 1; z = 1; ox = oy = 0; draw(); return; }
+      if (a === "in" || a === "out") { z = Math.max(1, Math.min(5, z * (a === "in" ? 1.4 : 1 / 1.4))); if (z === 1) ox = oy = 0; im.style.transform = `translate(${ox}px,${oy}px) scale(${z})`; return; }
+      b.disabled = true; b.textContent = "…";
+      try { const p = PHOTOS[i], rot = a === "rl" ? -90 : 90;
+        const img = await decodeImg(await (await fetch(p.url || p.prev)).blob());
+        p.blob = await drawTo(img, 1024, .82, rot); p.prev = await toDataURL(p.blob);
+        if (p.k) store.save(p.k, null);
+        Object.assign(p, await storeBig(await drawTo(img, 1600, .9, rot), Date.now())); savePhotos(); z = 1; ox = oy = 0; draw();
+      } catch (err) { b.textContent = "błąd"; console.warn(err); } }); };
+  o.addEventListener("keydown", e => { if (e.key === "Escape") { o.remove(); renderThumbs(); } });
+  document.body.appendChild(o); o.tabIndex = -1; draw(); o.focus();
 }
 const PHOTO_PLANS = {
   buty: {n: 9, list: ["Główne: para trzymana w ręce, cała widoczna", "Bok zewnętrzny", "Bok wewnętrzny", "Przód (noski)", "Tył i pięta", "Podeszwa", "Wnętrze i wkładka", "Metka z rozmiarem", "Pudełko i zestaw (jeśli jest)"]},
@@ -2791,7 +2844,7 @@ renderAll();
   if (mcp) connect();
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
-  try { await loadPhotos(); } catch (e) { console.warn(e); }
+  try { await loadGenPhotos(); } catch (e) { console.warn(e); }
   { const g = await store.load("gendraft", null); if (g && Array.isArray(g.L) && g.L.length) { try { renderGenOut(g, false); } catch (e) { console.warn(e); } } }
   LISTINGS = (await store.load("listings", {})) || {}; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
