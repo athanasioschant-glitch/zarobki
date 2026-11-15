@@ -483,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:24</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:34</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -986,7 +986,7 @@ const store = (() => {
 store.raw = null;
 /* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
 const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage)/, LAST = {}, HIST = {on: false, list: [], timer: null};
-const KEY_LAB = {banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
+const KEY_LAB = {listings: "gdzie wystawione", banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
 const curSrc = () => { const h = location.hash.slice(1) || "start"; if (h.startsWith("zrodlo-")) return h.slice(7); if (/^(kako|magazyn|start-kako|wystaw)$/.test(h)) return "kako"; if (h === "start") return SRC; return "all"; };
 function histGroup() { const g = HIST.list[0]; if (g && !g.done && Date.now() - g.t < 1500) return g; const n = {id: uid(), t: Date.now(), at: new Date().toISOString(), src: curSrc(), label: "", ch: [], sheet: []}; HIST.list.unshift(n); HIST.list = HIST.list.slice(0, 40); return n; }
 function histLog(k, before) { const g = histGroup(); if (!g.ch.some(c => c.k === k)) g.ch.push({k, b: before}); histSave(); }
@@ -1109,10 +1109,18 @@ const notEntered = () => orderStatus().filter(x => x.arrived > x.auto).map(x => 
 const notEnteredCost = () => notEntered().reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
 async function setArrived(key, n) { if (n == null) delete ARRIVED[key]; else ARRIVED[key] = n; await store.save("arrived", ARRIVED); toast("Zapisano stan dostawy"); rerender(); }
 
+/* GDZIE WYSTAWIONE – platforma i data wystawienia każdej rzeczy (klucz: zakładka + wiersz arkusza) */
+let LISTINGS = {};
+const LIST_PLATS = ["OLX", "Marketplace", "Grupy FB", "Vinted", "Vestiaire", "Allegro Lokalnie", "Szafa.pl", "Hemly"];
+const lkey = s => (s.sheet || "") + "|" + (s.row || "") + "|" + s.product + "|" + (s.size || "");
+const daysSince = d => Math.max(0, Math.floor((Date.now() - new Date(d + "T12:00:00")) / 864e5));
+const listedChips = s => { const L = LISTINGS[lkey(s)] || {}; const e = Object.entries(L); return e.length ? `<div class="chips" style="margin-top:6px">${e.map(([p, d]) => `<span class="chip" title="wystawione ${d.split("-").reverse().join(".")}">${esc(p)} · od ${dShort(d)} (${daysSince(d)} dni)</span>`).join("")}</div>` : ""; };
+const listedPicker = s => { const L = LISTINGS[lkey(s)] || {}; return `<div class="small muted" style="margin:4px 0 6px">Gdzie wystawione (kliknij, żeby oznaczyć dziś / odznaczyć):</div><div class="pills">${LIST_PLATS.map(p => `<button type="button" data-lst="${esc(lkey(s))}" data-lp="${esc(p)}" aria-pressed="${!!L[p]}">${esc(p)}${L[p] ? " · " + dShort(L[p]) : ""}</button>`).join("")}</div>`; };
+document.addEventListener("click", async e => { const b = e.target.closest("[data-lst]"); if (!b) return; e.preventDefault(); e.stopPropagation(); const k = b.dataset.lst, p = b.dataset.lp, L = LISTINGS[k] ||= {}; if (L[p]) delete L[p]; else L[p] = new Date().toISOString().slice(0, 10); if (!Object.keys(L).length) delete LISTINGS[k]; await store.save("listings", LISTINGS); toast(L[p] ? `Wystawione na ${p}` : `Usunięte: ${p}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw && renderWystaw(); });
 const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.split("-").reverse().join(".") : null;
   const rows = [["Cena", s.price != null ? zl(s.price, 2) + (s.est ? " (szacunek)" : "") : null], ["Koszt łącznie", c != null ? zl(c, 2) : null], ["Kupno", s.buy != null ? zl(s.buy, 2) : null], ["Fracht", s.freight ? zl(s.freight, 2) : null], ["Wysyłka", s.ship != null ? zl(s.ship, 2) : null],
     ["Zysk", s.profit != null ? zl(s.profit, 2) : null], ["Marża", s.price && s.profit != null ? pct(s.profit / s.price) : null], ["Platforma · konto", s.platform ? s.platform + " · " + (s.account || "konto główne") : null], ["Kupujący", s.buyer], ["Wystawione", f(s.listed)], ["Sprzedane", f(s.sold)], ["W arkuszu", s.sheet ? s.sheet + ", wiersz " + s.row : null]];
-  return `<div class="dkv">${rows.filter(([, v]) => v).map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>`; };
+  return `<div class="dkv">${rows.filter(([, v]) => v).map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>${s.status !== "sprzedane" && s.status !== "oddane" ? `<div style="margin-top:8px">${listedPicker(s)}</div>` : ""}`; };
 const drow = (inner, s, extra = "") => `<details class="drow"><summary title="${s ? esc((STATUS[s.status] || "") + (s.status === "sprzedane" ? " · " + (PAY_LAB[uiPay(s)] || "") : "")) : ""}">${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
@@ -1353,7 +1361,7 @@ function renderStartInner() {
   { const sl = $("#stock-list"); sl.hidden = !(stockOpen && SRC === "kako");
     if (!sl.hidden) { const G = {}; D.unsold.forEach(x => (G[x.product] ||= []).push(x)); const NE = notEntered();
       const grp = (name, L, sub, right) => `<details class="grp"><summary><span class="gt"><b>${esc(name)}</b><span class="small muted">${sub}</span></span><b>${right || L.length + " szt."}</b>${svg("arrow", 14)}</summary><div class="list">${L.join("")}</div></details>`;
-      const row = x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([cleanColor(x.color), x.order ? "zam. " + x.order : "", x.account ? (x.platform || "") + " · " + x.account : ""].filter(Boolean).join(" · "))}</div></div><div class="end"><span class="pill p-${x.status}">${esc(STATUS[x.status] || x.status)}</span><span class="small muted">${x.price > 0 ? zl(x.price) : "koszt " + zl(x.cost || 0)}</span></div></div>`;
+      const row = x => `<div class="row">${pav(x)}<div class="main"><div class="t">${esc(pname(x))}</div><div class="s">${esc([cleanColor(x.color), x.order ? "zam. " + x.order : "", x.account ? (x.platform || "") + " · " + x.account : ""].filter(Boolean).join(" · "))}</div>${listedChips(x)}</div><div class="end"><span class="pill p-${x.status}">${esc(STATUS[x.status] || x.status)}</span><span class="small muted">${x.price > 0 ? zl(x.price) : "koszt " + zl(x.cost || 0)}</span></div></div>`;
       sl.innerHTML = `<div class="ch"><div><h3>W magazynie · ${D.unsold.length + NE.reduce((a, x) => a + x.qty, 0)} szt.</h3></div><button class="iconbtn flat" id="stock-close" aria-label="Zwiń">${svg("x", 15)}</button></div>
         ${Object.entries(G).sort((a, b) => b[1].length - a[1].length).map(([n, L]) => grp(n, L.sort((a, b) => String(a.size).localeCompare(String(b.size), "pl", {numeric: true})).map(row), [...new Set(L.map(x => x.size).filter(Boolean))].join(", ") + " · koszt " + zl(L.reduce((a, x) => a + (x.cost || 0), 0)))).join("")}
         ${(() => { const I = incoming(); if (!I.length) return ""; const byO = {}; I.forEach(x => (byO[x.order] ||= []).push(x)); return Object.entries(byO).map(([o, L]) => grp(`W drodze z Chin · zamówienie ${o}`, L.map(x => `<div class="row"><div class="main"><div class="t">${esc(x.product)}</div><div class="s">${x.sizes ? "rozm. " + esc(x.sizes) + " · " : ""}${x.arrived ? "dotarło już " + x.arrived + " z " + x.ordered : "jeszcze nic nie dotarło"}${x.presold ? " · w tym " + x.presold + " już sprzedane (presale)" : ""}</div></div><span class="amt">${x.qty} szt.</span></div>`), "koszt " + zl(L.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)), L.reduce((a, x) => a + x.qty, 0) + " szt.")).join(""); })()}
@@ -2185,7 +2193,7 @@ function renderWystaw() {
   $("#gen-pick").onchange = e => { const s = items[e.target.value]; if (!s) return; setTimeout(renderPhotoPlan); $("#gen-prod").value = s.product; $("#gen-color").value = cleanColor(s.color); $("#gen-size").value = s.size || ""; $("#gen-price").value = s.price || ""; if (/ugg/i.test(s.product)) { const a = $("#gen-addons"), x = $("#gen-extra"); if (!a.value.trim()) a.value = "dodatkowe sznurówki"; if (!/pudełk/i.test(x.value)) x.value = (x.value.trim() ? x.value.trim() + "\n" : "") + "Pudełko bardzo delikatnie uszkodzone."; } priceHint(); };
   $("#gen-prod").addEventListener("input", priceHint);
   $("#w-count").textContent = items.length + " szt. czeka na sprzedaż";
-  $("#w-list").innerHTML = items.map((s, i) => `<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), STATUS[s.status]].filter(Boolean).map(esc).join(" · ")}</div></div><button class="sm" data-gen="${i}">${svg("pen", 14)}Opis</button></div>`).join("") || `<div class="empty">Wszystko sprzedane.</div>`;
+  $("#w-list").innerHTML = items.map((s, i) => `<div class="row">${pav(s)}<div class="main"><div class="t">${esc(pname(s))}</div><div class="s">${[cleanColor(s.color), STATUS[s.status]].filter(Boolean).map(esc).join(" · ")}</div>${listedChips(s)}<details style="margin-top:6px"><summary class="small muted" style="cursor:pointer">Oznacz, gdzie wystawione</summary>${listedPicker(s)}</details></div><button class="sm" data-gen="${i}">${svg("pen", 14)}Opis</button></div>`).join("") || `<div class="empty">Wszystko sprzedane.</div>`;
   $("#w-list").querySelectorAll("[data-gen]").forEach(b => b.onclick = () => { $("#gen-pick").value = b.dataset.gen; $("#gen-pick").onchange({target: $("#gen-pick")}); $("#gen-form").scrollIntoView({behavior: "smooth", block: "start"}); });
 }
 let PHOTOS = [];
@@ -2446,7 +2454,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2570,6 +2578,7 @@ renderAll();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
+  LISTINGS = (await store.load("listings", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
