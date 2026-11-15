@@ -483,7 +483,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:41</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 19:49</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -599,6 +599,7 @@ textarea{min-height:96px;padding:12px 14px;resize:vertical;height:auto}
         <div id="gen-audit" hidden></div>
       </div>
       <div class="s5 col">
+        <div id="fb-groups"></div>
         <div class="card"><div class="ch"><div><h3>Do wystawienia</h3><div class="sub" id="w-count"></div></div></div><div class="list" id="w-list"></div></div>
         <div class="card info"><span class="ico"><svg class="i"><use href="#i-info"/></svg></span><div>Opis nigdy nie napisze, że rzecz jest oryginalna, i nie wymyśli paragonu ani stanu, którego nie podasz. <b>Fałszywe zapewnienia kończą się blokadą konta.</b></div></div>
       </div>
@@ -2185,7 +2186,12 @@ document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { k
 
 /* WYSTAW */
 let sample = null;
-let INTEREST = {};
+let INTEREST = {}, FBGROUPS = [];
+function fbGroupsHTML() {
+  if (!FBGROUPS.length) return "";
+  const by = {}; FBGROUPS.forEach(g => (by[g.tier] ||= []).push(g));
+  return `<div class="card"><div class="ch"><div><h3>Grupy do wystawiania · ${FBGROUPS.length}</h3><div class="sub">wybrane z Twoich grup na Facebooku</div></div></div>${Object.entries(by).map(([tier, L]) => `<details class="grp"><summary><span class="gt"><b>${esc(tier)}</b><span class="small muted">${L.length} grup</span></span><span></span>${svg("arrow", 14)}</summary><div class="list">${L.map(g => `<div class="row"><div class="main"><a class="t" href="https://www.facebook.com/groups/${encodeURIComponent(g.id)}" target="_blank" rel="noopener" style="color:inherit">${esc(g.name)}</a>${g.note ? `<div class="s">${esc(g.note)}</div>` : ""}</div></div>`).join("")}</div></details>`).join("")}</div>`;
+}
 function renderListed() {
   const L = M.sales.filter(s => LISTINGS[lkey(s)] && !["sprzedane", "oddane"].includes(s.status)), el = $("#inv-listed");
   const plats = {}; L.forEach(s => Object.keys(LISTINGS[lkey(s)]).forEach(p => plats[p] = (plats[p] || 0) + 1));
@@ -2197,6 +2203,7 @@ function renderListed() {
   el.querySelectorAll("[data-int]").forEach(b => b.onclick = async () => { const k = b.dataset.int; INTEREST[k] = Math.max(0, (INTEREST[k] || 0) + +b.dataset.d); await store.save("interest", INTEREST); renderListed(); });
 }
 function renderWystaw() {
+  { const fg = $("#fb-groups"); if (fg) fg.innerHTML = fbGroupsHTML(); }
   renderKakoNav("wystaw", "wystaw");
   $("#gen-prod").oninput = renderPhotoPlan; setTimeout(renderPhotoPlan);
   const items = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status));
@@ -2485,7 +2492,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -2609,7 +2616,7 @@ renderAll();
   if (!sample) $("#gen-msg").textContent = "Generator działa po otwarciu strony na claude.ai.";
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
-  LISTINGS = (await store.load("listings", {})) || {}; INTEREST = (await store.load("interest", {})) || {};
+  LISTINGS = (await store.load("listings", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
