@@ -179,6 +179,24 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .hsplit button.hs:hover{box-shadow:inset 0 0 0 1px var(--line)}
 .hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
 details.grp{border-top:1px solid var(--line)}details.grp:first-of-type{margin-top:6px}
+.mth-list{display:flex;flex-direction:column}
+.mth{border-top:1px solid var(--line)}.mth:first-child{border-top:0}
+.mth-h{all:unset;box-sizing:border-box;display:grid;grid-template-columns:36px 1fr 10px;gap:12px;align-items:center;width:100%;padding:12px 4px;cursor:pointer;border-radius:10px}
+.mth-h:hover{background:var(--surface2)}.mth-h:focus-visible{outline:2px solid var(--accent)}
+.mth-av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:14px;color:#fff;background:var(--c)}
+.mth-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mth-l1{display:flex;align-items:center;gap:8px;min-width:0}.mth-l1 b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mth.un .mth-l1 b{font-weight:700}
+.mth-pl{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;color:var(--c);box-shadow:inset 0 0 0 1px var(--c);white-space:nowrap}
+.mth-t{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}.mth.un .mth-t{color:var(--accent);font-weight:600}
+.mth-l2{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mth-l3{font-size:13.5px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mth:not(.un) .mth-l3{color:var(--muted)}
+.mth-of{font-weight:600;color:var(--good)}
+.mth-dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.mth-x{padding:0 4px 14px 52px;display:flex;flex-direction:column;gap:8px}
+.mth-msg{background:var(--surface2);border-radius:12px;padding:10px 12px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.mth-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 details.grp>summary{list-style:none;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:14px 0;cursor:pointer}
 details.grp>summary::-webkit-details-marker{display:none}
 details.grp>summary .gt{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -498,7 +516,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 15.11 23:22</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 16:34</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2216,20 +2234,47 @@ document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { k
 let sample = null;
 let INTEREST = {}, FBGROUPS = [], MSGREAD = {}, msgPlat = "all";
 const msgKey = m => [m.platform, m.from, m.date, m.text.slice(0, 60)].join("|");
-const MSGS = () => (M.messages || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+const MSGS = () => (M.messages || []).filter(m => MSGREAD[msgKey(m)] !== 2).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 const unreadCount = () => MSGS().filter(m => !MSGREAD[msgKey(m)]).length;
 const HOT = /priv|pw\b|kontakt|zainteres|aktualn|ile\s|cena|kupuj|biorę|biore|wezm|rezerw|dostępn|dostepn|rozmiar|\?/i;
+let msgOnlyNew = false, msgOpen = null;
+/* krótka data: „11:03” dziś, „wczoraj”, „14.11” */
+function msgWhen(d) { const s = String(d || ""), m = s.match(/(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d:\d\d))?/); if (!m) return s;
+  const day = new Date(+m[1], m[2] - 1, +m[3]), t = new Date(); t.setHours(0, 0, 0, 0); const diff = Math.round((t - day) / 864e5);
+  return diff <= 0 ? (m[4] || "dziś") : diff === 1 ? "wczoraj" : `${m[3]}.${m[2]}`; }
+/* oferta: „Oferta: 512,04 zł (do wypłaty 496,68 zł)” → {kw, net} */
+function msgOffer(m) { const a = String(m.text || "").match(/(\d[\d\s]*[,.]?\d*)\s*zł/g); if (m.type !== "oferta" || !a) return null;
+  const n = x => Math.round(parseFloat(x.replace(/\s|zł/g, "").replace(",", ".")));
+  return {kw: n(a[0]), net: a[1] ? n(a[1]) : null}; }
+const plRozm = (n, nowe) => { const f = n === 1 ? 0 : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1 : 2; return (nowe ? ["nowa ", "nowe ", "nowych "][f] : "") + ["rozmowa", "rozmowy", "rozmów"][f]; };
+const PLAT_COL = {"OLX": "#23e5db", "Marketplace": "#1877f2", "Grupy FB": "#1877f2", "Vestiaire": "#c2410c", "Szafa": "#e11d48", "Allegro Lokalnie": "#ff5a00", "Hemly": "#0b4aa2"};
 function renderInbox() {
   const el = $("#k-msg"), L = MSGS(), plats = {}; L.forEach(m => { const p = plats[m.platform] ||= {n: 0, u: 0}; p.n++; if (!MSGREAD[msgKey(m)]) p.u++; });
-  const show = L.filter(m => msgPlat === "all" || m.platform === msgPlat);
-  const byListing = {}; show.forEach(m => (byListing[m.listing || "bez ogłoszenia"] ||= []).push(m));
-  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wiadomości · ${L.length}</h3><div class="sub">${unreadCount()} nieprzeczytanych · wiadomości, komentarze i oferty ze wszystkich platform</div></div>${unreadCount() ? `<button class="sm" id="msg-allread">Oznacz wszystkie jako przeczytane</button>` : ""}</div>
-    <div class="pills" style="margin-bottom:12px"><button data-mp="all" aria-pressed="${msgPlat === "all"}">Wszystkie ${L.length}</button>${Object.entries(plats).map(([p, x]) => `<button data-mp="${esc(p)}" aria-pressed="${msgPlat === p}">${esc(p)} ${x.n}${x.u ? ` · <b style="color:var(--accent)">${x.u} nowe</b>` : ""}</button>`).join("")}</div>
-    ${Object.entries(byListing).map(([lst, ms]) => `<details class="grp" open><summary><span class="gt"><b>${esc(lst)}</b><span class="small muted">${ms.length} · ${[...new Set(ms.map(m => m.platform))].map(esc).join(", ")}</span></span><span></span>${svg("arrow", 14)}</summary><div class="list">${ms.map(m => { const k = msgKey(m), unread = !MSGREAD[k], hot = HOT.test(m.text);
-      return `<div class="row" style="align-items:flex-start;${unread ? "box-shadow:inset 3px 0 0 var(--accent)" : ""}"><div class="main"><div class="t" style="font-weight:${unread ? 700 : 500}">${esc(m.from || "ktoś")} <span class="small muted" style="font-weight:400">· ${esc(m.platform)} · ${esc(m.type)} · ${esc(m.date)}</span>${hot ? ` <span class="pill p-sprzedane">zainteresowany</span>` : ""}</div><div class="s" style="color:var(--fg);white-space:pre-wrap">${esc(m.text)}</div></div><div class="end">${m.link ? `<a class="sm" href="${esc(m.link)}" target="_blank" rel="noopener">Otwórz</a>` : ""}${unread ? `<button class="link small" data-mread="${esc(k)}">przeczytane</button>` : ""}</div></div>`; }).join("")}</div></details>`).join("") || `<div class="empty">Na razie nic. Wiadomości z OLX, Facebooka (Marketplace i komentarze w grupach), Vestiaire, Allegro Lokalnie, Szafy i Hemly pojawią się tutaj automatycznie.</div>`}</div>`;
+  /* rozmowy: ta sama osoba + platforma + ogłoszenie = jeden wiersz */
+  const TH = {}; L.forEach(m => { const k = [m.platform, m.from, m.listing].join("|"); (TH[k] ||= {k, ms: []}).ms.push(m); });
+  let threads = Object.values(TH).map(t => { t.ms.sort((a, b) => String(a.date).localeCompare(String(b.date))); t.last = t.ms[t.ms.length - 1]; t.unread = t.ms.filter(m => !MSGREAD[msgKey(m)]).length; t.hot = t.ms.some(m => HOT.test(m.text)); return t; })
+    .sort((a, b) => String(b.last.date).localeCompare(String(a.last.date)));
+  const unreadThreads = threads.filter(t => t.unread).length;
+  threads = threads.filter(t => (msgPlat === "all" || t.last.platform === msgPlat) && (!msgOnlyNew || t.unread));
+  const row = t => { const m = t.last, of = msgOffer(m), open = msgOpen === t.k, col = PLAT_COL[m.platform] || "var(--muted)";
+    return `<div class="mth${t.unread ? " un" : ""}${open ? " op" : ""}">
+      <button class="mth-h" data-mopen="${esc(t.k)}" aria-expanded="${open}">
+        <span class="mth-av" style="--c:${col}">${esc((m.from || "?").trim()[0] || "?").toUpperCase()}</span>
+        <span class="mth-b"><span class="mth-l1"><b>${esc(m.from || "ktoś")}</b><span class="mth-pl" style="--c:${col}">${esc(m.platform)}</span>${t.ms.length > 1 ? `<span class="small muted">${t.ms.length}</span>` : ""}<span class="mth-t">${esc(msgWhen(m.date))}</span></span>
+          <span class="mth-l2">${esc(m.listing || "bez ogłoszenia")}</span>
+          <span class="mth-l3">${of ? `<span class="mth-of">oferta ${of.kw} zł${of.net ? ` · do wypłaty ${of.net} zł` : ""}</span>` : esc(m.text)}</span></span>
+        ${t.unread ? `<span class="mth-dot" aria-label="nieprzeczytane"></span>` : ""}</button>
+      ${open ? `<div class="mth-x">${t.ms.map(x => `<div class="mth-msg"><div class="small muted">${esc(x.type)} · ${esc(x.date)}</div><div>${esc(x.text)}</div></div>`).join("")}
+        <div class="mth-act">${m.link ? `<a class="btn primary sm" href="${esc(m.link)}" target="_blank" rel="noopener">Odpowiedz w ${esc(m.platform)}</a>` : ""}${t.hot ? `<span class="pill p-sprzedane">zainteresowany</span>` : ""}<button class="link small" data-mhide="${esc(t.k)}" style="margin-left:auto">Ukryj rozmowę</button></div></div>` : ""}</div>`; };
+  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wiadomości</h3><div class="sub">${unreadThreads ? `<b style="color:var(--accent)">${unreadThreads} ${plRozm(unreadThreads, true)}</b> · ` : ""}${Object.keys(TH).length} ${plRozm(Object.keys(TH).length)}</div></div>${unreadThreads ? `<button class="sm" id="msg-allread">Wszystko przeczytane</button>` : ""}</div>
+    <div class="pills" style="margin-bottom:10px"><button data-mnew aria-pressed="${msgOnlyNew}">Nowe</button><button data-mp="all" aria-pressed="${msgPlat === "all"}">Wszystkie</button>${Object.entries(plats).map(([p, x]) => `<button data-mp="${esc(p)}" aria-pressed="${msgPlat === p}">${esc(p)}${x.u ? ` <b style="color:var(--accent)">${x.u}</b>` : ""}</button>`).join("")}</div>
+    <div class="mth-list">${threads.map(row).join("") || `<div class="empty">${L.length ? "Brak nowych wiadomości." : "Na razie nic. Wiadomości z OLX, Facebooka, Vestiaire, Allegro Lokalnie, Szafy i Hemly pojawią się tutaj automatycznie."}</div>`}</div></div>`;
   el.querySelectorAll("[data-mp]").forEach(b => b.onclick = () => { msgPlat = b.dataset.mp; renderInbox(); });
-  el.querySelectorAll("[data-mread]").forEach(b => b.onclick = async () => { MSGREAD[b.dataset.mread] = 1; await store.save("msgread", MSGREAD); renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); });
-  const ar = $("#msg-allread"); if (ar) ar.onclick = async () => { L.forEach(m => MSGREAD[msgKey(m)] = 1); await store.save("msgread", MSGREAD); renderInbox(); renderKakoNav("kako", "msg"); };
+  const nb = el.querySelector("[data-mnew]"); if (nb) nb.onclick = () => { msgOnlyNew = !msgOnlyNew; renderInbox(); };
+  el.querySelectorAll("[data-mopen]").forEach(b => b.onclick = async () => { const k = b.dataset.mopen; msgOpen = msgOpen === k ? null : k;
+    if (msgOpen) { TH[k].ms.forEach(m => MSGREAD[msgKey(m)] = 1); renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); await store.save("msgread", MSGREAD); } else renderInbox(); });
+  el.querySelectorAll("[data-mhide]").forEach(b => b.onclick = async () => { TH[b.dataset.mhide].ms.forEach(m => MSGREAD[msgKey(m)] = 2); msgOpen = null; renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); await store.save("msgread", MSGREAD); });
+  const ar = $("#msg-allread"); if (ar) ar.onclick = async () => { L.forEach(m => MSGREAD[msgKey(m)] = 1); await store.save("msgread", MSGREAD); renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); };
 }
 function fbGroupsHTML() {
   if (!FBGROUPS.length) return "";
