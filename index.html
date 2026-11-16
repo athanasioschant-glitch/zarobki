@@ -183,6 +183,16 @@ details.grp{border-top:1px solid var(--line)}details.grp:first-of-type{margin-to
 .incd .inch{display:inline-flex;align-items:center;gap:4px;margin-left:4px}.incd .inch svg{transition:transform .2s}.incd[open] .inch svg{transform:rotate(90deg)}
 .incb{padding:2px 0 14px 60px;display:flex;flex-direction:column;gap:8px}
 .incl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.incc{font-weight:600;min-width:72px}
+.itm-ov{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:24px 16px}
+.itm{width:100%;max-width:720px;margin:0 auto}
+.itm-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-bottom:14px}.itm-ph img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:zoom-in;display:block}
+.itm-noph{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.itm-kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px}.itm-kpi>div{background:var(--surface2);border-radius:12px;padding:10px 12px}.itm-kpi .l{font-size:12px;color:var(--muted)}.itm-kpi .v{font-weight:700;font-size:17px;margin-top:2px}
+@media (max-width:520px){.itm-kpi{grid-template-columns:1fr}}
+.itm h4{margin:16px 0 8px;font-size:14px}
+.itm-desc{white-space:pre-wrap;font-size:14px;padding:0 0 12px;overflow-wrap:anywhere}
+.itm-zoom{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.9);display:grid;place-items:center;cursor:zoom-out}.itm-zoom img{max-width:94vw;max-height:94vh;border-radius:8px}
+[data-item]{cursor:pointer}
 .gen-done{margin-top:12px;padding:14px;border-radius:14px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
 .mth-list{display:flex;flex-direction:column}
 .mth{border-top:1px solid var(--line)}.mth:first-child{border-top:0}
@@ -521,7 +531,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 17:06</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 17:13</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1168,11 +1178,34 @@ const lkey = s => (s.sheet || "") + "|" + (s.row || "") + "|" + s.product + "|" 
 const daysSince = d => Math.max(0, Math.floor((Date.now() - new Date(d + "T12:00:00")) / 864e5));
 const listedChips = s => { const L = LISTINGS[lkey(s)] || {}; const e = Object.entries(L); return e.length ? `<div class="chips" style="margin-top:6px">${e.map(([p, d]) => `<span class="chip" title="wystawione ${d.split("-").reverse().join(".")}">${esc(p)} · od ${dShort(d)} (${daysSince(d)} dni)</span>`).join("")}</div>` : ""; };
 const listedPicker = s => { const L = LISTINGS[lkey(s)] || {}; return `<div class="small muted" style="margin:4px 0 6px">Gdzie wystawione (kliknij, żeby oznaczyć dziś / odznaczyć):</div><div class="pills">${LIST_PLATS.map(p => `<button type="button" data-lst="${esc(lkey(s))}" data-lp="${esc(p)}" aria-pressed="${!!L[p]}">${esc(p)}${L[p] ? " · " + dShort(L[p]) : ""}</button>`).join("")}</div>`; };
-document.addEventListener("click", async e => { const b = e.target.closest("[data-lst]"); if (!b) return; e.preventDefault(); e.stopPropagation(); const k = b.dataset.lst, p = b.dataset.lp, L = LISTINGS[k] ||= {}; if (L[p]) delete L[p]; else L[p] = new Date().toISOString().slice(0, 10); if (!Object.keys(L).length) delete LISTINGS[k]; await store.save("listings", LISTINGS); toast(L[p] ? `Wystawione na ${p}` : `Usunięte: ${p}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw && renderWystaw(); });
+document.addEventListener("click", async e => { const b = e.target.closest("[data-lst]"); if (!b) return; e.preventDefault(); e.stopPropagation(); const k = b.dataset.lst, p = b.dataset.lp, L = LISTINGS[k] ||= {}; if (L[p]) delete L[p]; else L[p] = new Date().toISOString().slice(0, 10); if (!Object.keys(L).length) delete LISTINGS[k]; await store.save("listings", LISTINGS); toast(L[p] ? `Wystawione na ${p}` : `Usunięte: ${p}`); rerender(); { const ov = document.querySelector(".itm-ov"); if (ov) { ov.remove(); openItem(ov.dataset.k); } } if ((location.hash.slice(1) || "") === "wystaw") renderWystaw && renderWystaw(); });
 const detailKV = s => { const c = s.cost ?? s.estCost; const f = d => d ? d.split("-").reverse().join(".") : null;
   const rows = [["Cena", s.price != null ? zl(s.price, 2) + (s.est ? " (szacunek)" : "") : null], ["Koszt łącznie", c != null ? zl(c, 2) : null], ["Kupno", s.buy != null ? zl(s.buy, 2) : null], ["Fracht", s.freight ? zl(s.freight, 2) : null], ["Wysyłka", s.ship != null ? zl(s.ship, 2) : null],
     ["Zysk", s.profit != null ? zl(s.profit, 2) : null], ["Marża", s.price && s.profit != null ? pct(s.profit / s.price) : null], ["Platforma · konto", s.platform ? s.platform + " · " + (s.account || "konto główne") : null], ["Kupujący", s.buyer], ["Wystawione", f(s.listed)], ["Sprzedane", f(s.sold)], ["W arkuszu", s.sheet ? s.sheet + ", wiersz " + s.row : null]];
   return `<div class="dkv">${rows.filter(([, v]) => v).map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>${s.status !== "sprzedane" && s.status !== "oddane" ? `<div style="margin-top:8px">${listedPicker(s)}</div>` : ""}`; };
+/* KARTA RZECZY – klik w rozmiar w magazynie albo w wiersz w „Wystawione” */
+function openItem(k) {
+  document.querySelectorAll(".itm-ov").forEach(x => x.remove());
+  const lg = k.startsWith("log:") ? LISTEDLOG[+k.slice(4)] : LISTEDLOG.find(x => x.lk === k), s = k.startsWith("log:") ? null : M.sales.find(x => lkey(x) === k);
+  if (!s && !lg) return;
+  const L = s ? (LISTINGS[k] || {}) : Object.fromEntries((lg.plats || []).map(p => [p, lg.date]));
+  const price = (s && s.price) || (lg && +lg.cena) || 0, cost = s ? (s.cost ?? s.estCost) : null, photos = (lg && lg.photos) || [];
+  const name = s ? pname(s) : lg.produkt, sub = [s ? cleanColor(s.color) : lg.kolor, (s ? s.size : lg.rozmiar) && "rozm. " + (s ? s.size : lg.rozmiar), s && STATUS[s.status]].filter(Boolean);
+  const kpi = [[s && s.status === "sprzedane" ? "Sprzedane za" : "Wystawione za", price ? zl(price, 2) : "—"], ["Kupione za (z frachtem)", cost != null ? zl(cost, 2) : "—"], [s && s.status === "sprzedane" ? "Zysk" : "Zysk, jeśli sprzeda się za tyle", price && cost != null ? zl((s && s.profit != null && s.status === "sprzedane" ? s.profit : price - cost), 2) : "—"]];
+  const o = document.createElement("div"); o.className = "itm-ov"; o.dataset.k = k;
+  o.innerHTML = `<div class="itm card" role="dialog" aria-modal="true" aria-label="${esc(name)}">
+    <div class="ch"><div><h3>${esc(name)}</h3><div class="sub">${sub.map(esc).join(" · ")}</div></div><button class="iconbtn flat" data-x aria-label="Zamknij">✕</button></div>
+    ${photos.length ? `<div class="itm-ph">${photos.map((p, i) => `<img src="${esc(p.url)}" data-pz="${i}" alt="Zdjęcie ${i + 1}" loading="lazy">`).join("")}</div>` : s ? `<div class="itm-noph">${thumb(s.product, s.color, 96)}<span class="small muted">Zdjęcia pojawią się tu, gdy wystawisz rzecz przez „Wystaw”.</span></div>` : ""}
+    <div class="itm-kpi">${kpi.map(([l, v]) => `<div><div class="l">${l}</div><div class="v">${v}</div></div>`).join("")}</div>
+    <h4>Gdzie wystawione</h4>${Object.keys(L).length ? `<div class="chips">${Object.entries(L).map(([p, d]) => `<span class="chip">${esc(p)} · od ${dShort(d)} (${daysSince(d)} dni)</span>`).join("")}</div>` : `<div class="small muted">Jeszcze nigdzie.</div>`}
+    ${lg && lg.ogl && lg.ogl.length ? `<h4>Opisy ogłoszeń</h4>${lg.ogl.map(x => `<details class="grp"><summary><span class="gt"><b>${esc(x.platforma)}</b><span class="small muted">${esc(x.tytul || "")}</span></span><span></span>${svg("arrow", 14)}</summary><div class="itm-desc">${esc(x.opis || "")}</div></details>`).join("")}` : ""}
+    ${s ? `<h4>Szczegóły z arkusza</h4>${detailKV(s)}` : ""}</div>`;
+  const close = () => { o.remove(); document.removeEventListener("keydown", esc_); }, esc_ = e => { if (e.key === "Escape") close(); };
+  o.onclick = e => { if (e.target === o || e.target.closest("[data-x]")) close(); const im = e.target.closest("[data-pz]"); if (im) { const z = document.createElement("div"); z.className = "itm-zoom"; z.innerHTML = `<img src="${esc(photos[+im.dataset.pz].url)}" alt="">`; z.onclick = () => z.remove(); document.body.append(z); } };
+  document.addEventListener("keydown", esc_); document.body.append(o); o.querySelector("[data-x]").focus();
+}
+document.addEventListener("click", e => { const t = e.target.closest("[data-item]"); if (!t || e.target.closest("[data-lst],a,button:not([data-item])")) return; e.preventDefault(); e.stopPropagation(); openItem(t.dataset.item); }, true);
+document.addEventListener("keydown", e => { const t = e.target.closest && e.target.closest("[data-item]"); if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openItem(t.dataset.item); } });
 const drow = (inner, s, extra = "") => `<details class="drow"><summary title="${s ? esc((STATUS[s.status] || "") + (s.status === "sprzedane" ? " · " + (PAY_LAB[uiPay(s)] || "") : "")) : ""}">${inner}</summary>${extra ? `<div style="padding:2px 0 12px">${extra}</div>` : ""}${detailKV(s)}</details>`;
 
 /* numbers */
@@ -2049,8 +2082,16 @@ function renderMagazyn() {
   if (invMode === "list") return renderListed();
   const all = M.sales.filter(s => !isTransit(s) && !(s.status === "presale" && s.order && !orderRecvd(s.order))), cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
   const val = st => all.filter(s => s.status === st).reduce((a, s) => a + (s.cost || 0), 0);
+  /* potencjalny przychód z niewystawionych: cena z arkusza, a gdy jej nie ma – średnia cena, za jaką sprzedał się ten produkt */
+  const avgP = {}; M.sales.filter(s => s.status === "sprzedane" && s.price > 0).forEach(s => (avgP[s.product] ||= []).push(s.price));
+  const OSP = orderStatus();   // plan ceny z zamówienia: to samo zamówienie i ten sam koszt sztuki (±2 zł)
+  const planP = s => { const o = OSP.find(x => x.order === s.order && x.sell > 0 && Math.abs((x.unitCost || 0) - (s.cost || 0)) < 2); return o ? o.sell : 0; };
+  const estP = (prod, own, s) => own > 0 ? own : avgP[prod] ? avgP[prod].reduce((a, b) => a + b, 0) / avgP[prod].length : s ? planP(s) : 0;
+  const unl = all.filter(s => ["magazyn", "wycofane"].includes(s.status)).map(s => ({p: estP(s.product, s.price, s), c: s.cost || 0}))
+    .concat(notEntered().flatMap(x => Array.from({length: x.qty}, () => ({p: estP(x.product, x.sell), c: x.unitCost || 0}))));
+  const unlRev = unl.reduce((a, x) => a + x.p, 0), unlProfit = unl.filter(x => x.p).reduce((a, x) => a + x.p - x.c, 0), unlNoP = unl.filter(x => !x.p).length;
   const tile = (icon, cls, lab, n, foot, f) => `<div class="stat s3" role="button" tabindex="0" data-tile="${f}" style="cursor:pointer;${invFilter === f ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v">${n} szt.</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", cnt.sprzedane || 0, "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (INCm.reduce((a, x) => a + (x.presold || 0), 0) ? ` · w tym ${INCm.reduce((a, x) => a + (x.presold || 0), 0)} presale` : "") + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
+  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", cnt.sprzedane || 0, "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (unlRev ? ` · przychód ~${zl(unlRev)} (zysk ~${zl(unlProfit)})` : "") + (unlNoP ? ` · ${unlNoP} bez ceny` : "") + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (INCm.reduce((a, x) => a + (x.presold || 0), 0) ? ` · w tym ${INCm.reduce((a, x) => a + (x.presold || 0), 0)} presale` : "") + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
   $("#inv-stats").querySelectorAll("[data-tile]").forEach(el => { const go = () => { invFilter = invFilter === el.dataset.tile ? "all" : el.dataset.tile; renderMagazyn(); $("#inv-seg").scrollIntoView({behavior: "smooth", block: "start"}); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   const incN = INCm.reduce((a, x) => a + x.qty, 0);
   const fl = [["all", "Wszystko", all.length + incN], ...Object.keys(STATUS).filter(k => cnt[k]).map(k => [k, STATUS[k], cnt[k]]), ...(incN ? [["chiny", "W drodze z Chin", incN]] : [])];
@@ -2059,7 +2100,7 @@ function renderMagazyn() {
   const groups = {};
   all.filter(s => invFilter === "all" || s.status === invFilter || (invFilter === "magazyn" && s.status === "wycofane")).forEach(s => { const k = s.product + "|" + cleanColor(s.color) + "|" + (s.order ?? "inne"); (groups[k] ||= []).push(s); });
   const order = Object.entries(groups).sort((a, b) => b[1].filter(x => x.status !== "sprzedane").length - a[1].filter(x => x.status !== "sprzedane").length);
-  const sizeChip = s => `<span class="sz p-${s.status}" data-tip="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
+  const sizeChip = s => `<span class="sz p-${s.status}" data-item="${esc(lkey(s))}" role="button" tabindex="0" data-tip="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
   /* rozpiska „co do mnie idzie”: kolor → rozmiary, wielosztuki jako 3×39 */
   const incBreak = x => { if (!x.items || !x.items.length) return x.sizes ? `<div class="incl"><span class="small muted">rozmiary:</span> <b>${esc(x.sizes)}</b></div>` : `<div class="small muted">Brak rozpiski rozmiarów w arkuszu.</div>`;
     const byC = {}; x.items.forEach(s => { const c = cleanColor(s.color) || "bez koloru"; ((byC[c] ||= {})[s.size || "–"] ||= {n: 0, pre: 0}).n++; if (["presale", "sprzedane"].includes(s.status)) byC[c][s.size || "–"].pre++; });
@@ -2296,8 +2337,8 @@ function renderListed() {
   const plats = {}; L.forEach(s => Object.keys(LISTINGS[lkey(s)]).forEach(p => plats[p] = (plats[p] || 0) + 1));
   el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wystawione · ${L.length + LOOSE.length} szt.</h3><div class="sub">${Object.entries(plats).map(([p, n]) => p + " " + n).join(" · ") || "nic jeszcze nie oznaczono"}</div></div></div>
     <div class="list">${L.sort((a, b) => Math.min(...Object.values(LISTINGS[lkey(a)]).map(d => +new Date(d))) - Math.min(...Object.values(LISTINGS[lkey(b)]).map(d => +new Date(d)))).map(s => { const k = lkey(s), first = Object.values(LISTINGS[k]).sort()[0], n = INTEREST[k] || 0;
-      return `<div class="row" style="flex-wrap:wrap">${pav(s)}<div class="main" style="flex:1 1 200px"><div class="t">${esc(pname(s))}</div><div class="s">${esc([cleanColor(s.color), STATUS[s.status], s.price ? zl(s.price) : ""].filter(Boolean).join(" · "))} · wystawione ${daysSince(first)} dni temu</div>${listedChips(s)}</div>
-        <div class="end"><span class="small muted">zainteresowani</span><span style="display:flex;gap:6px;align-items:center"><button class="iconbtn flat" data-int="${esc(k)}" data-d="-1" aria-label="Mniej">−</button><b>${n}</b><button class="iconbtn flat" data-int="${esc(k)}" data-d="1" aria-label="Więcej">+</button></span></div></div>`; }).join("")}${LOOSE.map(x => `<div class="row"><div class="main"><div class="t">${esc([x.produkt, x.rozmiar && "rozm. " + x.rozmiar].filter(Boolean).join(" · "))}</div><div class="s">${x.cena ? zl(+x.cena) + " · " : ""}wystawione ${daysSince(x.date)} dni temu · spoza magazynu</div><div class="chips" style="margin-top:6px">${x.plats.map(p => `<span class="chip">${esc(p)} · od ${dShort(x.date)}</span>`).join("")}</div></div></div>`).join("")}${L.length || LOOSE.length ? "" : `<div class="empty">Oznacz rzeczy w „Wystaw → Do wystawienia”, a pojawią się tutaj.</div>`}</div>
+      return `<div class="row" style="flex-wrap:wrap">${pav(s)}<div class="main" style="flex:1 1 200px" data-item="${esc(k)}" role="button" tabindex="0"><div class="t">${esc(pname(s))}</div><div class="s">${esc([cleanColor(s.color), STATUS[s.status], s.price ? zl(s.price) : ""].filter(Boolean).join(" · "))} · wystawione ${daysSince(first)} dni temu</div>${listedChips(s)}</div>
+        <div class="end"><span class="small muted">zainteresowani</span><span style="display:flex;gap:6px;align-items:center"><button class="iconbtn flat" data-int="${esc(k)}" data-d="-1" aria-label="Mniej">−</button><b>${n}</b><button class="iconbtn flat" data-int="${esc(k)}" data-d="1" aria-label="Więcej">+</button></span></div></div>`; }).join("")}${LOOSE.map(x => `<div class="row"><div class="main" data-item="log:${LISTEDLOG.indexOf(x)}" role="button" tabindex="0"><div class="t">${esc([x.produkt, x.rozmiar && "rozm. " + x.rozmiar].filter(Boolean).join(" · "))}</div><div class="s">${x.cena ? zl(+x.cena) + " · " : ""}wystawione ${daysSince(x.date)} dni temu · spoza magazynu</div><div class="chips" style="margin-top:6px">${x.plats.map(p => `<span class="chip">${esc(p)} · od ${dShort(x.date)}</span>`).join("")}</div></div></div>`).join("")}${L.length || LOOSE.length ? "" : `<div class="empty">Oznacz rzeczy w „Wystaw → Do wystawienia”, a pojawią się tutaj.</div>`}</div>
     <p class="note">„Zainteresowani” liczysz na razie sam (+ przy każdej wiadomości lub komentarzu). Gdy podłączymy powiadomienia, będą się dopisywać same.</p></div>`;
   el.querySelectorAll("[data-int]").forEach(b => b.onclick = async () => { const k = b.dataset.int; INTEREST[k] = Math.max(0, (INTEREST[k] || 0) + +b.dataset.d); await store.save("interest", INTEREST); renderListed(); });
 }
@@ -2592,7 +2633,7 @@ function renderGenDone(D) {
     if (!fin.dataset.sure) { fin.dataset.sure = 1; fin.textContent = "Na pewno? Kliknij jeszcze raz – formularz się wyczyści"; return; }
     const today = new Date().toISOString().slice(0, 10), d = D.data || {};
     if (lk) { const L = LISTINGS[lk] ||= {}; D.done.forEach(p => { if (!L[p]) L[p] = today; }); await store.save("listings", LISTINGS); }
-    const log = LISTEDLOG = (await store.load("listedlog", [])) || []; log.unshift({date: today, produkt: d.produkt, rozmiar: d.rozmiar, cena: d.cena_zl, plats: D.done, lk: lk || null, zdjecia: PH().length}); await store.save("listedlog", log.slice(0, 200));
+    const log = LISTEDLOG = (await store.load("listedlog", [])) || []; log.unshift({date: today, produkt: d.produkt, rozmiar: d.rozmiar, kolor: d.kolor, cena: d.cena_zl, plats: D.done, lk: lk || null, zdjecia: PH().length, photos: PH().filter(p => p.url && !/^data:/.test(p.url)).map(p => ({url: p.url})), ogl: (D.L || []).filter(x => x.ok).map(x => ({platforma: x.platforma, tytul: x.tytul, opis: genFull(x)}))}); await store.save("listedlog", log.slice(0, 200));
     await genResetForm();
     toast(`Zapisano: wystawione na ${D.done.length} ${D.done.length === 1 ? "platformie" : "platformach"}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw(); if (typeof renderListed === "function") renderListed();
   };
