@@ -532,7 +532,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 19:42</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:41</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -650,11 +650,12 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
         <div id="gen-audit" hidden></div>
       </div>
       <div class="s5 col">
-        <div id="fb-groups"></div>
         <div class="card" id="w-drafts"></div>
+        <div class="card" id="w-active"></div>
         <div class="card" id="w-history"></div>
         <div class="card"><div class="ch"><div><h3>Do wystawienia</h3><div class="sub" id="w-count"></div></div></div><div class="list" id="w-list"></div></div>
         <div class="card info"><span class="ico"><svg class="i"><use href="#i-info"/></svg></span><div>Opis nigdy nie napisze, że rzecz jest oryginalna, i nie wymyśli paragonu ani stanu, którego nie podasz. <b>Fałszywe zapewnienia kończą się blokadą konta.</b></div></div>
+        <div id="fb-groups"></div>
       </div>
     </div>
   </section>
@@ -2404,7 +2405,7 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
     priceHint(); msg.textContent = "Uzupełnione ze zdjęć – sprawdź pola.";
   } catch { msg.textContent = "Nie udało się odczytać zdjęć – uzupełnij ręcznie."; }
 }
-const PHOTO_MAX = 20, AI_PHOTOS = 6;   // do AI idzie tylko 6 pierwszych (oszczędność), do ogłoszeń wszystkie
+const PHOTO_MAX = 20, AI_PHOTOS = 4;   // do AI idą tylko 4 pierwsze (limit Claude: 4 zdjęcia na zapytanie), do ogłoszeń wszystkie
 const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8};
 /* zdjęcia: kafelki 1–20, dziury dozwolone; PHOTOS[i] = {url, name, blob, k} albo null */
 const PH = () => PHOTOS.filter(p => p && p.url);
@@ -2563,7 +2564,7 @@ const PLAT_RULES = {
   "Vinted": {h: 1, manual: 1, k: ["Sprzedaj → do 20 zdjęć (min. 5, najlepiej na sobie albo w dłoni)", "Tytuł: marka + typ + kolor + rozmiar", "Kategoria, marka, rozmiar, stan, kolor, materiał – wszystkie pola", "Cena i rozmiar paczki · wystawiasz RĘCZNIE (Vinted banuje automaty)"], r: "Vinted: tytuł do ok. 50 znaków: marka + typ + kolor + rozmiar (bez ozdobników typu „śliczne”). OPIS: „Siemanko! Mam do sprzedania …” (1–2 zdania po ludzku), potem punkty: rozmiar i jak wypada (przy ubraniach wymiary: pacha–pacha, długość – jeśli podane; przy butach długość wkładki), kolor, materiał, stan i jak często noszone, wady, co w zestawie; zaproszenie do pytań i informacja o szybkiej wysyłce. Na końcu 3–5 hashtagów bez polskich znaków (marka, typ, styl)."},
   "Facebook Marketplace": {h: 0, k: ["Marketplace → Utwórz ogłoszenie → Przedmiot na sprzedaż", "Do 10 zdjęć (najlepiej min. 6), najdokładniejsza kategoria", "Tytuł, cena, stan, opis, lokalizacja", "Odpisuj szybko – Marketplace to nagradza"], r: "Facebook Marketplace: tytuł do 60 znaków: typ + marka + rozmiar + kolor, bez CAPS LOCKA, „!!!” i niepowiązanych słów (Facebook usuwa takie ogłoszenia). OPIS krótki (4–6 linijek), ciepły: „Hej! Mam do sprzedania …”, rozmiar, stan, co w zestawie, odbiór/wysyłka z miastem, zachęta do pisania. Bez hashtagów."},
   "Grupa na Facebooku": {h: 0, k: ["Wejdź w grupę → Sprzedaj coś / Napisz post", "Zdjęcia + krótki opis z ceną", "Sprawdź regulamin grupy (format posta, limit postów, hashtagi)"], r: "Post do grupy na Facebooku: pierwsza linijka = co + rozmiar + cena (to widać w podglądzie), potem 3–5 krótkich linijek (stan, co w zestawie, odbiór/wysyłka, miasto), na końcu „pisz na priv 🙂”. Bez hashtagów, chyba że regulamin grupy ich wymaga. Ma brzmieć jak wpis sympatycznej osoby, nie reklama."},
-  "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, WYMIARY (często obowiązkowe)", "Zdjęcia: każda wada opisana musi być na zdjęciu", "Sprawdź tekst – po publikacji nie da się edytować; weryfikacja ok. 24–48 h"], r: "Vestiaire Collective: TYTUŁ I OPIS PO ANGIELSKU (kupujący z całej Europy), a w polu tlumaczenie – wierne polskie tłumaczenie opisu. Uprzejmie, ciepło i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: materiał, kolekcja/sezon (jeśli podane), rozmiar i wymiary, jak często noszone, stan i KAŻDA wada, co w zestawie (pudełko, worek, metki). Kupujący to klienci premium – konkret, zero przesady."},
+  "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, WYMIARY (często obowiązkowe)", "Zdjęcia: każda wada opisana musi być na zdjęciu", "Sprawdź tekst – po publikacji nie da się edytować; weryfikacja ok. 24–48 h"], r: "Vestiaire Collective: TYTUŁ I OPIS W CAŁOŚCI PO ANGIELSKU (kupujący z całej Europy) – także szczegóły, wady, zestaw i dostawa z danych przetłumacz na angielski, ani jednego zdania po polsku, a w polu tlumaczenie – wierne polskie tłumaczenie opisu. Uprzejmie, ciepło i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: materiał, kolekcja/sezon (jeśli podane), rozmiar i wymiary, jak często noszone, stan i KAŻDA wada, co w zestawie (pudełko, worek, metki). Kupujący to klienci premium – konkret, zero przesady."},
   "Allegro Lokalnie": {h: 0, k: ["Dodaj ogłoszenie → kategoria i parametry (marka, rozmiar, stan)", "Tytuł do 50 znaków", "Do 15 zdjęć – własne, nie ze strony producenta", "Cena (Kup teraz), lokalizacja, dostawa"], r: "Allegro Lokalnie: tytuł do 50 znaków, najważniejsze słowa na początku (typ, marka, model, rozmiar). Opis jak na OLX: ciepły wstęp, dane w punktach (rozmiar, kolor, materiał, stan, wady, co w zestawie), słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
   "Szafa.pl": {h: 0, k: ["Dodaj ogłoszenie → kategoria, marka, rozmiar", "Zdjęcia (detale, faktura, prawdziwy kolor), opis, stan, cena", "Sposób wysyłki"], r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki, sympatyczny i rzeczowy w punktach (rozmiar i wymiary, materiał, stan i ślady użytkowania, co w zestawie), na końcu zaproszenie do pytań. Bez hashtagów."},
   "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (marka + typ + kolor + rozmiar), ciepły wstęp, opis w punktach (rozmiar/wymiary, materiał, stan, wady, co w zestawie), na końcu 3–5 hashtagów bez polskich znaków."}
@@ -2622,7 +2623,7 @@ Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna na
     runAudit(data, {tytul: L.map(x => x.platforma + ": " + x.tytul).join(" | "), opis: L.map(x => "=== " + x.platforma + " ===\n" + x.opis + (x.hashtagi && x.hashtagi.length ? "\n" + x.hashtagi.join(" ") : "")).join("\n\n"), multi: true});
   } catch (err) {
     if (err && (err.code === "no_key" || err.code === "not_granted")) useTpl("Bez klucza Claude – opisy z szablonu (za darmo). Popraw je pod siebie.");
-    else msg.textContent = err && err.code === "rate_limited" ? "Limit zapytań – spróbuj za chwilę." : "Nie udało się napisać – spróbuj jeszcze raz.";
+    else { console.warn("gen", err); msg.textContent = err && err.code === "rate_limited" ? "Limit zapytań – spróbuj za chwilę." : "Nie udało się napisać – spróbuj jeszcze raz." + (err ? ` (powód: ${[err.code, err.message].filter(Boolean).join(" – ") || String(err).slice(0, 120)})` : ""); }
   } finally { btn.disabled = false; }
 };
 /* opisy: edytowalne per kanał, zapisywane (telefon = komputer) */
@@ -2645,22 +2646,25 @@ async function loadDraft(D) {
   $("#gen-readymsg").innerHTML = D.ready ? readyTxt(D) : ""; store.save("gendraft", D); renderDraftLists();
   $("#gen-form").scrollIntoView({behavior: "smooth", block: "start"}); }
 function renderDraftLists() {
-  const a = $("#w-drafts"), h = $("#w-history"); if (!a || !h) return;
+  const a = $("#w-drafts"), h = $("#w-history"), ac = $("#w-active"); if (!a || !h || !ac) return;
+  const soldOf = x => x.lk && M.sales.some(s => lkey(s) === x.lk && ["sprzedane", "oddane"].includes(s.status));
+  const ACT = LISTEDLOG.map((x, i) => [x, i]).filter(([x]) => !soldOf(x)), HIS = LISTEDLOG.map((x, i) => [x, i]).filter(([x]) => soldOf(x));
   const ph0 = D => { const u = (D.photos || []).find(p => p && p.url); return u ? `<img class="wd-ph" src="${esc(u.url)}" alt="">` : `<span class="wd-ph wd-noph">${svg("plus", 14)}</span>`; };
   const nm = d => esc([d && d.produkt, d && d.rozmiar && "rozm. " + d.rozmiar].filter(Boolean).join(" · ") || "Bez nazwy");
-  a.innerHTML = `<div class="ch"><div><h3>Aktywne / w trakcie wystawiania</h3><div class="sub">${DRAFTS.length ? DRAFTS.length + " " + (DRAFTS.length === 1 ? "szkic" : DRAFTS.length < 5 ? "szkice" : "szkiców") : "brak szkiców"}</div></div><button class="sm" id="wd-new">+ Nowe ogłoszenie</button></div>
+  a.innerHTML = `<div class="ch"><div><h3>W trakcie wystawiania</h3><div class="sub">${DRAFTS.length ? DRAFTS.length + " " + (DRAFTS.length === 1 ? "szkic" : DRAFTS.length < 5 ? "szkice" : "szkiców") : "brak szkiców"}</div></div><button class="sm" id="wd-new">+ Nowe ogłoszenie</button></div>
     <div class="list">${DRAFTS.map(D => { const ok = (D.L || []).filter(x => x.ok).length, cur = GEN_DRAFT && GEN_DRAFT.id === D.id;
       return `<div class="row">${ph0(D)}<div class="main"><div class="t">${nm(D.data)}${cur ? ` <span class="pill p-wystawione">otwarte</span>` : ""}</div><div class="s">${(D.photos || []).length} zdj. · ${D.L && D.L.length ? `${ok}/${D.L.length} opisów zaakceptowanych` : "bez opisów"}${D.ready ? " · przekazane do wystawienia" : ""}</div></div>
         <div class="end" style="flex-direction:row;gap:6px">${cur ? "" : `<button class="sm" data-wd-edit="${esc(D.id)}">Edytuj</button>`}<button class="link small" data-wd-del="${esc(D.id)}">Usuń</button></div></div>`; }).join("") || `<div class="empty">Szkic pojawi się tu, gdy dodasz zdjęcia albo wygenerujesz opisy.</div>`}</div>`;
-  h.innerHTML = `<div class="ch"><div><h3>Historia</h3><div class="sub">${LISTEDLOG.length} wystawionych</div></div></div>
-    <div class="list">${LISTEDLOG.map((x, i) => `<div class="row">${ph0(x)}<div class="main" data-item="${x.lk ? esc(x.lk) : "log:" + i}" role="button" tabindex="0"><div class="t">${nm(x.data || {produkt: x.produkt, rozmiar: x.rozmiar})}</div><div class="s">${dShort(x.date)} · ${x.cena ? esc(plnPrice(x.cena)) + " · " : ""}${(x.plats || []).map(esc).join(", ")}</div></div>
-      <div class="end"><button class="sm" data-wd-again="${i}">Wystaw ponownie</button></div></div>`).join("") || `<div class="empty">Tu trafią ogłoszenia zapisane jako wystawione.</div>`}</div>`;
+  const logRow = ([x, i], btn) => `<div class="row">${ph0(x)}<div class="main" data-item="${x.lk ? esc(x.lk) : "log:" + i}" role="button" tabindex="0"><div class="t">${nm(x.data || {produkt: x.produkt, rozmiar: x.rozmiar})}</div><div class="s">${dShort(x.date)} · ${x.cena ? esc(plnPrice(x.cena)) + " · " : ""}${(x.plats || []).map(esc).join(", ")}</div></div>
+      <div class="end"><button class="sm" data-wd-again="${i}">${btn}</button></div></div>`;
+  ac.innerHTML = `<div class="ch"><div><h3>Aktywne</h3><div class="sub">teraz wystawione: ${ACT.length}</div></div></div><div class="list">${ACT.map(r => logRow(r, "Edytuj")).join("") || `<div class="empty">Tu trafią ogłoszenia zapisane jako wystawione.</div>`}</div>`;
+  h.innerHTML = `<div class="ch"><div><h3>Historia</h3><div class="sub">sprzedane: ${HIS.length}</div></div></div><div class="list">${HIS.map(r => logRow(r, "Wystaw ponownie")).join("") || `<div class="empty">Tu trafią wystawione rzeczy, gdy się sprzedadzą.</div>`}</div>`;
   a.querySelector("#wd-new").onclick = async () => { stashCurrent(); await genResetForm(); toast("Nowe ogłoszenie – poprzednie czeka w „Aktywne”"); };
   a.querySelectorAll("[data-wd-edit]").forEach(b => b.onclick = () => { stashCurrent(); const D = DRAFTS.find(x => x.id === b.dataset.wdEdit); if (D) loadDraft(D); });
   a.querySelectorAll("[data-wd-del]").forEach(b => b.onclick = async () => { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Na pewno usunąć?"; return; } const id = b.dataset.wdDel; DRAFTS = DRAFTS.filter(x => x.id !== id); await store.save("drafts", DRAFTS); if (GEN_DRAFT && GEN_DRAFT.id === id) await genResetForm(); renderDraftLists(); toast("Szkic usunięty"); });
-  h.querySelectorAll("[data-wd-again]").forEach(b => b.onclick = () => { const x = LISTEDLOG[+b.dataset.wdAgain]; if (!x) return; stashCurrent();
+  [...h.querySelectorAll("[data-wd-again]"), ...ac.querySelectorAll("[data-wd-again]")].forEach(b => b.onclick = () => { const x = LISTEDLOG[+b.dataset.wdAgain]; if (!x) return; stashCurrent();
     const D = {id: uid(), ts: Date.now(), lk: x.lk || "", data: x.data || {produkt: x.produkt, rozmiar: x.rozmiar, kolor: x.kolor, cena_zl: x.cena}, photos: x.photos || [], L: (x.ogl || []).map(o => ({platforma: o.platforma, tytul: o.tytul, opis: o.opis, full: o.opis, ok: 1}))};
-    saveDraft(D); loadDraft(D); toast("Wczytane do edycji – popraw i wystaw ponownie"); });
+    saveDraft(D); loadDraft(D); toast(b.textContent === "Edytuj" ? "Wczytane do edycji – popraw opisy i zdjęcia" : "Wczytane – popraw i wystaw ponownie"); });
 }
 const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
 /* PO WYSTAWIENIU: zaznacz, gdzie faktycznie wisi ogłoszenie → zapis „wystawione” przy rzeczy + czysty formularz */
