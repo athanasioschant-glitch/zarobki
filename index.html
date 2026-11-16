@@ -532,7 +532,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:44</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:49</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2604,6 +2604,7 @@ Uczciwość – bezwzględnie:
 - Nigdy nie pisz, że rzecz jest oryginalna, autentyczna, „legit”, „100%”, z paragonem ani certyfikatem. Nie wymyślaj historii zakupu.
 - Nie dopisuj stanu, wad, wymiarów, dodatków ani cech, których nie ma w danych.
 - Markę i model podawaj tylko tak, jak są w danych.
+- Nigdy nie pisz „z metką”, „z metkami”, „with tag(s)” – ani w tytule, ani w opisie. Stan nowej rzeczy opisuj jako „nowe, nienoszone” albo „nowe” (po angielsku „brand new, never worn”).
 - Cenę podawaj dokładnie jak w danych, z groszami i przecinkiem (np. 599,99 zł) – nigdy jej nie zaokrąglaj.
 
 Dane:
@@ -2771,7 +2772,7 @@ function tplGen(d, plats) {
   const noPl = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
   const prod = d.produkt, size = d.rozmiar, color = d.kolor, price = d.cena_zl ? plnPrice(d.cena_zl) : "";
   const name = prod + (color && !prod.toLowerCase().includes(color.toLowerCase()) ? " (" + color + ")" : "");
-  const stan = {"Nowy z metką": "nowy, z metką – nienoszony", "Nowy bez metki": "nowy bez metki – nienoszony", "Bardzo dobry": "bardzo dobry", "Dobry": "dobry", "Zadowalający": "zadowalający"}[d.stan] || (d.stan || "").toLowerCase();
+  const stan = {"Nowy z metką": "nowe, nienoszone", "Nowy bez metki": "nowe, nienoszone", "Bardzo dobry": "bardzo dobry", "Dobry": "dobry", "Zadowalający": "zadowalający"}[d.stan] || (d.stan || "").toLowerCase();
   const extra = (d.szczegoly || "").split(/\n+/).map(t => t.trim()).filter(Boolean);
   const pts = (dash) => [size && `${dash}Rozmiar: ${size}`, color && `${dash}Kolor: ${color}`, stan && `${dash}Stan: ${stan}`, d.w_zestawie && `${dash}W zestawie: ${d.w_zestawie}`, ...extra.map(t => dash + t), price && `${dash}Cena: ${price}`].filter(Boolean).join("\n");
   const city = d.miasto ? " – " + d.miasto : "";
@@ -2787,7 +2788,7 @@ function tplGen(d, plats) {
     "Vinted": () => ({tytul: title(50), opis: `Siemanko! 😊 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)}),
     "Facebook Marketplace": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n${pts("")}\n${ship} Pisz śmiało!`, hashtagi: []}),
     "Grupa na Facebooku": () => ({tytul: title(80), opis: `${[prod, size && "r. " + size, price].filter(Boolean).join(" – ")}\n${[color && "Kolor: " + color, stan && "Stan: " + stan, d.w_zestawie && "W zestawie: " + d.w_zestawie, ...extra].filter(Boolean).join("\n")}\n${ship}\nPisz na priv :))`, hashtagi: []}),
-    "Vestiaire Collective": () => { const en = {"Nowy z metką": "new with tags, never worn", "Nowy bez metki": "new without tags, never worn", "Bardzo dobry": "very good", "Dobry": "good", "Zadowalający": "fair"}[d.stan] || "";
+    "Vestiaire Collective": () => { const en = {"Nowy z metką": "brand new, never worn", "Nowy bez metki": "brand new, never worn", "Bardzo dobry": "very good", "Dobry": "good", "Zadowalający": "fair"}[d.stan] || "";
       const L1 = [size && "– Size: " + size, color && "– Colour: " + color, en && "– Condition: " + en, d.w_zestawie && "– Included: " + d.w_zestawie, ...extra.map(t => "– " + t)].filter(Boolean).join("\n");
       return {tytul: cut([prod, color].filter(Boolean).join(" "), 80), opis: `Hello! For sale: ${prod}${color ? " in " + color : ""}.\n\n${L1}\n\nHappy to answer any questions and send extra photos.`, hashtagi: [], tlumaczenie: `Dzień dobry! Na sprzedaż: ${name}.\n\n${pts("– ")}\n\nChętnie odpowiem na pytania i prześlę dodatkowe zdjęcia.\n\n(Kolor, dodatki i szczegóły wpisane po polsku – przetłumacz je w opisie, klikając „Edytuj”.)`}; },
     "Allegro Lokalnie": () => ({tytul: title(50), opis: `Cześć! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
