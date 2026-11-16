@@ -193,6 +193,7 @@ details.grp{border-top:1px solid var(--line)}details.grp:first-of-type{margin-to
 .itm-desc{white-space:pre-wrap;font-size:14px;padding:0 0 12px;overflow-wrap:anywhere}
 .itm-zoom{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.9);display:grid;place-items:center;cursor:zoom-out}.itm-zoom img{max-width:94vw;max-height:94vh;border-radius:8px}
 [data-item]{cursor:pointer}
+.wd-ph{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}.wd-noph{display:grid;place-items:center;background:var(--surface2);color:var(--muted)}
 .gen-done{margin-top:12px;padding:14px;border-radius:14px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
 .mth-list{display:flex;flex-direction:column}
 .mth{border-top:1px solid var(--line)}.mth:first-child{border-top:0}
@@ -531,7 +532,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 17:13</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 19:42</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -650,6 +651,8 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
       </div>
       <div class="s5 col">
         <div id="fb-groups"></div>
+        <div class="card" id="w-drafts"></div>
+        <div class="card" id="w-history"></div>
         <div class="card"><div class="ch"><div><h3>Do wystawienia</h3><div class="sub" id="w-count"></div></div></div><div class="list" id="w-list"></div></div>
         <div class="card info"><span class="ico"><svg class="i"><use href="#i-info"/></svg></span><div>Opis nigdy nie napisze, że rzecz jest oryginalna, i nie wymyśli paragonu ani stanu, którego nie podasz. <b>Fałszywe zapewnienia kończą się blokadą konta.</b></div></div>
       </div>
@@ -1030,14 +1033,20 @@ const DEF_LIMIT = 8000, TX_LIMIT = 30, WARN_REV = 6500, WARN_TX = 25;
 const accWarn = x => [x.rev >= WARN_REV ? `przychód ${zl(x.rev)} (próg ostrzeżenia ${zl(WARN_REV)})` : "", x.n >= WARN_TX ? `${x.n} transakcji (próg ostrzeżenia ${WARN_TX})` : ""].filter(Boolean);
 
 /* storage: private per-user db, browser storage as fallback */
+/* do bazy/arkusza nie wysyłamy podglądów zdjęć zapisanych w szkicu (data:…) – w arkuszu jedno pole mieści ok. 45 tys. znaków */
+let STORE_RAW = null;
+const slimRemote = (k, v) => k === "gendraft" && v && Array.isArray(v.photos) ? {...v, photos: v.photos.map(p => ({name: p.name, url: /^data:/.test(p.url || "") ? null : p.url}))} : v;
 const store = (() => {
   let ref = null; const ready = (async () => {
     try { const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]); if (db && user) { const id = await user.id(); if (id) ref = k => db.collection("data/users/" + id).doc(k); } } catch {}
   })();
   const raw = {
     async load(k, d) { await ready; if (ref) { try { const s = await ref(k).get(); if (s.exists) { const v = s.data().items; return v == null ? v : JSON.parse(JSON.stringify(v)); } } catch {} } return ls.get("kd_" + k, d); },
-    async save(k, items) { ls.set("kd_" + k, items); await ready; if (ref) { try { await ref(k).set({items}); } catch (e) { console.warn("db", e); } } }
+    async save(k, items) { ls.set("kd_" + k, items); await ready; if (ref) { try { await ref(k).set({items: slimRemote(k, items)}); } catch (e) { console.warn("db", e); } } },
+    async has(k) { await ready; if (!ref) return true; try { return (await ref(k).get()).exists; } catch { return true; } },
+    async push(k, items) { await ready; if (ref) await ref(k).set({items: slimRemote(k, items)}); }
   };
+  STORE_RAW = raw;
   return {
     // db snapshots are frozen – return a plain editable copy, otherwise later changes are silently lost
     async load(k, d) { const v = await raw.load(k, d); if (!(k in LAST)) LAST[k] = JSON.stringify(v === undefined ? null : v); return v; },
@@ -1046,6 +1055,15 @@ const store = (() => {
   };
 })();
 store.raw = null;
+/* zapisy, które wcześniej nie zmieściły się w arkuszu (szkic, zdjęcia), wysyłamy jeszcze raz – zdjęcia zmniejszone */
+async function shrinkData(url) { if (String(url).length < 44000) return url; const img = await decodeImg(await (await fetch(url)).blob()); for (const [m, q] of [[480, .66], [400, .6], [340, .55], [280, .5]]) { const u = await toDataURL(await drawTo(img, m, q)); if (u.length < 44000) return u; } return null; }
+async function resyncLocal() {
+  const ph = ls.get("kd_genphotos", null), keys = ["gendraft", "genphotos", ...(Array.isArray(ph) ? ph.filter(p => p && p.k).map(p => p.k) : [])];
+  let n = 0;
+  for (const k of keys) { const v = ls.get("kd_" + k, undefined); if (v === undefined || v === null) continue;
+    try { if (await STORE_RAW.has(k)) continue; let val = v; if (k.startsWith("lp_") && Array.isArray(v) && v[0]) { const u = await shrinkData(v[0]); if (!u) continue; val = [u]; ls.set("kd_" + k, val); } await STORE_RAW.push(k, val); n++; } catch (e) { console.warn("resync", k, e); } }
+  if (n) toast(`Dosłano do arkusza: ${n} zapisów (szkic / zdjęcia)`);
+}
 /* HISTORIA ZMIAN — każdy zapis zapamiętuje poprzedni stan, żeby dało się cofnąć */
 const HIST_SKIP = /^(history|photos|ph_|seed_v1|api_usage|gendraft|genphotos|lp_)/, LAST = {}, HIST = {on: false, list: [], timer: null};
 const KEY_LAB = {listings: "gdzie wystawione", banks: "premie bankowe", income: "wpisy", recv: "otrzymane / nieotrzymane", paid: "status sprzedaży", networth: "majątek i długi", accounts: "konta", tx: "inne transakcje", todos: "zadania", budget: "podział pieniędzy", living: "koszty życia", transfers: "przelewy", ideas: "pomysły", arrived: "dostawy", goal_10k: "cel", profiles: "profile", src_order: "kolejność źródeł", channels: "kanały sprzedaży", searches: "wyszukiwania", groups: "grupy"};
@@ -1084,6 +1102,8 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-undo
 const saveTimers = {};
 const autosave = (k, getter) => { clearTimeout(saveTimers[k]); saveTimers[k] = setTimeout(() => store.save(k, getter()), 600); };
 const uid = () => Math.random().toString(36).slice(2, 10);
+const numPL = v => parseFloat(String(v == null ? "" : v).replace(/\s|zł/g, "").replace(",", ".")) || 0;
+const plnPrice = v => { const n = +String(v).replace(",", "."); return !isFinite(n) ? String(v) : (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",")) + " zł"; };
 
 /* payment state: sold → money in transit until marked as received */
 const AUTO_DAYS = 14;
@@ -1189,7 +1209,7 @@ function openItem(k) {
   const lg = k.startsWith("log:") ? LISTEDLOG[+k.slice(4)] : LISTEDLOG.find(x => x.lk === k), s = k.startsWith("log:") ? null : M.sales.find(x => lkey(x) === k);
   if (!s && !lg) return;
   const L = s ? (LISTINGS[k] || {}) : Object.fromEntries((lg.plats || []).map(p => [p, lg.date]));
-  const price = (s && s.price) || (lg && +lg.cena) || 0, cost = s ? (s.cost ?? s.estCost) : null, photos = (lg && lg.photos) || [];
+  const price = (s && s.price) || (lg && numPL(lg.cena)) || 0, cost = s ? (s.cost ?? s.estCost) : null, photos = (lg && lg.photos) || [];
   const name = s ? pname(s) : lg.produkt, sub = [s ? cleanColor(s.color) : lg.kolor, (s ? s.size : lg.rozmiar) && "rozm. " + (s ? s.size : lg.rozmiar), s && STATUS[s.status]].filter(Boolean);
   const kpi = [[s && s.status === "sprzedane" ? "Sprzedane za" : "Wystawione za", price ? zl(price, 2) : "—"], ["Kupione za (z frachtem)", cost != null ? zl(cost, 2) : "—"], [s && s.status === "sprzedane" ? "Zysk" : "Zysk, jeśli sprzeda się za tyle", price && cost != null ? zl((s && s.profit != null && s.status === "sprzedane" ? s.profit : price - cost), 2) : "—"]];
   const o = document.createElement("div"); o.className = "itm-ov"; o.dataset.k = k;
@@ -2338,11 +2358,12 @@ function renderListed() {
   el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wystawione · ${L.length + LOOSE.length} szt.</h3><div class="sub">${Object.entries(plats).map(([p, n]) => p + " " + n).join(" · ") || "nic jeszcze nie oznaczono"}</div></div></div>
     <div class="list">${L.sort((a, b) => Math.min(...Object.values(LISTINGS[lkey(a)]).map(d => +new Date(d))) - Math.min(...Object.values(LISTINGS[lkey(b)]).map(d => +new Date(d)))).map(s => { const k = lkey(s), first = Object.values(LISTINGS[k]).sort()[0], n = INTEREST[k] || 0;
       return `<div class="row" style="flex-wrap:wrap">${pav(s)}<div class="main" style="flex:1 1 200px" data-item="${esc(k)}" role="button" tabindex="0"><div class="t">${esc(pname(s))}</div><div class="s">${esc([cleanColor(s.color), STATUS[s.status], s.price ? zl(s.price) : ""].filter(Boolean).join(" · "))} · wystawione ${daysSince(first)} dni temu</div>${listedChips(s)}</div>
-        <div class="end"><span class="small muted">zainteresowani</span><span style="display:flex;gap:6px;align-items:center"><button class="iconbtn flat" data-int="${esc(k)}" data-d="-1" aria-label="Mniej">−</button><b>${n}</b><button class="iconbtn flat" data-int="${esc(k)}" data-d="1" aria-label="Więcej">+</button></span></div></div>`; }).join("")}${LOOSE.map(x => `<div class="row"><div class="main" data-item="log:${LISTEDLOG.indexOf(x)}" role="button" tabindex="0"><div class="t">${esc([x.produkt, x.rozmiar && "rozm. " + x.rozmiar].filter(Boolean).join(" · "))}</div><div class="s">${x.cena ? zl(+x.cena) + " · " : ""}wystawione ${daysSince(x.date)} dni temu · spoza magazynu</div><div class="chips" style="margin-top:6px">${x.plats.map(p => `<span class="chip">${esc(p)} · od ${dShort(x.date)}</span>`).join("")}</div></div></div>`).join("")}${L.length || LOOSE.length ? "" : `<div class="empty">Oznacz rzeczy w „Wystaw → Do wystawienia”, a pojawią się tutaj.</div>`}</div>
+        <div class="end"><span class="small muted">zainteresowani</span><span style="display:flex;gap:6px;align-items:center"><button class="iconbtn flat" data-int="${esc(k)}" data-d="-1" aria-label="Mniej">−</button><b>${n}</b><button class="iconbtn flat" data-int="${esc(k)}" data-d="1" aria-label="Więcej">+</button></span></div></div>`; }).join("")}${LOOSE.map(x => `<div class="row"><div class="main" data-item="log:${LISTEDLOG.indexOf(x)}" role="button" tabindex="0"><div class="t">${esc([x.produkt, x.rozmiar && "rozm. " + x.rozmiar].filter(Boolean).join(" · "))}</div><div class="s">${x.cena ? zl(numPL(x.cena)) + " · " : ""}wystawione ${daysSince(x.date)} dni temu · spoza magazynu</div><div class="chips" style="margin-top:6px">${x.plats.map(p => `<span class="chip">${esc(p)} · od ${dShort(x.date)}</span>`).join("")}</div></div></div>`).join("")}${L.length || LOOSE.length ? "" : `<div class="empty">Oznacz rzeczy w „Wystaw → Do wystawienia”, a pojawią się tutaj.</div>`}</div>
     <p class="note">„Zainteresowani” liczysz na razie sam (+ przy każdej wiadomości lub komentarzu). Gdy podłączymy powiadomienia, będą się dopisywać same.</p></div>`;
   el.querySelectorAll("[data-int]").forEach(b => b.onclick = async () => { const k = b.dataset.int; INTEREST[k] = Math.max(0, (INTEREST[k] || 0) + +b.dataset.d); await store.save("interest", INTEREST); renderListed(); });
 }
 function renderWystaw() {
+  renderDraftLists();
   { const fg = $("#fb-groups"); if (fg) fg.innerHTML = fbGroupsHTML(); }
   renderKakoNav("wystaw", "wystaw");
   $("#gen-prod").oninput = renderPhotoPlan; setTimeout(renderPhotoPlan);
@@ -2404,7 +2425,7 @@ function drawTo(img, max, q, rot = 0) {
 }
 async function storeBig(big, i) {
   if (assetsNS) { try { return {url: (await Promise.race([assetsNS.upload(big), new Promise((_, no) => setTimeout(() => no(new Error("przekroczony czas")), 30000))])).url, k: null}; } catch (e) { console.warn("assets", e); } }
-  const small = await drawTo(await decodeImg(big), 560, .72), url = await toDataURL(small), k = "lp_" + Date.now().toString(36) + i;
+  const url = (await shrinkData(await toDataURL(await drawTo(await decodeImg(big), 560, .72)))) || await toDataURL(await drawTo(await decodeImg(big), 240, .5)), k = "lp_" + Date.now().toString(36) + i;
   await store.save(k, [url]); return {url, k, low: 1};
 }
 async function processPhoto(f, slot) {
@@ -2436,7 +2457,7 @@ const onPhotosPicked = async e => {
   savePhotos(); renderThumbs();
   msg.textContent = bad ? `Wczytane: ${files.length - bad} z ${files.length}. Powód błędu: ${why}` : low && assetsNS ? `Wczytane: ${files.length}, ${low} w mniejszej jakości.` : `Wczytane: ${files.length} zdj. ✓`;
   msg.className = "full small " + (bad ? "neg" : "pos");
-  fillFromPhotos();
+  fillFromPhotos(); stashCurrent();
 };
 function movePhoto(from, to) { if (from === to || from == null) return; const [p] = PHOTOS.splice(from, 1); PHOTOS.splice(Math.min(to, PHOTOS.length), 0, p); savePhotos(); }
 const killGhost = () => document.querySelectorAll(".ph-ghost").forEach(g => g.remove());
@@ -2559,7 +2580,7 @@ $("#gen-form").onsubmit = async e => {
   const msg = $("#gen-msg"), out = $("#gen-out"), btn = $("#gen-go");
   const plats = Object.keys(PLAT_RULES).filter(p => GEN_PLATS.includes(p));
   if (!plats.length) { msg.textContent = "Zaznacz co najmniej jedną platformę."; return; }
-  const data = {produkt: $("#gen-prod").value.trim(), kolor: $("#gen-color").value.trim(), rozmiar: $("#gen-size").value.trim(), stan: $("#gen-state").value, cena_zl: $("#gen-price").value, dostawa: $("#gen-ship").value, miasto: $("#gen-city").value.trim(), w_zestawie: $("#gen-addons").value.trim(), szczegoly: $("#gen-extra").value.trim()};
+  const data = genFormData(); const _old = {produkt: $("#gen-prod").value.trim(), kolor: $("#gen-color").value.trim(), rozmiar: $("#gen-size").value.trim(), stan: $("#gen-state").value, cena_zl: $("#gen-price").value ? plnPrice($("#gen-price").value) : "", dostawa: $("#gen-ship").value, miasto: $("#gen-city").value.trim(), w_zestawie: $("#gen-addons").value.trim(), szczegoly: $("#gen-extra").value.trim()};
   const prompt = `Piszesz ogłoszenia sprzedaży odzieży/obuwia po polsku – po jednym dla każdej z platform: ${plats.join(", ")}.
 
 Każdy opis ma ten sam układ:
@@ -2582,20 +2603,21 @@ Uczciwość – bezwzględnie:
 - Nigdy nie pisz, że rzecz jest oryginalna, autentyczna, „legit”, „100%”, z paragonem ani certyfikatem. Nie wymyślaj historii zakupu.
 - Nie dopisuj stanu, wad, wymiarów, dodatków ani cech, których nie ma w danych.
 - Markę i model podawaj tylko tak, jak są w danych.
+- Cenę podawaj dokładnie jak w danych, z groszami i przecinkiem (np. 599,99 zł) – nigdy jej nie zaokrąglaj.
 
 Dane:
 ${JSON.stringify(data, null, 1)}
 
 Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna nazwa z listy", "tytul": "...", "opis": "pełny tekst z powitaniem, szczegółami i zakończeniem (bez hashtagów)", "hashtagi": ["#..."], "tlumaczenie": "polskie tłumaczenie opisu – tylko gdy opis jest po angielsku, inaczej pusty tekst", "kategoria": "sugerowana kategoria"}], "wskazowki": ["2-4 krótkie rady: zdjęcia, pora wystawienia, cena"]}`;
   btn.disabled = true; out.hidden = true; $("#gen-audit").hidden = true;
-  const useTpl = why => { renderGenOut({key: genKey(data), data, L: tplGen(data, plats), wsk: [], tpl: 1, ts: Date.now()}); msg.textContent = why; };
+  const useTpl = why => { renderGenOut({id: GEN_DRAFT && GEN_DRAFT.id, lk: GEN_PICK_KEY || (GEN_DRAFT && GEN_DRAFT.lk) || "", key: genKey(data), data, L: tplGen(data, plats), wsk: [], tpl: 1, ts: Date.now()}); msg.textContent = why; };
   try {
     if (!sample) { useTpl("Opisy z szablonu (bez AI) – popraw je pod siebie."); return; }
     msg.textContent = `Piszę dla ${plats.length} platform…`;
     const r = await sample.json(prompt, {cache: false, images: PH().length ? await aiBlobs() : undefined});
     const L = r && Array.isArray(r.ogloszenia) ? r.ogloszenia.filter(x => x && x.tytul) : [];
     if (!L.length) throw {code: "invalid_json"};
-    renderGenOut({key: genKey(data), data, L, wsk: Array.isArray(r.wskazowki) ? r.wskazowki : [], ts: Date.now()}, true);
+    renderGenOut({id: GEN_DRAFT && GEN_DRAFT.id, lk: GEN_PICK_KEY || (GEN_DRAFT && GEN_DRAFT.lk) || "", key: genKey(data), data, L, wsk: Array.isArray(r.wskazowki) ? r.wskazowki : [], ts: Date.now()}, true);
     msg.textContent = "";
     runAudit(data, {tytul: L.map(x => x.platforma + ": " + x.tytul).join(" | "), opis: L.map(x => "=== " + x.platforma + " ===\n" + x.opis + (x.hashtagi && x.hashtagi.length ? "\n" + x.hashtagi.join(" ") : "")).join("\n\n"), multi: true});
   } catch (err) {
@@ -2604,7 +2626,42 @@ Odpowiedz wyłącznie obiektem JSON: {"ogloszenia": [{"platforma": "dokładna na
   } finally { btn.disabled = false; }
 };
 /* opisy: edytowalne per kanał, zapisywane (telefon = komputer) */
-let GEN_DRAFT = null, GEN_PICK_KEY = "", LISTEDLOG = [];
+let GEN_DRAFT = null, GEN_PICK_KEY = "", LISTEDLOG = [], DRAFTS = [];
+/* AKTYWNE / W TRAKCIE WYSTAWIANIA – kilka szkiców naraz; HISTORIA – wystawione, z „Wystaw ponownie” */
+function genFormData() { return {produkt: $("#gen-prod").value.trim(), kolor: $("#gen-color").value.trim(), rozmiar: $("#gen-size").value.trim(), stan: $("#gen-state").value, cena_zl: $("#gen-price").value ? plnPrice($("#gen-price").value) : "", dostawa: $("#gen-ship").value, miasto: $("#gen-city").value.trim(), w_zestawie: $("#gen-addons").value.trim(), szczegoly: $("#gen-extra").value.trim()}; }
+function fillGenForm(d) { d = d || {}; const set = (id, v) => { const el = $("#" + id); if (el) el.value = v == null ? "" : v; };
+  set("gen-prod", d.produkt); set("gen-color", d.kolor); set("gen-size", d.rozmiar); set("gen-price", String(d.cena_zl || "").replace(/\s*zł$/, "").replace(",", ".")); set("gen-city", d.miasto); set("gen-addons", d.w_zestawie); set("gen-extra", d.szczegoly);
+  if (d.stan) $("#gen-state").value = d.stan; if (d.dostawa) $("#gen-ship").value = d.dostawa; }
+const draftPhotos = () => PH().map(p => ({name: p.name, url: p.url}));
+function upsertDraft(D) { if (!D) return; D.id ||= uid(); D.upd = Date.now(); const i = DRAFTS.findIndex(x => x.id === D.id); if (i >= 0) DRAFTS[i] = D; else DRAFTS.unshift(D); renderDraftLists(); }
+function saveDraft(D) { upsertDraft(D); store.save("gendraft", D); store.save("drafts", DRAFTS); }
+/* zapisz to, co jest teraz w formularzu (także bez opisów) */
+function stashCurrent() { const d = genFormData(), ph = draftPhotos(); if (!GEN_DRAFT && !d.produkt && !ph.length) return;
+  const D = GEN_DRAFT || {id: uid(), L: [], ts: Date.now()}; D.data = {...(D.data || {}), ...d}; D.photos = ph; D.lk = D.lk || GEN_PICK_KEY || ""; saveDraft(D); }
+async function loadDraft(D) {
+  GEN_DRAFT = D; GEN_PICK_KEY = D.lk || ""; fillGenForm(D.data); $("#gen-pick").value = "";
+  PHOTOS = (D.photos || []).filter(p => p && p.url).map(p => ({name: p.name, url: p.url})); PH_LOADED = true; savePhotos(); renderThumbs();
+  const out = $("#gen-out"); if (D.L && D.L.length) renderGenOut(D, false); else { out.hidden = true; out.innerHTML = ""; const gd = $("#gen-done"); if (gd) gd.innerHTML = ""; $("#gen-ready").disabled = true; $("#gen-ready").textContent = "Wystaw zaakceptowane"; $("#gen-ready").className = ""; }
+  $("#gen-readymsg").innerHTML = D.ready ? readyTxt(D) : ""; store.save("gendraft", D); renderDraftLists();
+  $("#gen-form").scrollIntoView({behavior: "smooth", block: "start"}); }
+function renderDraftLists() {
+  const a = $("#w-drafts"), h = $("#w-history"); if (!a || !h) return;
+  const ph0 = D => { const u = (D.photos || []).find(p => p && p.url); return u ? `<img class="wd-ph" src="${esc(u.url)}" alt="">` : `<span class="wd-ph wd-noph">${svg("plus", 14)}</span>`; };
+  const nm = d => esc([d && d.produkt, d && d.rozmiar && "rozm. " + d.rozmiar].filter(Boolean).join(" · ") || "Bez nazwy");
+  a.innerHTML = `<div class="ch"><div><h3>Aktywne / w trakcie wystawiania</h3><div class="sub">${DRAFTS.length ? DRAFTS.length + " " + (DRAFTS.length === 1 ? "szkic" : DRAFTS.length < 5 ? "szkice" : "szkiców") : "brak szkiców"}</div></div><button class="sm" id="wd-new">+ Nowe ogłoszenie</button></div>
+    <div class="list">${DRAFTS.map(D => { const ok = (D.L || []).filter(x => x.ok).length, cur = GEN_DRAFT && GEN_DRAFT.id === D.id;
+      return `<div class="row">${ph0(D)}<div class="main"><div class="t">${nm(D.data)}${cur ? ` <span class="pill p-wystawione">otwarte</span>` : ""}</div><div class="s">${(D.photos || []).length} zdj. · ${D.L && D.L.length ? `${ok}/${D.L.length} opisów zaakceptowanych` : "bez opisów"}${D.ready ? " · przekazane do wystawienia" : ""}</div></div>
+        <div class="end" style="flex-direction:row;gap:6px">${cur ? "" : `<button class="sm" data-wd-edit="${esc(D.id)}">Edytuj</button>`}<button class="link small" data-wd-del="${esc(D.id)}">Usuń</button></div></div>`; }).join("") || `<div class="empty">Szkic pojawi się tu, gdy dodasz zdjęcia albo wygenerujesz opisy.</div>`}</div>`;
+  h.innerHTML = `<div class="ch"><div><h3>Historia</h3><div class="sub">${LISTEDLOG.length} wystawionych</div></div></div>
+    <div class="list">${LISTEDLOG.map((x, i) => `<div class="row">${ph0(x)}<div class="main" data-item="${x.lk ? esc(x.lk) : "log:" + i}" role="button" tabindex="0"><div class="t">${nm(x.data || {produkt: x.produkt, rozmiar: x.rozmiar})}</div><div class="s">${dShort(x.date)} · ${x.cena ? esc(plnPrice(x.cena)) + " · " : ""}${(x.plats || []).map(esc).join(", ")}</div></div>
+      <div class="end"><button class="sm" data-wd-again="${i}">Wystaw ponownie</button></div></div>`).join("") || `<div class="empty">Tu trafią ogłoszenia zapisane jako wystawione.</div>`}</div>`;
+  a.querySelector("#wd-new").onclick = async () => { stashCurrent(); await genResetForm(); toast("Nowe ogłoszenie – poprzednie czeka w „Aktywne”"); };
+  a.querySelectorAll("[data-wd-edit]").forEach(b => b.onclick = () => { stashCurrent(); const D = DRAFTS.find(x => x.id === b.dataset.wdEdit); if (D) loadDraft(D); });
+  a.querySelectorAll("[data-wd-del]").forEach(b => b.onclick = async () => { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Na pewno usunąć?"; return; } const id = b.dataset.wdDel; DRAFTS = DRAFTS.filter(x => x.id !== id); await store.save("drafts", DRAFTS); if (GEN_DRAFT && GEN_DRAFT.id === id) await genResetForm(); renderDraftLists(); toast("Szkic usunięty"); });
+  h.querySelectorAll("[data-wd-again]").forEach(b => b.onclick = () => { const x = LISTEDLOG[+b.dataset.wdAgain]; if (!x) return; stashCurrent();
+    const D = {id: uid(), ts: Date.now(), lk: x.lk || "", data: x.data || {produkt: x.produkt, rozmiar: x.rozmiar, kolor: x.kolor, cena_zl: x.cena}, photos: x.photos || [], L: (x.ogl || []).map(o => ({platforma: o.platforma, tytul: o.tytul, opis: o.opis, full: o.opis, ok: 1}))};
+    saveDraft(D); loadDraft(D); toast("Wczytane do edycji – popraw i wystaw ponownie"); });
+}
 const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
 /* PO WYSTAWIENIU: zaznacz, gdzie faktycznie wisi ogłoszenie → zapis „wystawione” przy rzeczy + czysty formularz */
 const GEN2LIST = {"OLX": "OLX", "Facebook Marketplace": "Marketplace", "Grupa na Facebooku": "Grupy FB", "Vinted (ręcznie)": "Vinted", "Vinted": "Vinted", "Vestiaire Collective": "Vestiaire", "Allegro Lokalnie": "Allegro Lokalnie", "Szafa.pl": "Szafa.pl", "Hemly": "Hemly"};
@@ -2633,13 +2690,13 @@ function renderGenDone(D) {
     if (!fin.dataset.sure) { fin.dataset.sure = 1; fin.textContent = "Na pewno? Kliknij jeszcze raz – formularz się wyczyści"; return; }
     const today = new Date().toISOString().slice(0, 10), d = D.data || {};
     if (lk) { const L = LISTINGS[lk] ||= {}; D.done.forEach(p => { if (!L[p]) L[p] = today; }); await store.save("listings", LISTINGS); }
-    const log = LISTEDLOG = (await store.load("listedlog", [])) || []; log.unshift({date: today, produkt: d.produkt, rozmiar: d.rozmiar, kolor: d.kolor, cena: d.cena_zl, plats: D.done, lk: lk || null, zdjecia: PH().length, photos: PH().filter(p => p.url && !/^data:/.test(p.url)).map(p => ({url: p.url})), ogl: (D.L || []).filter(x => x.ok).map(x => ({platforma: x.platforma, tytul: x.tytul, opis: genFull(x)}))}); await store.save("listedlog", log.slice(0, 200));
+    const log = LISTEDLOG = (await store.load("listedlog", [])) || []; DRAFTS = DRAFTS.filter(x => x.id !== D.id); await store.save("drafts", DRAFTS); log.unshift({date: today, data: d, produkt: d.produkt, rozmiar: d.rozmiar, kolor: d.kolor, cena: d.cena_zl, plats: D.done, lk: lk || null, zdjecia: PH().length, photos: PH().filter(p => p.url && !/^data:/.test(p.url)).map(p => ({url: p.url})), ogl: (D.L || []).filter(x => x.ok).map(x => ({platforma: x.platforma, tytul: x.tytul, opis: genFull(x)}))}); await store.save("listedlog", log.slice(0, 200));
     await genResetForm();
     toast(`Zapisano: wystawione na ${D.done.length} ${D.done.length === 1 ? "platformie" : "platformach"}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw(); if (typeof renderListed === "function") renderListed();
   };
 }
 async function genResetForm() {
-  GEN_DRAFT = null; GEN_PICK_KEY = ""; await store.save("gendraft", null);
+  GEN_DRAFT = null; GEN_PICK_KEY = ""; await store.save("gendraft", null); renderDraftLists();
   PHOTOS = []; await store.save("genphotos", []); renderThumbs();
   const f = $("#gen-form"); ["gen-prod", "gen-color", "gen-size", "gen-price", "gen-addons", "gen-extra"].forEach(id => { const el = $("#" + id); if (el) el.value = ""; });
   $("#gen-pick").value = ""; $("#gen-state").selectedIndex = 0; $("#gen-ship").selectedIndex = 0;
@@ -2653,7 +2710,7 @@ async function genResetForm() {
 const genFull = x => x.full != null ? x.full : x.opis + (x.hashtagi && x.hashtagi.length ? "\n\n" + x.hashtagi.join(" ") : "");
 function renderGenOut(D, fresh) {
   const ph = PH(); if (ph.length) { D.L.forEach(x => { x.zdjecia = Array.from({length: Math.min(PLAT_PHOTOS[x.platforma] || 8, ph.length)}, (_, j) => j + 1); }); D.photos = ph.map(p => ({name: p.name, url: p.url})); }
-  GEN_DRAFT = D; if (fresh !== false) store.save("gendraft", D);
+  D.id ||= uid(); GEN_DRAFT = D; if (fresh !== false) saveDraft(D); else upsertDraft(D);
   const out = $("#gen-out"), L = D.L; out.hidden = false;
   const grow = t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 4) + "px"; };
   const block = (x, i) => `<details class="grp" data-gi="${i}" ${i === (D.open || 0) ? "open" : ""}><summary><span class="gt"><b>${esc(x.platforma)}${x.ok ? " ✓" : ""}</b><span class="small muted">${esc(x.kategoria || "")}</span></span><span></span>${svg("arrow", 14)}</summary>
@@ -2669,12 +2726,12 @@ function renderGenOut(D, fresh) {
   $("#gen-again").onclick = () => $("#gen-form").requestSubmit();
   { const rb = $("#gen-ready"), nOk = L.filter(x => x.ok).length; rb.disabled = !nOk; rb.textContent = "Wystaw zaakceptowane" + (nOk ? ` (${nOk})` : ""); rb.className = nOk ? "primary" : "";
     $("#gen-readymsg").innerHTML = D.ready ? readyTxt(D) : "";
-    rb.onclick = () => { D.ready = Date.now(); store.save("gendraft", D); $("#gen-readymsg").innerHTML = readyTxt(D); toast("Przekazane do wystawienia"); renderGenDone(D); }; }
+    rb.onclick = () => { D.ready = Date.now(); saveDraft(D); $("#gen-readymsg").innerHTML = readyTxt(D); toast("Przekazane do wystawienia"); renderGenDone(D); }; }
   if (!D.lk && GEN_PICK_KEY) D.lk = GEN_PICK_KEY;
   renderGenDone(D);
   out.querySelectorAll("details[data-gi]").forEach(d => d.addEventListener("toggle", () => { if (d.open) D.open = +d.dataset.gi; }));
   out.querySelectorAll("[data-gq]").forEach(b => b.onclick = () => { const [i, c] = b.dataset.gq.split("|"), q = $("#o-" + i + "-q"); q.value = q.value.trim() ? q.value.trim() + ", " + c.toLowerCase() : c; });
-  const keep = () => { store.save("gendraft", D); renderGenOut(D, false); };
+  const keep = () => { saveDraft(D); renderGenOut(D, false); };
   out.querySelectorAll("[data-ga]").forEach(b => b.onclick = async () => { const [i, a] = b.dataset.ga.split("|"), x = L[+i]; D.open = +i;
     if (a === "ok") { x.ok = 1; x.edit = 0; keep(); toast("Zaakceptowano – " + x.platforma); }
     else if (a === "undo") { x.ok = 0; keep(); }
@@ -2704,7 +2761,7 @@ function readyTxt(D) { const ok = D.L.filter(x => x.ok).map(x => x.platforma);
 /* darmowy generator z szablonu – tylko z wpisanych danych, nic nie zmyśla */
 function tplGen(d, plats) {
   const noPl = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
-  const prod = d.produkt, size = d.rozmiar, color = d.kolor, price = d.cena_zl ? Math.round(+d.cena_zl) + " zł" : "";
+  const prod = d.produkt, size = d.rozmiar, color = d.kolor, price = d.cena_zl ? plnPrice(d.cena_zl) : "";
   const name = prod + (color && !prod.toLowerCase().includes(color.toLowerCase()) ? " (" + color + ")" : "");
   const stan = {"Nowy z metką": "nowy, z metką – nienoszony", "Nowy bez metki": "nowy bez metki – nienoszony", "Bardzo dobry": "bardzo dobry", "Dobry": "dobry", "Zadowalający": "zadowalający"}[d.stan] || (d.stan || "").toLowerCase();
   const extra = (d.szczegoly || "").split(/\n+/).map(t => t.trim()).filter(Boolean);
@@ -2928,7 +2985,7 @@ $("#menu-btn").onclick = () => setMenu(true); $("#scrim").onclick = () => setMen
 $("#side-nav").addEventListener("click", e => { if (e.target.closest("a")) setMenu(false); });
 addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
 /* rzecz oznaczona jako wystawiona (Wystaw → „Zapisz jako wystawione”) liczy się w magazynie jako wystawiona, nawet gdy w arkuszu jeszcze nie */
-function applyListed() { (M.sales || []).forEach(s => { const on = !!LISTINGS[lkey(s)]; if (on && s.status === "magazyn") { s.status = "wystawione"; s._byL = 1; if (!s.price) { const lg = LISTEDLOG.find(x => x.lk === lkey(s) && x.cena); if (lg) { s.price = +lg.cena; s._byLp = 1; } } } else if (!on && s._byL) { s.status = "magazyn"; delete s._byL; if (s._byLp) { s.price = 0; delete s._byLp; } } }); }
+function applyListed() { (M.sales || []).forEach(s => { const on = !!LISTINGS[lkey(s)]; if (on && s.status === "magazyn") { s.status = "wystawione"; s._byL = 1; if (!s.price) { const lg = LISTEDLOG.find(x => x.lk === lkey(s) && x.cena); if (lg) { s.price = numPL(lg.cena); s._byLp = 1; } } } else if (!on && s._byL) { s.status = "magazyn"; delete s._byL; if (s._byLp) { s.price = 0; delete s._byLp; } } }); }
 function renderAll() { applyListed(); renderWystaw(); renderOkazje(); renderCalcChips(); calc(); route(); }
 
 /* live data */
@@ -2989,8 +3046,8 @@ renderAll();
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
   try { await loadGenPhotos(); } catch (e) { console.warn(e); }
-  { const g = await store.load("gendraft", null); if (g && Array.isArray(g.L) && g.L.length) { try { renderGenOut(g, false); } catch (e) { console.warn(e); } } }
-  LISTINGS = (await store.load("listings", {})) || {}; LISTEDLOG = (await store.load("listedlog", [])) || []; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
+  { DRAFTS = (await store.load("drafts", [])) || []; const g = await store.load("gendraft", null); if (g && g.data) { try { fillGenForm(g.data); GEN_DRAFT = g; g.id ||= uid(); GEN_PICK_KEY = g.lk || ""; if (Array.isArray(g.L) && g.L.length) renderGenOut(g, false); upsertDraft(g); } catch (e) { console.warn(e); } } }
+  setTimeout(() => resyncLocal().catch(e => console.warn(e)), 4000); LISTINGS = (await store.load("listings", {})) || {}; LISTEDLOG = (await store.load("listedlog", [])) || []; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
   if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
