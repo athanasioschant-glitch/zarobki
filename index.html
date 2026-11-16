@@ -478,7 +478,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
   ns.sample = sample;
   window.claude = {use: async name => (cfg ? ns[name] || null : null)};
   window.KD_STATE = () => state;
-  window.KD_SHEET = cfg ? {setStatus: b => call({a: "status", ...b})} : null;
+  window.KD_SHEET = cfg ? {setStatus: b => call({a: "status", ...b}), setListed: b => call({a: "listed", ...b})} : null;
   window.KD_CFG = cfg;
 })();
 </script>
@@ -532,7 +532,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:41</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:44</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2598,7 +2598,7 @@ ${plats.map(p => "- " + PLAT_RULES[p].r + (PLAT_RULES[p].h ? " [hashtagi: TAK]" 
 Co ma się znaleźć w każdym opisie (jeśli jest w danych): typ + marka + model, rozmiar (buty: długość wkładki w cm; ubrania: wymiary), kolor, materiał, stan i jak często noszone, KAŻDA wada, co w zestawie, dostawa/odbiór, zaproszenie do pytań. Czego brakuje w danych – NIE wymyślaj, tylko dopisz w "wskazowki", co warto uzupełnić (np. „dodaj długość wkładki w cm”).
 
 Każda platforma dostaje INNY tekst (inne zdania, inny układ zgodny z jej zasadami) – nie kopiuj tego samego opisu między platformami.
-Styl: naturalnie i pozytywnie – jak sympatyczna, uśmiechnięta osoba, która lubi tę rzecz i chętnie pomoże kupującemu. Ciepło i z energią, 1–3 emotki tam, gdzie pasują (na Vestiaire bez emotek, uprzejmie i elegancko). Opis trochę bardziej szczegółowy: do czego/na jaką okazję się nada, jak wygląda z bliska, co kupujący dostaje – ale TYLKO na podstawie danych i zdjęć. Uprzedź obawy (rozmiarówka, wysyłka, dodatkowe zdjęcia) i zaproś do pytań. Bez sztucznej presji, bez wykrzyknika w każdym zdaniu, bez reklamowego bełkotu.
+Styl: naturalnie i pozytywnie – jak sympatyczna, uśmiechnięta osoba, która lubi tę rzecz i chętnie pomoże kupującemu. Ciepło i z energią, 1–3 uśmiechy tam, gdzie pasują. Jakie uśmiechy gdzie: OLX i Szafa.pl – tylko tekstowe ":))" (OLX odrzuca emoji); Facebook Marketplace, Grupa na Facebooku, Vinted, Hemly i Allegro Lokalnie – emoji 😊 albo 😇 (na Allegro Lokalnie tylko w opisie, nigdy w tytule); Vestiaire – żadnych uśmiechów, uprzejmie i elegancko. Żadnych innych emoji. Opis trochę bardziej szczegółowy: do czego/na jaką okazję się nada, jak wygląda z bliska, co kupujący dostaje – ale TYLKO na podstawie danych i zdjęć. Uprzedź obawy (rozmiarówka, wysyłka, dodatkowe zdjęcia) i zaproś do pytań. Bez sztucznej presji, bez wykrzyknika w każdym zdaniu, bez reklamowego bełkotu.
 
 Uczciwość – bezwzględnie:
 - Nigdy nie pisz, że rzecz jest oryginalna, autentyczna, „legit”, „100%”, z paragonem ani certyfikatem. Nie wymyślaj historii zakupu.
@@ -2694,9 +2694,13 @@ function renderGenDone(D) {
     if (!fin.dataset.sure) { fin.dataset.sure = 1; fin.textContent = "Na pewno? Kliknij jeszcze raz – formularz się wyczyści"; return; }
     const today = new Date().toISOString().slice(0, 10), d = D.data || {};
     if (lk) { const L = LISTINGS[lk] ||= {}; D.done.forEach(p => { if (!L[p]) L[p] = today; }); await store.save("listings", LISTINGS); }
+    let sheetNote = "";
+    if (lk) { const si = M.sales.find(x => lkey(x) === lk); if (si && si.row && /sprzeda/i.test(si.sheet || "")) {
+      if (window.KD_SHEET && window.KD_SHEET.setListed) { try { await window.KD_SHEET.setListed({sheet: si.sheet, row: si.row, product: si.rawProduct || si.product, date: today}); sheetNote = " · w arkuszu: data i status"; } catch (e) { console.warn("arkusz", e); sheetNote = /nieznan|unknown|zły status|not/i.test(String(e && e.message)) ? " · zaktualizuj skrypt arkusza" : " · arkusz: " + (e && (e.message || e.code) || "błąd"); } }
+      else sheetNote = " · datę w arkuszu wpisze aplikacja na telefonie"; } }
     const log = LISTEDLOG = (await store.load("listedlog", [])) || []; DRAFTS = DRAFTS.filter(x => x.id !== D.id); await store.save("drafts", DRAFTS); log.unshift({date: today, data: d, produkt: d.produkt, rozmiar: d.rozmiar, kolor: d.kolor, cena: d.cena_zl, plats: D.done, lk: lk || null, zdjecia: PH().length, photos: PH().filter(p => p.url && !/^data:/.test(p.url)).map(p => ({url: p.url})), ogl: (D.L || []).filter(x => x.ok).map(x => ({platforma: x.platforma, tytul: x.tytul, opis: genFull(x)}))}); await store.save("listedlog", log.slice(0, 200));
     await genResetForm();
-    toast(`Zapisano: wystawione na ${D.done.length} ${D.done.length === 1 ? "platformie" : "platformach"}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw(); if (typeof renderListed === "function") renderListed();
+    toast(`Zapisano: wystawione na ${D.done.length} ${D.done.length === 1 ? "platformie" : "platformach"}${sheetNote}`); rerender(); if ((location.hash.slice(1) || "") === "wystaw") renderWystaw(); if (typeof renderListed === "function") renderListed();
   };
 }
 async function genResetForm() {
@@ -2777,18 +2781,18 @@ function tplGen(d, plats) {
   const tags = n => { const kind = /but|ugg|sneak|trampk|kozak|śniegow/i.test(prod) ? ["#buty", "#obuwie"] : /kurt|płaszcz|bluz|swet/i.test(prod) ? ["#kurtka", "#odziez"] : ["#moda"];
     const w = noPl((prod + " " + (color || "")).toLowerCase()).split(/[^a-z0-9]+/).filter(t => t.length > 2).map(t => "#" + t);
     return [...new Set([...w, ...kind, size && "#rozmiar" + noPl(String(size)).replace(/[^a-z0-9]/gi, ""), "#okazja"].filter(Boolean))].slice(0, n); };
-  const ask = "Masz pytania albo chcesz więcej zdjęć? Pisz śmiało – chętnie pomogę! 😊";
+  const ask = "Masz pytania albo chcesz więcej zdjęć? Pisz śmiało – chętnie pomogę! :))";
   const T = {
-    "OLX": () => ({tytul: title(70), opis: `Siemanko! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
-    "Vinted": () => ({tytul: title(50), opis: `Siemanko! ✨ Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)}),
+    "OLX": () => ({tytul: title(70), opis: `Siemanko! :)) Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
+    "Vinted": () => ({tytul: title(50), opis: `Siemanko! 😊 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)}),
     "Facebook Marketplace": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n${pts("")}\n${ship} Pisz śmiało!`, hashtagi: []}),
-    "Grupa na Facebooku": () => ({tytul: title(80), opis: `${[prod, size && "r. " + size, price].filter(Boolean).join(" – ")}\n${[color && "Kolor: " + color, stan && "Stan: " + stan, d.w_zestawie && "W zestawie: " + d.w_zestawie, ...extra].filter(Boolean).join("\n")}\n${ship}\nPisz na priv 🙂`, hashtagi: []}),
+    "Grupa na Facebooku": () => ({tytul: title(80), opis: `${[prod, size && "r. " + size, price].filter(Boolean).join(" – ")}\n${[color && "Kolor: " + color, stan && "Stan: " + stan, d.w_zestawie && "W zestawie: " + d.w_zestawie, ...extra].filter(Boolean).join("\n")}\n${ship}\nPisz na priv :))`, hashtagi: []}),
     "Vestiaire Collective": () => { const en = {"Nowy z metką": "new with tags, never worn", "Nowy bez metki": "new without tags, never worn", "Bardzo dobry": "very good", "Dobry": "good", "Zadowalający": "fair"}[d.stan] || "";
       const L1 = [size && "– Size: " + size, color && "– Colour: " + color, en && "– Condition: " + en, d.w_zestawie && "– Included: " + d.w_zestawie, ...extra.map(t => "– " + t)].filter(Boolean).join("\n");
       return {tytul: cut([prod, color].filter(Boolean).join(" "), 80), opis: `Hello! For sale: ${prod}${color ? " in " + color : ""}.\n\n${L1}\n\nHappy to answer any questions and send extra photos.`, hashtagi: [], tlumaczenie: `Dzień dobry! Na sprzedaż: ${name}.\n\n${pts("– ")}\n\nChętnie odpowiem na pytania i prześlę dodatkowe zdjęcia.\n\n(Kolor, dodatki i szczegóły wpisane po polsku – przetłumacz je w opisie, klikając „Edytuj”.)`}; },
     "Allegro Lokalnie": () => ({tytul: title(50), opis: `Cześć! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
-    "Szafa.pl": () => ({tytul: title(80), opis: `Hej! 🙂 Sprzedam ${name}.\n\n${pts("• ")}\n\n${ship} Pytaj śmiało!`, hashtagi: []}),
-    "Hemly": () => ({tytul: title(60), opis: `Hej! 💛 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)})
+    "Szafa.pl": () => ({tytul: title(80), opis: `Hej! :)) Sprzedam ${name}.\n\n${pts("• ")}\n\n${ship} Pytaj śmiało!`, hashtagi: []}),
+    "Hemly": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)})
   };
   return plats.filter(p => T[p]).map(p => ({platforma: p, kategoria: "", ...T[p]()}));
 }

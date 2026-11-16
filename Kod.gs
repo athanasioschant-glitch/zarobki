@@ -33,6 +33,7 @@ function handle_(q) {
     if (q.a === 'set') { writeState_(String(q.k), q.v); return json_({ok: true}); }
     if (q.a === 'ask') return json_(askClaude_(q));
     if (q.a === 'status') return json_(setStatus_(q));
+    if (q.a === 'listed') return json_(setListed_(q));
     if (q.a === 'msg') return json_(addMessages_(q.items));
     return json_({error: 'unknown_action'});
   } catch (err) {
@@ -85,6 +86,32 @@ function setStatus_(b) {
   const old = cell.getDisplayValue();
   if (old !== value) cell.setValue(value);
   return {ok: true, old: old, value: value};
+}
+
+/* Wystaw → „Zapisz jako wystawione”: DATA WYSTAWIENIA = dziś i STATUS = Wystawione (status tylko, gdy rzecz nie jest już sprzedana) */
+function setListed_(b) {
+  const sh = SpreadsheetApp.getActive().getSheets().find(s => s.getName().trim() === String(b.sheet || '').trim());
+  if (!sh || !/sprzeda/i.test(sh.getName()) || sh.getName() === STATE_SHEET) throw new Error('nie ma takiej zakładki sprzedaży');
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(h => String(h).toUpperCase());
+  const sc = head.findIndex(h => h.indexOf('STATUS') >= 0), pc = head.findIndex(h => h.indexOf('PRODUKT') >= 0), dc = head.findIndex(h => h.indexOf('DATA WYSTAW') >= 0);
+  if (pc < 0) throw new Error('brak kolumny PRODUKT');
+  const row = Math.floor(+b.row);
+  if (!(row >= 2 && row <= sh.getLastRow())) throw new Error('zły wiersz');
+  const prod = String(sh.getRange(row, pc + 1).getDisplayValue()).trim().toLowerCase();
+  if (!b.product || prod !== String(b.product).trim().toLowerCase()) throw new Error('wiersz się nie zgadza, odśwież dane');
+  const out = {ok: true};
+  if (dc >= 0) { const m = String(b.date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(); const c = sh.getRange(row, dc + 1); if (!c.getDisplayValue() || c.getDisplayValue() === '-') { c.setValue(d).setNumberFormat('d.mm.yyyy'); out.date = true; } }
+  if (sc >= 0) {
+    const cell = sh.getRange(row, sc + 1), old = cell.getDisplayValue();
+    if (!/sprzeda|zako[nń]cz|portfel|wys[łl]an|oddan/i.test(old)) {
+      let opts = []; const dv = cell.getDataValidation();
+      if (dv) { const ty = dv.getCriteriaType(), v = dv.getCriteriaValues(), C = SpreadsheetApp.DataValidationCriteria;
+        if (ty === C.VALUE_IN_LIST) opts = v[0] || []; else if (ty === C.VALUE_IN_RANGE && v[0]) opts = [].concat.apply([], v[0].getDisplayValues()); }
+      const value = opts.filter(String).find(o => /wystawion/i.test(o) && !/niewystaw/i.test(o)) || 'Wystawione';
+      if (old !== value) { cell.setValue(value); out.status = value; out.old = old; }
+    }
+  }
+  return out;
 }
 
 /* ---------- odczyt arkusza (tylko odczyt) ---------- */
