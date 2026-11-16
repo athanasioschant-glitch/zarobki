@@ -179,6 +179,10 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke
 .hsplit button.hs:hover{box-shadow:inset 0 0 0 1px var(--line)}
 .hsplit b{color:var(--fg);font-weight:700;font-variant-numeric:tabular-nums}
 details.grp{border-top:1px solid var(--line)}details.grp:first-of-type{margin-top:6px}
+.incd>summary{list-style:none;cursor:pointer}.incd>summary::-webkit-details-marker{display:none}
+.incd .inch{display:inline-flex;align-items:center;gap:4px;margin-left:4px}.incd .inch svg{transition:transform .2s}.incd[open] .inch svg{transform:rotate(90deg)}
+.incb{padding:2px 0 14px 60px;display:flex;flex-direction:column;gap:8px}
+.incl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.incc{font-weight:600;min-width:72px}
 .gen-done{margin-top:12px;padding:14px;border-radius:14px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
 .mth-list{display:flex;flex-direction:column}
 .mth{border-top:1px solid var(--line)}.mth:first-child{border-top:0}
@@ -332,7 +336,7 @@ td a{color:var(--fg);text-decoration-color:var(--faint);text-underline-offset:3p
 .stack{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:3px;margin:2px 0 16px}
 .stack i{display:block;height:100%;border-radius:99px}
 .pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
-.p-sprzedane{background:var(--good-soft);color:var(--good)} .p-wystawione{background:var(--rev-soft);color:var(--rev)} .p-rezerwacja{background:var(--warn-soft);color:var(--warn)} .p-magazyn{background:var(--surface2);color:var(--muted)} .p-oddane{background:var(--loss-soft);color:var(--loss)} .p-negocjacje{background:var(--warn-soft);color:var(--warn)} .p-wycofane{background:var(--surface2);color:var(--faint);box-shadow:inset 0 0 0 1px var(--line2)} .p-presale{background:var(--good-soft);color:var(--good);box-shadow:inset 0 0 0 1px currentColor}
+.p-sprzedane{background:var(--good-soft);color:var(--good)} .p-wystawione{background:var(--rev-soft);color:var(--rev)} .p-rezerwacja{background:var(--warn-soft);color:var(--warn)} .p-magazyn{background:var(--surface2);color:var(--muted)} .p-oddane{background:var(--loss-soft);color:var(--loss)} .p-negocjacje{background:var(--warn-soft);color:var(--warn)} .p-wycofane{background:var(--surface2);color:var(--faint);box-shadow:inset 0 0 0 1px var(--line2)} .p-presale{background:rgba(192,132,252,.16);color:#c084fc}
 details>summary{cursor:pointer;list-style:none}
 details>summary::-webkit-details-marker{display:none}
 .chev{color:var(--faint);transition:transform .2s;flex:none;width:18px;height:18px}
@@ -517,7 +521,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 16:59</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 17:06</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -580,7 +584,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <div id="inv-stan">
     <div class="dash" id="inv-stats"></div>
     <div class="toolbar" style="margin-top:16px"><div class="seg" id="inv-seg" role="group" aria-label="Filtr magazynu"></div></div>
-    <details class="grp" style="margin:-4px 0 12px"><summary><span class="gt"><span class="small muted">Co oznaczają kolory kropek</span></span><span></span><svg class="i" width="14" height="14"><use href="#i-arrow"/></svg></summary><div class="legend" style="padding:0 0 12px"><span><i style="background:var(--accent)"></i>Sprzedane</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)"></i>Presale bez ceny</span><span><i style="background:var(--rev)"></i>Wystawione</span><span><i style="background:var(--muted)"></i>Niewystawione</span><span><i style="background:var(--warn)"></i>Rezerwacja / w drodze z Chin</span><span><i style="background:var(--loss)"></i>Oddane</span></div></details>
+    <details class="grp" style="margin:-4px 0 12px"><summary><span class="gt"><span class="small muted">Co oznaczają kolory kropek</span></span><span></span><svg class="i" width="14" height="14"><use href="#i-arrow"/></svg></summary><div class="legend" style="padding:0 0 12px"><span><i style="background:var(--accent)"></i>Sprzedane</span><span><i style="background:#c084fc"></i>Presale (sprzedane przed dotarciem)</span><span><i style="background:var(--rev)"></i>Wystawione</span><span><i style="background:var(--muted)"></i>Niewystawione</span><span><i style="background:var(--warn)"></i>Rezerwacja / w drodze z Chin</span><span><i style="background:var(--loss)"></i>Oddane</span></div></details>
     <div class="dash" id="inv-list"></div>
     </div>
     <div class="dash" id="inv-prod" hidden></div>
@@ -1110,7 +1114,7 @@ function keepView(fn) {
   if (view) view.querySelectorAll("details").forEach((d, i) => d.open = open.includes(i));
   scrollTo(0, y);
 }
-function rerender() { const v = location.hash.slice(1) || "start"; updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else if (v === "podzial") renderBudget(totals(derive(), period)); else renderStart(); }); }
+function rerender() { const v = location.hash.slice(1) || "start"; applyListed(); updateBadges(); keepView(() => { if (v === "kako") renderKako(); else if (v === "magazyn") renderMagazyn(); else if (v.startsWith("zrodlo-")) renderZrodlo(v.slice(7)); else if (v === "podzial") renderBudget(totals(derive(), period)); else renderStart(); }); }
 const payBtn = s => pay3HTML(s);
 const PILL_COL = {shipped: "var(--warn)", wallet: "var(--rev)", paying: "var(--good, var(--rev))", in: "var(--accent)"};
 const payPill = s => { const u = uiPay(s); return `<span class="pill" style="color:${PILL_COL[u]};background:color-mix(in srgb, ${PILL_COL[u]} 14%, transparent)">${PAY_LAB[u]}</span>`; };
@@ -1149,7 +1153,7 @@ const inTransitOrder = n => !!n && !orderRecvd(n) && M.sales.some(s => s.order =
 const isTransit = s => !s.future && (s.status === "chiny" || inTransitOrder(s.order));
 const incoming = () => {
   const out = orderStatus().filter(x => x.qty > 0 && !orderHasSheet(x.order)), G = {};
-  M.sales.filter(s => isTransit(s) || (!s.future && s.status === "presale" && s.order && !orderRecvd(s.order))).forEach(s => { const k = s.order + "|" + s.product, g = G[k] ||= {key: k, order: s.order, product: s.product, qty: 0, ordered: 0, arrived: 0, sz: [], presold: 0, unitCost: 0, cost: 0}; g.qty++; g.ordered++; g.cost += s.cost || 0; if (s.size) g.sz.push(s.size); if (s.status === "presale" || s.status === "sprzedane") g.presold++; });
+  M.sales.filter(s => isTransit(s) || (!s.future && s.status === "presale" && s.order && !orderRecvd(s.order))).forEach(s => { const k = s.order + "|" + s.product, g = G[k] ||= {key: k, order: s.order, product: s.product, qty: 0, ordered: 0, arrived: 0, sz: [], presold: 0, unitCost: 0, cost: 0, items: []}; g.items.push(s); g.qty++; g.ordered++; g.cost += s.cost || 0; if (s.size) g.sz.push(s.size); if (s.status === "presale" || s.status === "sprzedane") g.presold++; });
   Object.values(G).forEach(g => { g.unitCost = g.qty ? g.cost / g.qty : 0; g.sizes = [...new Set(g.sz)].sort((a, b) => String(a).localeCompare(String(b), "pl", {numeric: true})).join(", "); out.push(g); });
   return out;
 };
@@ -1255,7 +1259,7 @@ function checks(D) {
     if (x.sheetStatus && /niewystaw/i.test(x.sheetStatus) && (x.hasSoldDate || (x.price > 0 && x.platform))) add("err", `${x.product} ${cleanColor(x.color)} ${x.size || ""}: status „Niewystawione”, ale jest cena${x.hasSoldDate ? " i data sprzedaży" : ""}`, `${x.sheet}, wiersz ${x.row}. Popraw STATUS (np. „Sprzedaż zakończona”) albo usuń cenę i datę.`);
     const where = x.future ? `${x.sheet}, wiersz ${x.row} (para, której jeszcze nie ma w arkuszu sprzedaży)` : `${x.sheet}, wiersz ${x.row}`;
     const nm = [x.product, cleanColor(x.color), x.size].filter(Boolean).join(" ");
-    if (x.status === "wystawione" && !x.listed) add("info", `${nm}: wystawione czy sprzedane?`, `${where}. Cena ${zl(x.price)}${x.account ? ", konto " + x.account : ""}, ale bez daty. Liczę jako wystawione. Jeśli sprzedane, dopisz datę sprzedaży; jeśli wystawione, datę wystawienia.`);
+    if (x.status === "wystawione" && !x.listed && !x._byL) add("info", `${nm}: wystawione czy sprzedane?`, `${where}. Cena ${zl(x.price)}${x.account ? ", konto " + x.account : ""}, ale bez daty. Liczę jako wystawione. Jeśli sprzedane, dopisz datę sprzedaży; jeśli wystawione, datę wystawienia.`);
     if (x.platform && x.platform !== "Prywatnie" && x.status === "sprzedane" && !x.sold) add(x.sheetStatus ? "info" : "warn", `${nm}: brak daty sprzedaży`, `${where}. Bez daty sprzedaż nie trafi do właściwego miesiąca ani do limitu konta.`);
     if (x.sold && x.listed && x.sold < x.listed) add("warn", `${nm}: data sprzedaży przed wystawieniem`, `${where}. Sprawdź kolejność dat.`);
     if (x.expCost != null && x.cost != null && x.expCost > x.cost + 0.5) add("warn", `${nm}: cena kupna nie pasuje do kosztu`, `${where}. Kupno + fracht + wysyłka = ${zl(x.expCost, 2)}, a łączny koszt to ${zl(x.cost, 2)}. Wygląda na cenę skopiowaną z innego produktu.`);
@@ -2046,18 +2050,23 @@ function renderMagazyn() {
   const all = M.sales.filter(s => !isTransit(s) && !(s.status === "presale" && s.order && !orderRecvd(s.order))), cnt = {}; all.forEach(s => cnt[s.status] = (cnt[s.status] || 0) + 1);
   const val = st => all.filter(s => s.status === st).reduce((a, s) => a + (s.cost || 0), 0);
   const tile = (icon, cls, lab, n, foot, f) => `<div class="stat s3" role="button" tabindex="0" data-tile="${f}" style="cursor:pointer;${invFilter === f ? "box-shadow:0 0 0 2px var(--accent)" : ""}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v">${n} szt.</div><div class="foot"><span>${foot}</span></div></div>`;
-  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", (cnt.sprzedane || 0) + (cnt.presale || 0), (cnt.presale ? `w tym ${cnt.presale} presale · ` : "") + "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
+  $("#inv-stats").innerHTML = tile("check", "a", "Sprzedane", cnt.sprzedane || 0, "przychód " + zl(all.filter(s => s.status === "sprzedane").reduce((a, s) => a + s.price, 0)), "sprzedane") + tile("tag", "b", "Wystawione", cnt.wystawione || 0, "za " + zl(all.filter(s => s.status === "wystawione").reduce((a, s) => a + s.price, 0)), "wystawione") + tile("shelf", "", "Niewystawione", (cnt.magazyn || 0) + (cnt.wycofane || 0) + notEntered().reduce((a, x) => a + x.qty, 0), "koszt " + zl(val("magazyn") + val("wycofane") + notEnteredCost()) + (cnt.wycofane ? ` · ${cnt.wycofane} wycofane` : "") + (notEntered().length ? ` · ${notEntered().reduce((a, x) => a + x.qty, 0)} niewpisane do arkusza` : ""), "magazyn") + tile("box", "w", "W drodze z Chin", INCm.reduce((a, x) => a + x.qty, 0), "koszt " + zl(INCm.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0)) + (INCm.reduce((a, x) => a + (x.presold || 0), 0) ? ` · w tym ${INCm.reduce((a, x) => a + (x.presold || 0), 0)} presale` : "") + (cnt.rezerwacja ? ` · rezerwacje ${cnt.rezerwacja}` : ""), "chiny");
   $("#inv-stats").querySelectorAll("[data-tile]").forEach(el => { const go = () => { invFilter = invFilter === el.dataset.tile ? "all" : el.dataset.tile; renderMagazyn(); $("#inv-seg").scrollIntoView({behavior: "smooth", block: "start"}); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   const incN = INCm.reduce((a, x) => a + x.qty, 0);
   const fl = [["all", "Wszystko", all.length + incN], ...Object.keys(STATUS).filter(k => cnt[k]).map(k => [k, STATUS[k], cnt[k]]), ...(incN ? [["chiny", "W drodze z Chin", incN]] : [])];
   $("#inv-seg").innerHTML = fl.map(([k, l, n]) => `<button data-f="${k}" aria-pressed="${k === invFilter}">${l} ${n}</button>`).join("");
   $("#inv-seg").querySelectorAll("button").forEach(b => b.onclick = () => { invFilter = b.dataset.f; renderMagazyn(); });
   const groups = {};
-  all.filter(s => invFilter === "all" || s.status === invFilter || (invFilter === "sprzedane" && s.status === "presale") || (invFilter === "magazyn" && s.status === "wycofane")).forEach(s => { const k = s.product + "|" + cleanColor(s.color) + "|" + (s.order ?? "inne"); (groups[k] ||= []).push(s); });
+  all.filter(s => invFilter === "all" || s.status === invFilter || (invFilter === "magazyn" && s.status === "wycofane")).forEach(s => { const k = s.product + "|" + cleanColor(s.color) + "|" + (s.order ?? "inne"); (groups[k] ||= []).push(s); });
   const order = Object.entries(groups).sort((a, b) => b[1].filter(x => x.status !== "sprzedane").length - a[1].filter(x => x.status !== "sprzedane").length);
   const sizeChip = s => `<span class="sz p-${s.status}" data-tip="${esc(STATUS[s.status] + (s.price ? " · " + zl(s.price) : "") + (s.account ? " · " + s.account : ""))}">${esc(s.size || "–")}${s.price && ["sprzedane", "wystawione"].includes(s.status) ? " · " + zl(s.price) : ""}</span>`;
-  const incRows = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt${x.sell ? " · plan " + zl(x.sell) + "/szt" : ""}</div>
-      <div class="sizes" style="margin-top:8px"><span class="sz p-rezerwacja">w drodze z Chin · ${x.qty} szt.</span></div></div><div class="end"><span class="amt wrn">${x.qty} szt.</span><span class="s">w drodze</span></div></div>`) : [];
+  /* rozpiska „co do mnie idzie”: kolor → rozmiary, wielosztuki jako 3×39 */
+  const incBreak = x => { if (!x.items || !x.items.length) return x.sizes ? `<div class="incl"><span class="small muted">rozmiary:</span> <b>${esc(x.sizes)}</b></div>` : `<div class="small muted">Brak rozpiski rozmiarów w arkuszu.</div>`;
+    const byC = {}; x.items.forEach(s => { const c = cleanColor(s.color) || "bez koloru"; ((byC[c] ||= {})[s.size || "–"] ||= {n: 0, pre: 0}).n++; if (["presale", "sprzedane"].includes(s.status)) byC[c][s.size || "–"].pre++; });
+    return Object.entries(byC).sort((a, b) => Object.values(b[1]).reduce((t, v) => t + v.n, 0) - Object.values(a[1]).reduce((t, v) => t + v.n, 0)).map(([c, sz]) => { const tot = Object.values(sz).reduce((t, v) => t + v.n, 0);
+      return `<div class="incl"><span class="incc">${esc(c)}</span><span class="small muted">${tot} szt.</span><span class="sizes">${Object.entries(sz).sort((a, b) => String(a[0]).localeCompare(String(b[0]), "pl", {numeric: true})).map(([z, v]) => `${v.n - v.pre ? `<span class="sz p-rezerwacja">${v.n - v.pre > 1 ? (v.n - v.pre) + "×" : ""}${esc(z)}</span>` : ""}${v.pre ? `<span class="sz p-presale" data-tip="presale – sprzedane przed dotarciem">${v.pre > 1 ? v.pre + "×" : ""}${esc(z)} · presale</span>` : ""}`).join("")}</span></div>`; }).join(""); };
+  const incRows = (invFilter === "all" || invFilter === "chiny") ? INCm.map(x => `<details class="incd"><summary class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt${x.sell ? " · plan " + zl(x.sell) + "/szt" : ""}</div>
+      <div class="sizes" style="margin-top:8px"><span class="sz p-rezerwacja">w drodze z Chin · ${x.qty} szt.</span><span class="small muted inch">kolory i rozmiary ${svg("arrow", 12)}</span></div></div><div class="end"><span class="amt wrn">${x.qty} szt.</span><span class="s">w drodze</span></div></summary><div class="incb">${incBreak(x)}</div></details>`) : [];
   const NE = notEntered();
   const neRows = (invFilter === "all" || invFilter === "magazyn") ? NE.map(x => `<div class="row" style="align-items:flex-start">${thumb(x.product, "", 48)}<div class="main"><div class="t">${esc(x.product)}</div><div class="s">zamówienie ${x.order} · ${zl(x.unitCost)}/szt</div>
       <div class="sizes" style="margin-top:8px"><span class="sz p-magazyn">dotarło · wpisz do arkusza sprzedaży</span></div></div><div class="end"><span class="amt">${x.qty} szt.</span><span class="s">na stanie</span></div></div>`) : [];
@@ -2877,7 +2886,9 @@ const setMenu = on => { $("#side-nav").classList.toggle("open", on); $("#scrim")
 $("#menu-btn").onclick = () => setMenu(true); $("#scrim").onclick = () => setMenu(false);
 $("#side-nav").addEventListener("click", e => { if (e.target.closest("a")) setMenu(false); });
 addEventListener("keydown", e => { if (e.key === "Escape") setMenu(false); });
-function renderAll() { renderWystaw(); renderOkazje(); renderCalcChips(); calc(); route(); }
+/* rzecz oznaczona jako wystawiona (Wystaw → „Zapisz jako wystawione”) liczy się w magazynie jako wystawiona, nawet gdy w arkuszu jeszcze nie */
+function applyListed() { (M.sales || []).forEach(s => { const on = !!LISTINGS[lkey(s)]; if (on && s.status === "magazyn") { s.status = "wystawione"; s._byL = 1; if (!s.price) { const lg = LISTEDLOG.find(x => x.lk === lkey(s) && x.cena); if (lg) { s.price = +lg.cena; s._byLp = 1; } } } else if (!on && s._byL) { s.status = "magazyn"; delete s._byL; if (s._byLp) { s.price = 0; delete s._byLp; } } }); }
+function renderAll() { applyListed(); renderWystaw(); renderOkazje(); renderCalcChips(); calc(); route(); }
 
 /* live data */
 function wbFromSheets(S) {
