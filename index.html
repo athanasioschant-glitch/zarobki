@@ -532,7 +532,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 16.11 22:49</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 18.11 22:47</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1194,7 +1194,7 @@ async function setArrived(key, n) { if (n == null) delete ARRIVED[key]; else ARR
 
 /* GDZIE WYSTAWIONE – platforma i data wystawienia każdej rzeczy (klucz: zakładka + wiersz arkusza) */
 let LISTINGS = {};
-const LIST_PLATS = ["OLX", "Marketplace", "Grupy FB", "Vinted", "Vestiaire", "Allegro Lokalnie", "Szafa.pl", "Hemly"];
+const LIST_PLATS = ["OLX", "Marketplace", "Grupy FB", "Vinted", "Vestiaire", "Allegro Lokalnie", "Szafa.pl", "Hemly", "Trivaro"];
 const lkey = s => (s.sheet || "") + "|" + (s.row || "") + "|" + s.product + "|" + (s.size || "");
 const daysSince = d => Math.max(0, Math.floor((Date.now() - new Date(d + "T12:00:00")) / 864e5));
 const listedChips = s => { const L = LISTINGS[lkey(s)] || {}; const e = Object.entries(L); return e.length ? `<div class="chips" style="margin-top:6px">${e.map(([p, d]) => `<span class="chip" title="wystawione ${d.split("-").reverse().join(".")}">${esc(p)} · od ${dShort(d)} (${daysSince(d)} dni)</span>`).join("")}</div>` : ""; };
@@ -2304,7 +2304,7 @@ document.querySelectorAll("#kako-seg button").forEach(b => b.onclick = () => { k
 
 /* WYSTAW */
 let sample = null;
-let INTEREST = {}, FBGROUPS = [], MSGREAD = {}, msgPlat = "all";
+let INTEREST = {}, FBGROUPS = [], MSGREAD = {}, msgPlat = "all", msgTab = "msg";
 const msgKey = m => [m.platform, m.from, m.date, m.text.slice(0, 60)].join("|");
 const MSGS = () => (M.messages || []).filter(m => MSGREAD[msgKey(m)] !== 2).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 const unreadCount = () => MSGS().filter(m => !MSGREAD[msgKey(m)]).length;
@@ -2319,9 +2319,12 @@ function msgOffer(m) { const a = String(m.text || "").match(/(\d[\d\s]*[,.]?\d*)
   const n = x => Math.round(parseFloat(x.replace(/\s|zł/g, "").replace(",", ".")));
   return {kw: n(a[0]), net: a[1] ? n(a[1]) : null}; }
 const plRozm = (n, nowe) => { const f = n === 1 ? 0 : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1 : 2; return (nowe ? ["nowa ", "nowe ", "nowych "][f] : "") + ["rozmowa", "rozmowy", "rozmów"][f]; };
-const PLAT_COL = {"OLX": "#23e5db", "Marketplace": "#1877f2", "Grupy FB": "#1877f2", "Vestiaire": "#c2410c", "Szafa": "#e11d48", "Allegro Lokalnie": "#ff5a00", "Hemly": "#0b4aa2"};
+const plOf = n => n === 1 ? "oferta" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? "oferty" : "ofert";
+const PLAT_COL = {"OLX": "#23e5db", "Marketplace": "#1877f2", "Grupy FB": "#1877f2", "Vestiaire": "#c2410c", "Szafa": "#e11d48", "Allegro Lokalnie": "#ff5a00", "Hemly": "#0b4aa2", "Trivaro": "#7c3aed"};
 function renderInbox() {
-  const el = $("#k-msg"), L = MSGS(), plats = {}; L.forEach(m => { const p = plats[m.platform] ||= {n: 0, u: 0}; p.n++; if (!MSGREAD[msgKey(m)]) p.u++; });
+  const el = $("#k-msg"), ALL = MSGS(), isOf = m => m.type === "oferta", L = ALL.filter(m => msgTab === "of" ? isOf(m) : !isOf(m)), plats = {};
+  const cnt = f => { const T = {}; ALL.filter(f).forEach(m => { const k = [m.platform, m.from, m.listing].join("|"); T[k] = T[k] || !MSGREAD[msgKey(m)]; }); return {n: Object.keys(T).length, u: Object.values(T).filter(Boolean).length}; }, cM = cnt(m => !isOf(m)), cO = cnt(isOf);
+  L.forEach(m => { const p = plats[m.platform] ||= {n: 0, u: 0}; p.n++; if (!MSGREAD[msgKey(m)]) p.u++; });
   /* rozmowy: ta sama osoba + platforma + ogłoszenie = jeden wiersz */
   const TH = {}; L.forEach(m => { const k = [m.platform, m.from, m.listing].join("|"); (TH[k] ||= {k, ms: []}).ms.push(m); });
   let threads = Object.values(TH).map(t => { t.ms.sort((a, b) => String(a.date).localeCompare(String(b.date))); t.last = t.ms[t.ms.length - 1]; t.unread = t.ms.filter(m => !MSGREAD[msgKey(m)]).length; t.hot = t.ms.some(m => HOT.test(m.text)); return t; })
@@ -2337,11 +2340,14 @@ function renderInbox() {
           <span class="mth-l3">${of ? `<span class="mth-of">oferta ${of.kw} zł${of.net ? ` · do wypłaty ${of.net} zł` : ""}</span>` : esc(m.text)}</span></span>
         ${t.unread ? `<span class="mth-dot" aria-label="nieprzeczytane"></span>` : ""}</button>
       ${open ? `<div class="mth-x">${t.ms.map(x => `<div class="mth-msg"><div class="small muted">${esc(x.type)} · ${esc(x.date)}</div><div>${esc(x.text)}</div></div>`).join("")}
-        <div class="mth-act">${m.link ? `<a class="btn primary sm" href="${esc(m.link)}" target="_blank" rel="noopener">Odpowiedz w ${esc(m.platform)}</a>` : ""}${t.hot ? `<span class="pill p-sprzedane">zainteresowany</span>` : ""}<button class="link small" data-mhide="${esc(t.k)}" style="margin-left:auto">Ukryj rozmowę</button></div></div>` : ""}</div>`; };
-  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>Wiadomości</h3><div class="sub">${unreadThreads ? `<b style="color:var(--accent)">${unreadThreads} ${plRozm(unreadThreads, true)}</b> · ` : ""}${Object.keys(TH).length} ${plRozm(Object.keys(TH).length)}</div></div>${unreadThreads ? `<button class="sm" id="msg-allread">Wszystko przeczytane</button>` : ""}</div>
+        <div class="mth-act">${m.link ? `<a class="btn primary sm" href="${esc(m.link)}" target="_blank" rel="noopener">${m.type === "oferta" ? "Zobacz ofertę" : "Odpowiedz"} w ${esc(m.platform)}</a>` : ""}${t.hot ? `<span class="pill p-sprzedane">zainteresowany</span>` : ""}<button class="link small" data-mhide="${esc(t.k)}" style="margin-left:auto">Ukryj rozmowę</button></div></div>` : ""}</div>`; };
+  const of = msgTab === "of", tabB = (id, t, c) => `<button data-mtab="${id}" aria-pressed="${msgTab === id}">${t} ${c.n}${c.u ? ` <b style="color:var(--accent)">· ${c.u} nowe</b>` : ""}</button>`;
+  el.innerHTML = `<div class="card s12"><div class="ch"><div><h3>${of ? "Oferty" : "Wiadomości"}</h3><div class="sub">${unreadThreads ? `<b style="color:var(--accent)">${unreadThreads} ${of ? "nowe" : plRozm(unreadThreads, true)}</b> · ` : ""}${Object.keys(TH).length} ${of ? plOf(Object.keys(TH).length) : plRozm(Object.keys(TH).length)}</div></div>${unreadThreads ? `<button class="sm" id="msg-allread">Wszystko przeczytane</button>` : ""}</div>
+    <div class="pills" style="margin-bottom:10px">${tabB("msg", "Wiadomości", cM)}${tabB("of", "Oferty", cO)}</div>
     <div class="pills" style="margin-bottom:10px"><button data-mnew aria-pressed="${msgOnlyNew}">Nowe</button><button data-mp="all" aria-pressed="${msgPlat === "all"}">Wszystkie</button>${Object.entries(plats).map(([p, x]) => `<button data-mp="${esc(p)}" aria-pressed="${msgPlat === p}">${esc(p)}${x.u ? ` <b style="color:var(--accent)">${x.u}</b>` : ""}</button>`).join("")}</div>
-    <div class="mth-list">${threads.map(row).join("") || `<div class="empty">${L.length ? "Brak nowych wiadomości." : "Na razie nic. Wiadomości z OLX, Facebooka, Vestiaire, Allegro Lokalnie, Szafy i Hemly pojawią się tutaj automatycznie."}</div>`}</div></div>`;
+    <div class="mth-list">${threads.map(row).join("") || `<div class="empty">${of ? (L.length ? "Brak nowych ofert." : "Na razie brak ofert. Oferty kupujących (kwota i do wypłaty) pojawią się tutaj.") : L.length ? "Brak nowych wiadomości." : "Na razie nic. Wiadomości z OLX, Facebooka, Vestiaire, Allegro Lokalnie, Szafy i Hemly pojawią się tutaj automatycznie."}</div>`}</div></div>`;
   el.querySelectorAll("[data-mp]").forEach(b => b.onclick = () => { msgPlat = b.dataset.mp; renderInbox(); });
+  el.querySelectorAll("[data-mtab]").forEach(b => b.onclick = () => { msgTab = b.dataset.mtab; msgPlat = "all"; msgOpen = null; renderInbox(); });
   const nb = el.querySelector("[data-mnew]"); if (nb) nb.onclick = () => { msgOnlyNew = !msgOnlyNew; renderInbox(); };
   el.querySelectorAll("[data-mopen]").forEach(b => b.onclick = async () => { const k = b.dataset.mopen; msgOpen = msgOpen === k ? null : k;
     if (msgOpen) { TH[k].ms.forEach(m => MSGREAD[msgKey(m)] = 1); renderInbox(); updateBadges(); renderKakoNav("kako", "msg"); await store.save("msgread", MSGREAD); } else renderInbox(); });
@@ -2406,7 +2412,7 @@ Odpowiedz obiektem JSON: {"produkt": "typ + marka + model, jeśli widoczne", "ko
   } catch { msg.textContent = "Nie udało się odczytać zdjęć – uzupełnij ręcznie."; }
 }
 const PHOTO_MAX = 20, AI_PHOTOS = 4;   // do AI idą tylko 4 pierwsze (limit Claude: 4 zdjęcia na zapytanie), do ogłoszeń wszystkie
-const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8};
+const PLAT_PHOTOS = {"OLX": 8, "Vinted": 20, "Facebook Marketplace": 10, "Grupa na Facebooku": 10, "Vestiaire Collective": 10, "Allegro Lokalnie": 15, "Szafa.pl": 8, "Hemly": 8, "Trivaro": 8};
 /* zdjęcia: kafelki 1–20, dziury dozwolone; PHOTOS[i] = {url, name, blob, k} albo null */
 const PH = () => PHOTOS.filter(p => p && p.url);
 let PH_AT = 0, PH_LOADED = false;
@@ -2567,9 +2573,10 @@ const PLAT_RULES = {
   "Vestiaire Collective": {h: 0, k: ["Sell → kategoria, marka, model", "Stan, rozmiar, kolor, materiał, WYMIARY (często obowiązkowe)", "Zdjęcia: każda wada opisana musi być na zdjęciu", "Sprawdź tekst – po publikacji nie da się edytować; weryfikacja ok. 24–48 h"], r: "Vestiaire Collective: TYTUŁ I OPIS W CAŁOŚCI PO ANGIELSKU (kupujący z całej Europy) – także szczegóły, wady, zestaw i dostawa z danych przetłumacz na angielski, ani jednego zdania po polsku, a w polu tlumaczenie – wierne polskie tłumaczenie opisu. Uprzejmie, ciepło i elegancko, bez emotek i bez hashtagów. Tytuł: marka + model + kolor. Opis: materiał, kolekcja/sezon (jeśli podane), rozmiar i wymiary, jak często noszone, stan i KAŻDA wada, co w zestawie (pudełko, worek, metki). Kupujący to klienci premium – konkret, zero przesady."},
   "Allegro Lokalnie": {h: 0, k: ["Dodaj ogłoszenie → kategoria i parametry (marka, rozmiar, stan)", "Tytuł do 50 znaków", "Do 15 zdjęć – własne, nie ze strony producenta", "Cena (Kup teraz), lokalizacja, dostawa"], r: "Allegro Lokalnie: tytuł do 50 znaków, najważniejsze słowa na początku (typ, marka, model, rozmiar). Opis jak na OLX: ciepły wstęp, dane w punktach (rozmiar, kolor, materiał, stan, wady, co w zestawie), słowa kluczowe w treści, bez hashtagów, miasto i dostawa."},
   "Szafa.pl": {h: 0, k: ["Dodaj ogłoszenie → kategoria, marka, rozmiar", "Zdjęcia (detale, faktura, prawdziwy kolor), opis, stan, cena", "Sposób wysyłki"], r: "Szafa.pl: tytuł: typ + marka + rozmiar + kolor. Opis krótki, sympatyczny i rzeczowy w punktach (rozmiar i wymiary, materiał, stan i ślady użytkowania, co w zestawie), na końcu zaproszenie do pytań. Bez hashtagów."},
-  "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (marka + typ + kolor + rozmiar), ciepły wstęp, opis w punktach (rozmiar/wymiary, materiał, stan, wady, co w zestawie), na końcu 3–5 hashtagów bez polskich znaków."}
+  "Hemly": {h: 1, k: ["Dodaj ogłoszenie (limit 25 aktywnych)", "Zdjęcia, tytuł, opis, kategoria, rozmiar, stan", "Cena"], r: "Hemly: jak Vinted – krótki tytuł (marka + typ + kolor + rozmiar), ciepły wstęp, opis w punktach (rozmiar/wymiary, materiał, stan, wady, co w zestawie), na końcu 3–5 hashtagów bez polskich znaków."},
+  "Trivaro": {h: 0, k: ["Dodaj ogłoszenie → kategoria (Moda → Buty/Odzież)", "Marka: wybierz „Inna marka”", "Do 8 zdjęć – pierwsze to okładka", "Tytuł, opis, stan, rozmiar, cena, dostawa"], r: "Trivaro: jak OLX – tytuł do 70 znaków (typ + marka + model + kolor + rozmiar, bez CAPS LOCKA i wykrzykników), ciepły wstęp („Siemanko! Mam do sprzedania …”), dane w punktach (rozmiar, kolor, materiał, stan, wady, co w zestawie), na końcu dostawa/odbiór z miastem i zaproszenie do pytań. Uśmiechy TYLKO tekstowe „:))” – żadnych emoji. Pole marki: „Inna marka”. BEZ hashtagów."}
 };
-let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["OLX", "Facebook Marketplace", "Grupa na Facebooku", "Vestiaire Collective", "Allegro Lokalnie", "Szafa.pl", "Hemly"]; })();
+let GEN_PLATS = (() => { try { const v = JSON.parse(localStorage.getItem("kd_genplats")); if (Array.isArray(v) && v.length) return v; } catch {} return ["OLX", "Facebook Marketplace", "Grupa na Facebooku", "Vestiaire Collective", "Allegro Lokalnie", "Szafa.pl", "Hemly", "Trivaro"]; })();
 function renderGenPlats() {
   const el = $("#gen-plats"); if (!el) return;
   el.innerHTML = Object.keys(PLAT_RULES).map(p => `<button type="button" data-gp="${esc(p)}" aria-pressed="${GEN_PLATS.includes(p)}" title="${PLAT_RULES[p].manual ? "Tylko opis do ręcznego wystawienia – Vinted banuje za automatyczne wystawianie" : ""}">${esc(p)}${PLAT_RULES[p].manual ? " (ręcznie)" : ""}</button>`).join("");
@@ -2669,7 +2676,7 @@ function renderDraftLists() {
 }
 const genKey = d => (d.produkt + "|" + d.rozmiar).toLowerCase();
 /* PO WYSTAWIENIU: zaznacz, gdzie faktycznie wisi ogłoszenie → zapis „wystawione” przy rzeczy + czysty formularz */
-const GEN2LIST = {"OLX": "OLX", "Facebook Marketplace": "Marketplace", "Grupa na Facebooku": "Grupy FB", "Vinted (ręcznie)": "Vinted", "Vinted": "Vinted", "Vestiaire Collective": "Vestiaire", "Allegro Lokalnie": "Allegro Lokalnie", "Szafa.pl": "Szafa.pl", "Hemly": "Hemly"};
+const GEN2LIST = {"OLX": "OLX", "Facebook Marketplace": "Marketplace", "Grupa na Facebooku": "Grupy FB", "Vinted (ręcznie)": "Vinted", "Vinted": "Vinted", "Vestiaire Collective": "Vestiaire", "Allegro Lokalnie": "Allegro Lokalnie", "Szafa.pl": "Szafa.pl", "Hemly": "Hemly", "Trivaro": "Trivaro"};
 function genFindItem(D) {
   if (D.lk && M.sales.some(s => lkey(s) === D.lk)) return D.lk;
   const d = D.data || {}, p = (d.produkt || "").toLowerCase(), sz = String(d.rozmiar || "").trim();
@@ -2766,7 +2773,8 @@ Odpowiedz wyłącznie JSON: {"tytul": "...", "opis": "pełny opis bez hashtagów
   $("#o-t").textContent = L[0].tytul; $("#o-d").textContent = L[0].opis;
 }
 function readyTxt(D) { const ok = D.L.filter(x => x.ok).map(x => x.platforma);
-  return `Przekazane do wystawienia: ${ok.map(esc).join(", ")}. Napisz w czacie z Claude: <b>„wystaw zaakceptowane”</b> i podaj folder ze zdjęciami${D.photos && D.photos.length ? ` (kolejność: ${D.photos.slice(0, 4).map(esc).join(", ")}${D.photos.length > 4 ? "…" : ""})` : ""}. Claude wypełni ogłoszenia w Twoim Chrome i przed każdą publikacją zapyta o zgodę.`; }
+  const ph = (D.photos || []).map(p => typeof p === "string" ? p : p && p.name).filter(Boolean);
+  return `Przekazane do wystawienia: <b>${ok.map(esc).join(", ")}</b>${ph.length ? ` · ${ph.length} zdj. (${ph.slice(0, 4).map(esc).join(", ")}${ph.length > 4 ? "…" : ""})` : ""}. Nic więcej nie musisz robić – Claude sam to zauważy i wystawi w Twoim Chrome (komputer włączony, Chrome otwarty). Gotowe ogłoszenia pojawią się w „Aktywne”.`; }
 /* darmowy generator z szablonu – tylko z wpisanych danych, nic nie zmyśla */
 function tplGen(d, plats) {
   const noPl = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l").replace(/Ł/g, "L");
@@ -2793,7 +2801,8 @@ function tplGen(d, plats) {
       return {tytul: cut([prod, color].filter(Boolean).join(" "), 80), opis: `Hello! For sale: ${prod}${color ? " in " + color : ""}.\n\n${L1}\n\nHappy to answer any questions and send extra photos.`, hashtagi: [], tlumaczenie: `Dzień dobry! Na sprzedaż: ${name}.\n\n${pts("– ")}\n\nChętnie odpowiem na pytania i prześlę dodatkowe zdjęcia.\n\n(Kolor, dodatki i szczegóły wpisane po polsku – przetłumacz je w opisie, klikając „Edytuj”.)`}; },
     "Allegro Lokalnie": () => ({tytul: title(50), opis: `Cześć! 😊 Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: []}),
     "Szafa.pl": () => ({tytul: title(80), opis: `Hej! :)) Sprzedam ${name}.\n\n${pts("• ")}\n\n${ship} Pytaj śmiało!`, hashtagi: []}),
-    "Hemly": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)})
+    "Hemly": () => ({tytul: title(60), opis: `Hej! 😊 Mam do sprzedania ${name}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: tags(5)}),
+    "Trivaro": () => ({tytul: title(70), opis: `Siemanko! :)) Mam do sprzedania ${name}${size ? ", rozmiar " + size : ""}.\n\n${pts("• ")}\n\n${ship}\n${ask}`, hashtagi: [], marka: "Inna marka"})
   };
   return plats.filter(p => T[p]).map(p => ({platforma: p, kategoria: "", ...T[p]()}));
 }
