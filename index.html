@@ -224,6 +224,20 @@ details.grp>summary>svg{transition:transform .2s;opacity:.5}details.grp[open]>su
 .sz:hover{background:var(--accent-soft)!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1.5px var(--accent)}
 .sz[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface2);color:var(--fg);padding:6px 9px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap;box-shadow:0 0 0 1px var(--line2);z-index:30;pointer-events:none}
 .bankplan .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.pgrid .bcard{display:flex;flex-direction:column}
+.peye{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.pwhen{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 2px}
+.pdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c);margin-left:6px;vertical-align:middle}
+.pdt{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px}
+.psteps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px}.pstep{background:var(--surface2);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.4}.pstep .pd{font:700 16px/1.2 var(--f);margin-bottom:4px}
+.pflow{margin:6px 0 8px;padding-left:20px;font-size:13.5px;line-height:1.6}
+.pcall{background:var(--surface2);border-left:3px solid var(--accent);border-radius:10px;padding:10px 14px;margin-top:14px;font-size:13.5px;line-height:1.45}
+.pgantt{display:grid;grid-template-columns:48px repeat(13,minmax(0,1fr));gap:3px;font-size:10.5px;align-items:center}.pgantt .h{text-align:center;color:var(--muted);line-height:1.2}.pgantt .l{font-weight:600;font-size:12px}
+.cell{display:block;height:18px;border-radius:4px;background:var(--surface2)}.cell.on{background:var(--c)}.cell.zap{background:repeating-linear-gradient(45deg,var(--c) 0 4px,transparent 4px 8px)}.cell.pay{background:transparent;border:2px dashed var(--c)}
+.plegend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}.plegend span{display:flex;align-items:center;gap:6px}.plegend i{width:22px;height:12px}
+.pkpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}.pkpi div{background:var(--surface2);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}.pkpi b{font:700 19px/1.2 var(--f)}.pkpi span{font-size:12px;color:var(--muted)}
+.pbars{display:flex;flex-direction:column;gap:6px}.pbar{display:grid;grid-template-columns:72px 1fr 62px;gap:8px;align-items:center;font-size:13px}.pbar .tr{height:10px;background:var(--surface2);border-radius:6px;overflow:hidden}.pbar .fl{display:block;height:100%;background:var(--accent);border-radius:6px}.pbar b{text-align:right}
+.prules{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.prules div{background:var(--surface2);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.45}
 .bcard{background:var(--surface2);border-radius:14px;border-top:3px solid var(--bc);padding:14px 16px}
 .bcard.off{opacity:.45}.bcard[open]{grid-column:1/-1}
 .bcard>summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:4px}.bcard>summary::-webkit-details-marker{display:none}
@@ -532,7 +546,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 18.11 22:47</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 18.11 23:04</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -586,7 +600,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
 
   <!-- ŹRÓDŁA -->
   <section class="view" id="v-zrodla" hidden><div class="dash" id="src-cards"></div></section>
-  <section class="view" id="v-zrodlo" hidden><div class="dash" id="src-page"></div></section>
+  <section class="view" id="v-zrodlo" hidden><div class="toolbar kn" id="kn-premie" hidden></div><div class="dash" id="src-page"></div></section>
 
   <!-- MAGAZYN -->
   <section class="view" id="v-magazyn" hidden>
@@ -1948,8 +1962,64 @@ function bindBankPlan(root, after) {
   chart("ch-banks", {type: "bar", data: {labels: sch.map(r => mShort(r.k)), datasets: [{label: "Pewne", data: sch.map(r => r.s), backgroundColor: css("--accent"), borderRadius: 6, stack: "a"}, {label: "Dodatkowo maks.", data: sch.map(r => r.x - r.s), backgroundColor: css("--warn"), borderRadius: 6, stack: "a"}]},
     options: {scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, ticks: {callback: v => v + " zł"}}}}});
 }
+/* PLANY PREMII – każdy plan to osobna zakładka w Premiach bankowych; status i zaznaczenia w store "plans" */
+let PLANST = {}, premTab = ls.get("kd_premtab", "ogolne");
+const PLAN_ST = {czeka: ["czeka na akceptację", "var(--warn)"], trakcie: ["w trakcie", "var(--accent)"], koniec: ["zakończony", "var(--muted)"]};
+const BC = {bnp: "#3fbf7f", erste: "#6c8cff", alior: "#ff7a59", mbank: "#e8559b"};
+const PLANY = [{id: "p1", nazwa: "Plan 1 · teraz", opis: "4 banki: mBank, Erste, Alior, BNP · XI 2026 – XII 2027",
+  start: [
+    {c: BC.mbank, t: "mBank · eKonto możliwości 18–24", tag: "wniosek do 30.11", hot: 1, g: [["Dziś", [["m1", "Najpierw zapis na <b>mbank.pl/biedronka</b> (ten sam dzień, przed wnioskiem): bony do 300 zł, niepewne"], ["m2", "Wniosek o eKonto możliwości 18–24 z kartą"], ["m3", "We wniosku zaznacz rachunek <b>„moje cele”</b>"], ["m4", "Weryfikacja selfie / e-dowód / mObywatel: <b>+100 zł</b>"]]], ["W 7 dni od otwarcia", [["m5", "<b>Jeden</b> przelew min. 1000 zł z innego banku (z BNP): premia I"], ["m6", "Umowa podpisana najpóźniej 7.12"]]]]},
+    {c: BC.erste, t: "Erste · Konto Smart", tag: "wniosek do 30.11", hot: 1, g: [["Dziś", [["e1", "Wniosek online na erste.pl albo „Załóż konto” w aplikacji (nie w oddziale)"], ["e2", "Zaznacz zgody marketingowe i <b>zgodę na udział w promocji</b>"]]], ["Po otwarciu", [["e3", "Dodaj cel w <b>„Moje Cele”</b> i nie usuwaj go do końca marca 2027"], ["e4", "Dodaj kartę do Google/Apple Pay (łatwiej o 7 płatności)"]]]]},
+    {c: BC.alior, t: "Alior · Konto Plus", tag: "wniosek do 11.01", g: [["Dziś", [["a1", "Wniosek online z kodem <b>PREMIA800</b>, bez kodu nie ma premii"], ["a2", "Zaznacz zgody marketingowe"]]], ["W 10 dni od umowy", [["a3", "Karta w Google/Apple Pay + <b>1 płatność</b> telefonem: <b>200 zł + obrączka</b>"], ["a4", "Kod SMS na obrączkę wpisz w 14 dni (gotapster.com/alior)"]]]]},
+    {c: BC.bnp, t: "BNP Paribas · Konto Otwarte na Ciebie", tag: "już masz", note: "✓ Konto założone", g: [["Do 30.11", [["b1", "Sprawdź w umowie, że promocja to <b>„Podróżnik – edycja 4”</b>"], ["b2", "Sprawdź, że masz kartę <b>Karta Otwarta na Świat</b> (liczy się tylko ona)"], ["b3", "Zarejestruj kartę w Bezcenne Chwile: ok. 50 zł w punktach (niepewne)"]]], ["W grudniu", [["b4", "Otwórz darmowe <b>Konto Lokacyjne</b> (potrzebne do bonusu 200 zł za rok)"]]]]}],
+  cond: [[BC.bnp, "BNP", "razem min. 1500 zł z innego banku", "10 kartą Otwarta na Świat (BLIK się nie liczy)", "1× logowanie GOmobile", "XII – XI 2027"], [BC.alior, "Alior", "1000 zł jednym przelewem z innego banku", "3 (karta lub BLIK)", "1× logowanie Alior Mobile", "XII – IV (+V na zapas)"], [BC.erste, "Erste", "1000 zł z innego banku", "7 (karta lub BLIK w sklepie)", "cel w „Moich Celach”, 1× logowanie", "XII – II"], [BC.mbank, "mBank", "1000 zł jednym przelewem (w XII niewymagany)", "kartą min. 350 zł (BLIK się nie liczy)", "+100 zł na „moje cele” względem poprzedniego miesiąca", "XII – V"]],
+  steps: [["2.–4.", "Przelewy krążące.", "Te same pieniądze idą z banku do banku (dni robocze)."], ["8.–20.", "Płatności co 2 dni,", "7 razy po 2–5 drobnych zakupów różnymi kartami."], ["22.", "Kontrola:", "policz płatności i zaloguj się do każdej aplikacji."], ["27.", "Dobicie braków,", "jeśli czegoś brakuje. Potem czekasz na wypłaty."]],
+  flow: {t: "Przelewy w grudniu–lutym (4 banki)", L: ["<b>Dzień 1:</b> BNP → Alior 1100 zł · BNP → mBank 1500 zł", "<b>Dzień 2:</b> Alior → Erste 1050 zł · w mBanku 100 zł na „moje cele” · mBank → BNP 1000 zł", "<b>Dzień 3:</b> Erste → BNP 1000 zł"], n: "Efekt: każdy bank dostał swój wpływ, BNP 2000 zł. W Alior i Erste zostaje po 50 zł na drobne, w mBanku ok. 400 zł na zakupy. Od marca odpada Erste: Alior i mBank odsyłają prosto do BNP. Od czerwca zostaje tylko BNP: 1500 zł tam i z powrotem przez mBank."},
+  callout: ["Ile płatności łącznie w miesiącu (XII–II)", "BNP 12 · Erste 8 · Alior 4 (zrobione z zapasem) + zakupy kartą mBanku ok. 400 zł. Razem ok. 24 drobne zakupy, czyli 2–5 przy jednym wyjściu do sklepu."],
+  gcols: ["XI", "XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"],
+  grows: [["BNP", BC.bnp, i => i >= 1 ? "on" : ""], ["Alior", BC.alior, i => i >= 1 && i <= 5 ? "on" : i === 6 ? "zap" : ""], ["Erste", BC.erste, i => i >= 1 && i <= 3 ? "on" : i === 4 ? "pay" : ""], ["mBank", BC.mbank, i => i >= 1 && i <= 6 ? "on" : i === 7 ? "pay" : ""]],
+  kpi: [["3200 zł", "gotówki łącznie"], ["1330 zł", "zarobione w XII–I"], ["~2600 zł", "potrzebne w BNP na 2. dzień miesiąca"], ["0 zł", "opłat (masz poniżej 26 lat)"]],
+  pay: [["XII 2026", 200, "Alior start"], ["I 2027", 575, "BNP, Alior, Erste, mBank"], ["II", 375, "BNP, Alior, Erste"], ["III", 475, "BNP, Alior, Erste + bonus"], ["IV", 175, "BNP, Alior"], ["V", 175, "BNP, Alior"], ["VI", 575, "BNP, mBank"], ["VII–XI", 375, "BNP 5 × 75 zł"], ["XII 2027", 275, "BNP + bonus 200 zł"]],
+  payTbl: [[BC.bnp, "BNP", "1100 zł", "12 × 75 zł (15. dnia za poprzedni miesiąc) + 200 zł w XII 2027"], [BC.alior, "Alior", "800 zł + obrączka (ok. 500 zł)", "200 start · 200 za XII · 4 × 100 zł, do końca następnego miesiąca"], [BC.erste, "Erste", "700 zł", "3 × 200 zł + 100 zł za komplet (I–III 2027)"], [BC.mbank, "mBank", "600 zł (+ bony do 300 zł?)", "100 zł do 31.01 · 400 + 100 zł do 30.06.2027"], ["", "Razem", "3200 zł", "pierwsze 2 miesiące: 1330 zł zarobione, 775 zł na koncie do końca stycznia"]],
+  rules: [["Nie wycofuj zgód marketingowych", "do ostatniej wypłaty w danym banku."], ["Nie zamykaj kont ani kart", "przed ostatnią premią. Celu w Erste nie usuwaj."], ["Przelew z własnego konta w tym samym banku się nie liczy.", "Zawsze z innego banku."], ["BLIK nie liczy się w BNP i mBanku.", "Tam płać kartą albo telefonem (Google/Apple Pay)."], ["Płatności rób do 20.", "Ostatnie dni miesiąca są ryzykowne, bo bank może zaksięgować później."], ["Pieniądze z „moich celów” w mBanku", "(ok. 600 zł) trzymaj do lipca 2027."]],
+  src: "Warunki pochodzą z serwisów z promocjami (premiowo.pl, moneteo.com), nie z regulaminów. Przed wnioskiem rzuć okiem na regulamin. Bank Pocztowy (do 1000 zł) pominąłem: wymaga 400 zł zakupów kartą miesięcznie, a to razem z mBankiem 750 zł."}];
+const planSt = p => (PLANST[p.id] || {}).st || "czeka";
+const planChk = p => { const ids = p.start.flatMap(b => b.g.flatMap(([, L]) => L.map(([i]) => i))), c = (PLANST[p.id] || {}).chk || {}; return {n: ids.length, d: ids.filter(i => c[i]).length}; };
+function renderPremNav(id) {
+  const el = $("#kn-premie"); if (!el) return;
+  const tabs = [["ogolne", "Ogólne", ""], ...PLANY.map(p => [p.id, p.nazwa, planSt(p)])];
+  el.innerHTML = `<div class="seg" role="group" aria-label="Plany premii">${tabs.map(([k, l, st]) => `<button data-pt="${k}" aria-pressed="${k === premTab}">${esc(l)}${st && st !== "koniec" ? `<span class="pdot" style="--c:${PLAN_ST[st][1]}" title="${PLAN_ST[st][0]}"></span>` : ""}</button>`).join("")}</div>`;
+  el.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => { premTab = b.dataset.pt; ls.set("kd_premtab", premTab); renderZrodlo(id); window.scrollTo(0, 0); });
+}
+function planHTML(p) {
+  const st = planSt(p), [stL, stC] = PLAN_ST[st], c = (PLANST[p.id] || {}).chk || {}, k = planChk(p), max = Math.max(...p.pay.map(x => x[1]));
+  const sec = (eye, h, body, sub = "") => `<div class="card s12"><div class="ch"><div><div class="peye">${eye}</div><h3>${h}</h3>${sub ? `<div class="sub">${sub}</div>` : ""}</div></div>${body}</div>`;
+  const dot = col => col ? `<span class="pdt" style="--c:${col}"></span>` : "";
+  return `<div class="card s12 pplan-head"><div class="ch" style="margin-bottom:8px"><div><h3>${esc(p.nazwa)}</h3><div class="sub">${esc(p.opis)}</div></div><span class="pill" style="background:color-mix(in srgb,${stC} 16%,transparent);color:${stC}">${stL}</span></div>
+      <div class="small muted" id="pp-prog">Zrobione na start: <b>${k.d} z ${k.n}</b></div>
+      <div class="actions" style="margin-top:10px">${st === "czeka" ? `<button class="sm primary" data-pst="trakcie">${svg("check", 14)}Akceptuję plan</button>` : st === "trakcie" ? `<button class="sm" data-pst="koniec">Oznacz jako zakończony</button><button class="link small" data-pst="czeka">Cofnij akceptację</button>` : `<button class="link small" data-pst="trakcie">Wznów plan</button>`}</div>
+      <div class="small muted" style="margin-top:6px">${st === "czeka" ? "Akceptacja zmienia tylko status. Przypomnienia do kalendarza dodam dopiero, gdy napiszesz w czacie „tak”." : "Kalendarz: przypomnienia dodaję dopiero po Twoim „tak” w czacie."}</div></div>`
+    + sec("Krok 1 · listopad", "Na start: co zrobić w każdym banku", `<div class="pgrid">${p.start.map(b => `<div class="bcard" style="--bc:${b.c}"><div class="bn">${esc(b.t)}</div><span class="pill" style="align-self:flex-start;margin:6px 0 2px;${b.hot ? "background:color-mix(in srgb,var(--loss) 15%,transparent);color:var(--loss)" : ""}">${esc(b.tag)}</span>${b.note ? `<div class="small pos" style="margin-top:4px">${esc(b.note)}</div>` : ""}${b.g.map(([w, L]) => `<div class="pwhen">${esc(w)}</div>${L.map(([i, t]) => `<label class="btask${c[i] ? " done" : ""}"><input type="checkbox" data-pchk="${i}" ${c[i] ? "checked" : ""}><span>${t}</span></label>`).join("")}`).join("")}</div>`).join("")}</div>`, "Wszystkie konta otwórz jeszcze w listopadzie, wtedy warunki liczą się od grudnia.")
+    + sec("Krok 2 · od grudnia", "Co miesiąc w każdym banku", `<div class="tablewrap"><table><thead><tr><th>Bank</th><th>Wpływ</th><th>Płatności</th><th>Inne</th><th>Miesiące</th></tr></thead><tbody>${p.cond.map(([col, n, ...r]) => `<tr><td>${dot(col)}<b>${n}</b></td>${r.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+      <div class="pwhen" style="margin-top:16px">Jak wygląda jeden miesiąc</div><div class="psteps">${p.steps.map(([d, b, t]) => `<div class="pstep"><div class="pd">${d}</div><div><b>${b}</b> ${t}</div></div>`).join("")}</div>
+      <div class="pwhen" style="margin-top:16px">${p.flow.t}</div><ol class="pflow">${p.flow.L.map(x => `<li>${x}</li>`).join("")}</ol><div class="small muted">${p.flow.n}</div>
+      <div class="pcall"><b>${p.callout[0]}</b><div>${p.callout[1]}</div></div>`)
+    + sec("Krok 3", "Oś czasu: kiedy który bank", `<div class="pgantt"><span></span>${p.gcols.map((x, i) => `<span class="h">${x}${i === 0 ? "<br>2026" : i === 2 ? "<br>2027" : ""}</span>`).join("")}${p.grows.map(([n, col, f]) => `<span class="l">${n}</span>${p.gcols.map((_, i) => `<span class="cell ${f(i)}" style="--c:${col}"></span>`).join("")}`).join("")}</div>
+      <div class="plegend small muted"><span><i class="cell on" style="--c:var(--muted)"></i>warunki</span><span><i class="cell zap" style="--c:var(--muted)"></i>na zapas</span><span><i class="cell pay" style="--c:var(--muted)"></i>ostatnia wypłata</span></div>`)
+    + sec("Krok 4", "Kiedy przychodzą pieniądze", `<div class="pkpi">${p.kpi.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join("")}</div>
+      <div class="pbars">${p.pay.map(([m, v, t]) => `<div class="pbar" title="${esc(t)}"><span>${m}</span><span class="tr"><span class="fl" style="width:${v / max * 100}%"></span></span><b>${v} zł</b></div>`).join("")}</div>
+      <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Bank</th><th>Razem</th><th>Jak wypłaca</th></tr></thead><tbody>${p.payTbl.map(([col, n, a, h]) => `<tr><td>${dot(col)}${col ? n : `<b>${n}</b>`}</td><td><b>${a}</b></td><td>${h}</td></tr>`).join("")}</tbody></table></div>`, "Kwota, która realnie wpływa na konto w danym miesiącu (najpóźniejsze terminy z regulaminów).")
+    + sec("Ważne", "Zasady, żeby nie stracić premii", `<div class="prules">${p.rules.map(([b, t]) => `<div><b>${b}</b> ${t}</div>`).join("")}</div><div class="small muted" style="margin-top:12px">${p.src}</div>`);
+}
+function renderPlan(p, id) {
+  const pg = $("#src-page"); pg.innerHTML = planHTML(p);
+  pg.querySelectorAll("[data-pchk]").forEach(i => i.onchange = async () => { const S = PLANST[p.id] ||= {}, c = S.chk ||= {}; if (i.checked) c[i.dataset.pchk] = 1; else delete c[i.dataset.pchk]; i.closest(".btask").classList.toggle("done", i.checked); const k = planChk(p); $("#pp-prog").innerHTML = `Zrobione na start: <b>${k.d} z ${k.n}</b>`; await store.save("plans", PLANST); });
+  pg.querySelectorAll("[data-pst]").forEach(b => b.onclick = async () => { (PLANST[p.id] ||= {}).st = b.dataset.pst; PLANST[p.id].stDate = new Date().toISOString().slice(0, 10); await store.save("plans", PLANST); toast("Status planu: " + PLAN_ST[b.dataset.pst][0]); renderPremNav(id); keepView(() => renderPlan(p, id)); });
+}
 function renderZrodlo(id) {
   const s = SOURCES.find(x => x.id === id) || SOURCES[SOURCES.length - 1], T = totals(derive(), "all");
+  const kp = $("#kn-premie"); if (kp) { kp.hidden = s.id !== "premie"; if (s.id === "premie") renderPremNav(id); }
+  if (s.id === "premie" && premTab !== "ogolne") { const pl = PLANY.find(x => x.id === premTab); if (pl) { renderPlan(pl, id); return; } }
   const E = OTHER.filter(o => catOf(o) === s.id).sort((a, b) => (b.recurring - a.recurring) || b.month.localeCompare(a.month));
   const sel = srcMonth || nowKey(), first = E.reduce((a, o) => o.month < a ? o.month : a, nowKey()), last = addMonths(nowKey(), 12);
   // the selected month, computed directly so future months can be ticked in advance
@@ -2938,7 +3008,7 @@ function chatCost() { const u = window.KD_STATE && window.KD_STATE().api_usage, 
 const openChat = () => { $("#chat-cost").textContent = chatCost(); $("#chat").hidden = false; setTimeout(() => $("#chat-in").focus(), 50); };
 $("#fab").onclick = openChat;
 /* PRZENIEŚ DANE — kopia wszystkich zapisanych danych między wersją claude.ai a aplikacją */
-const MOVE_KEYS = ["gendraft", "genphotos", "msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
+const MOVE_KEYS = ["plans", "gendraft", "genphotos", "msgread", "fbgroups", "interest", "listings", "chknotes", "bankdone", "bankstart", "asks", "banks", "skin", "accounts", "arrived", "budget", "channels", "goal_10k", "groups", "ideas", "income", "living", "networth", "paid", "profiles", "recv", "searches", "seed_v1", "src_order", "todos", "transfers", "tx"];
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
@@ -3067,7 +3137,7 @@ renderAll();
   { DRAFTS = (await store.load("drafts", [])) || []; const g = await store.load("gendraft", null); if (g && g.data) { try { fillGenForm(g.data); GEN_DRAFT = g; g.id ||= uid(); GEN_PICK_KEY = g.lk || ""; if (Array.isArray(g.L) && g.L.length) renderGenOut(g, false); upsertDraft(g); } catch (e) { console.warn(e); } } }
   setTimeout(() => resyncLocal().catch(e => console.warn(e)), 4000); LISTINGS = (await store.load("listings", {})) || {}; LISTEDLOG = (await store.load("listedlog", [])) || []; MSGREAD = (await store.load("msgread", {})) || {}; FBGROUPS = (await store.load("fbgroups", [])) || []; INTEREST = (await store.load("interest", {})) || {};
   BANKST = (await store.load("banks", {})) || {};
-  if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
+  if (!BANKST.__bnp1311 && !(BANKST.bnp && BANKST.bnp.st === "open")) { BANKST.bnp = {st: "open", opened: "2026-11-13"}; BANKST.__bnp1311 = 1; store.save("banks", BANKST); } BANKDONE = (await store.load("bankdone", {})) || {}; PLANST = (await store.load("plans", {})) || {}; { const bs = await store.load("bankstart", null); BANKSTART = bs && bs[0] || null; } SNOOZE = (await store.load("asks", {})) || {};
   if (ideas == null) { IDEAS = IDEA_SEED.slice(); store.save("ideas", IDEAS); } else IDEAS = ideas;
   PROFILES = profiles || []; applySrcOrder(srcOrder); renderNav(); RECV = recv || {}; LIVING = living || []; NW = networth || {assets: [{id: "a1", name: "Konto bankowe", amount: 0}, {id: "a2", name: "Revolut", amount: 0}, {id: "a3", name: "Gotówka", amount: 0}], debts: []}; TRANSFERS = transfers || {};
   if (budget) BUDGET = budget.map(b => ({acc: "", start: 0, ...b})); TODOS = todos || {}; CHANNELS = channels; if (CHANNELS) ["szafa", "trivaro", "hemly"].forEach(id => { if (!CHANNELS.some(c => c.id === id)) CHANNELS = [CHANNEL_SEED.find(c => c.id === id), ...CHANNELS]; }); ARRIVED = arrived || {}; PAID = paid || {}; OTHER = o || []; SEARCHES = s || []; GROUPS = g || []; TX = tx || []; ACCS = accs || {};
