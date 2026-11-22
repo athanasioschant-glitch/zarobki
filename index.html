@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:18</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:28</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1474,7 +1474,7 @@ function renderStartInner() {
   renderTransit(D);
   $("#hist").innerHTML = histHTML(SRC);
   if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
-  const avgSell = {}; D.sold.forEach(s => { const k = s.product; (avgSell[k] ||= []).push(s.price); });
+  const avgSell = {}; D.sold.forEach(s => { if (isGift(s)) return; const k = s.product; (avgSell[k] ||= []).push(s.price); });
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
   const roi = T.kCost ? T.kRev / T.kCost : null;
@@ -2153,12 +2153,15 @@ document.addEventListener("change", e => { const inp = e.target.closest("[data-p
 /* MAGAZYN */
 let invFilter = "all", invMode = "stan";
 const avg = (arr, f) => { const v = arr.map(f).filter(x => x != null && !isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+/* prezenty – sprzedane „po znajomości”, nie liczą się do średnich cen sprzedaży (przychód i zysk zostają) */
+const GIFTS = [{product: "Buty UGG Lowmel", price: 160, note: "dla dziewczyny"}, {product: "Kolczyki Chanel", note: "dla mamy"}];
+const isGift = s => s.status === "sprzedane" && GIFTS.some(g => g.product === s.product && (g.price == null || +s.price === g.price));
 /* estimated sale price for an unsold item: its listing price, else the plan from the order sheet, else the average sold price */
 function estSell(s) {
   if (s.price > 0) return s.price;
   const it = (M.orderItems[String(s.order)] || []).find(i => { const a = toks(i.product), b = toks(s.product); return a[0] === b[0] && a.slice(1).some(w => !STOP.has(w) && b.includes(w)); });
   if (it && it.sell) return it.sell;
-  const sold = M.sales.filter(x => x.status === "sprzedane" && x.product === s.product);
+  const sold = M.sales.filter(x => x.status === "sprzedane" && x.product === s.product && !isGift(x));
   return sold.length ? sold.reduce((a, x) => a + x.price, 0) / sold.length : null;
 }
 function renderProducts() {
@@ -2172,13 +2175,13 @@ function renderProducts() {
     const rev = sold.reduce((a, s) => a + s.price, 0), prof = sold.reduce((a, s) => a + s.profit, 0), costSold = sold.reduce((a, s) => a + s.cost, 0);
     const days = sold.filter(s => s.listed && s.sold).map(s => (new Date(s.sold) - new Date(s.listed)) / 864e5);
     const buy = avg(it, s => s.buy), fr = avg(it, s => s.freight), ship = avg(it, s => s.ship), cost = avg(it, s => s.cost);
-    const colors = {}; it.forEach(s => { const c = cleanColor(s.color) || "—"; const o = colors[c] ||= {c, raw: s.color, sold: 0, stock: 0, pre: 0, prices: []}; if (s.status === "sprzedane") { o.sold++; o.prices.push(s.price); } else if (s.status === "presale") o.pre++; else if (stock.includes(s)) o.stock++; });
+    const colors = {}; it.forEach(s => { const c = cleanColor(s.color) || "—"; const o = colors[c] ||= {c, raw: s.color, sold: 0, stock: 0, pre: 0, prices: []}; if (s.status === "sprzedane") { o.sold++; if (!isGift(s)) o.prices.push(s.price); } else if (s.status === "presale") o.pre++; else if (stock.includes(s)) o.stock++; });
     const match = x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); };
     const incItems = [...INC.filter(match), ...NEp.filter(match)];
     const buyVal = stock.reduce((a, s) => a + (s.cost || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
     const estVal = stock.reduce((a, s) => a + (estSell(s) || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
     return {buyVal, estVal, name, it, sold, pre, listed, stock, inc, rev, prof, costSold, days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null, buy, fr, ship, cost,
-      sell: avg(sold, s => s.price), minS: sold.length ? Math.min(...sold.map(s => s.price)) : null, maxS: sold.length ? Math.max(...sold.map(s => s.price)) : null, noSell: avg(listed, s => s.price), colors: Object.values(colors)};
+      sell: avg(sold.filter(s => !isGift(s)), s => s.price), minS: sold.some(s => !isGift(s)) ? Math.min(...sold.filter(s => !isGift(s)).map(s => s.price)) : null, maxS: sold.some(s => !isGift(s)) ? Math.max(...sold.filter(s => !isGift(s)).map(s => s.price)) : null, noSell: avg(listed, s => s.price), colors: Object.values(colors)};
   }).sort((a, b) => b.prof - a.prof || b.it.length - a.it.length);
   const TB = rows.reduce((a, r) => a + r.buyVal, 0), TE = rows.reduce((a, r) => a + r.estVal, 0), TN = rows.reduce((a, r) => a + r.stock.length + r.inc, 0);
   const summary = `<div class="card s12"><div class="ch"><div><h3>Wartość magazynu</h3><div class="sub">${TN} szt. na stanie i w drodze z Chin</div></div>${ic("shelf", "w")}</div>
@@ -3051,9 +3054,9 @@ const MOVE_KEYS = ["plans", "gendraft", "genphotos", "msgread", "fbgroups", "int
 async function openMove() {
   let box = $("#move-box"); if (box) box.remove();
   box = document.createElement("div"); box.id = "move-box"; box.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px";
-  box.innerHTML = `<div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow:auto"><div class="ch"><div><h3>Przenieś dane</h3><div class="sub">Wpisy, zaznaczenia, salda, długi, pomysły i zadania. Bez zdjęć.</div></div><button class="iconbtn flat" data-x aria-label="Zamknij">${svg("x", 16)}</button></div>
+  box.innerHTML = `<div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow:auto"><div class="ch"><div><h3>Przenieś dane</h3><div class="sub">Wpisy, zaznaczenia, salda, długi, pomysły i zadania. Zdjęcia produktów – osobnym przyciskiem.</div></div><button class="iconbtn flat" data-x aria-label="Zamknij">${svg("x", 16)}</button></div>
     <p class="small muted" style="margin:0 0 10px">1. W wersji, <b>z której</b> przenosisz: „Skopiuj moje dane”.<br>2. W wersji, <b>do której</b> przenosisz: wklej w pole i „Wczytaj”. To zastąpi tam zapisane dane.</p>
-    <div class="actions" style="margin-bottom:10px"><button class="primary" data-copy>Skopiuj moje dane</button><span class="small muted" data-msg></span></div>
+    <div class="actions" style="margin-bottom:10px"><button class="primary" data-copy>Skopiuj moje dane</button><button data-copyph>Skopiuj tylko zdjęcia produktów</button><span class="small muted" data-msg></span></div><p class="small muted" style="margin:0 0 10px">„Tylko zdjęcia” podmienia w drugiej wersji same zdjęcia produktów – wpisy i kwoty zostają.</p>
     <textarea data-txt rows="6" style="width:100%;font:12px/1.4 ui-monospace,monospace" placeholder="Tu wklej skopiowane dane"></textarea>
     <div class="actions" style="margin-top:10px"><button data-load>Wczytaj</button></div></div>`;
   document.body.append(box);
@@ -3064,9 +3067,19 @@ async function openMove() {
     const s = JSON.stringify({kd: 1, at: new Date().toISOString(), data: out}); q("[data-txt]").value = s; q("[data-txt]").select();
     try { await navigator.clipboard.writeText(s); msg.textContent = "Skopiowane do schowka."; } catch { msg.textContent = "Zaznaczone poniżej – skopiuj (Cmd+C)."; }
   };
+  // zdjęcia produktów: zmniejszone do napisu (data:), bo adres /_blob/… działa tylko w artefakcie, a arkusz mieści ok. 45 tys. znaków na pole
+  const small = async u => { if (/^data:/.test(u) && u.length < 40000) return u; const img = await createImageBitmap(await (await fetch(u)).blob()); for (const [m, qy] of [[420, .72], [360, .65], [300, .6], [240, .55]]) { const sc = Math.min(1, m / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); const d = c.toDataURL("image/jpeg", qy); if (d.length < 40000) return d; } return null; };
+  q("[data-copyph]").onclick = async () => {
+    msg.textContent = "Przygotowuję zdjęcia…"; const idx = (await store.load("photos", null)) || {}, out = {photos: {}}; let n = 0, bad = 0;
+    for (const [k, slot] of Object.entries(idx)) { try { const v = await store.load(slot, null), u = v && v[0]; if (!u) continue; const d = await small(u); if (d) { out[slot] = [d]; out.photos[k] = slot; n++; } else bad++; } catch { bad++; } }
+    if (!n) { msg.textContent = "Nie znalazłem tu zdjęć produktów."; return; }
+    const s = JSON.stringify({kd: 1, at: new Date().toISOString(), onlyPhotos: 1, data: out}); q("[data-txt]").value = s; q("[data-txt]").select();
+    try { await navigator.clipboard.writeText(s); msg.textContent = `Skopiowane: ${n} zdjęć${bad ? `, ${bad} się nie udało` : ""}.`; } catch { msg.textContent = `${n} zdjęć zaznaczone poniżej – skopiuj (Cmd+C).`; }
+  };
   q("[data-load]").onclick = async () => {
     let j; try { j = JSON.parse(q("[data-txt]").value); } catch { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
     if (!j || j.kd !== 1 || !j.data) { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
+    if (j.onlyPhotos) { const idx = (await store.load("photos", null)) || {}; for (const [k, v] of Object.entries(j.data)) if (/^ph_/.test(k)) await store.save(k, v); await store.save("photos", {...idx, ...j.data.photos}); toast("Zdjęcia produktów wczytane"); setTimeout(() => location.reload(), 600); return; }
     if (!confirm("Zastąpić dane w tej wersji danymi z " + String(j.at || "").slice(0, 10) + "?")) return;
     for (const [k, v] of Object.entries(j.data)) if (MOVE_KEYS.includes(k)) await store.save(k, v);
     toast("Dane wczytane"); setTimeout(() => location.reload(), 600);
