@@ -549,7 +549,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 19:24</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 20:57</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1623,7 +1623,20 @@ function renderSources(T) {
   bindEntryForm(el, renderStart);
 }
 const tglHTML = (inst, got) => `<div class="tgl" role="group" aria-label="Czy otrzymane"><button data-tgl="${esc(inst)}" data-v="0" aria-pressed="${!got}">Nieotrzymane</button><button data-tgl="${esc(inst)}" data-v="1" aria-pressed="${!!got}">Otrzymane</button></div>`;
-const bindTgl = (root, after) => root.querySelectorAll("[data-tgl]").forEach(b => b.onclick = async e => { e.stopPropagation(); const r = RECV[b.dataset.tgl] ||= {}; const v = b.dataset.v === "1"; if (r.got === v) return; r.got = v; await store.save("recv", RECV); toast(v ? "Otrzymane" : "Nieotrzymane"); after(); });
+const bindTgl = (root, after) => root.querySelectorAll("[data-tgl]").forEach(b => b.onclick = async e => {
+  e.stopPropagation(); const inst = b.dataset.tgl, r = RECV[inst] ||= {}, v = b.dataset.v === "1", grp = b.closest(".tgl");
+  grp.parentElement.querySelectorAll(".rcv-pick").forEach(x => x.remove());
+  if (!v) { if (!r.got) return; r.got = false; await store.save("recv", RECV); toast("Nieotrzymane"); after(); return; }
+  // „Otrzymane”: wybór – całość albo inna kwota
+  const o = OTHER.find(x => x.id === inst.split("|")[0]), full = r.amt != null ? +r.amt : +(o && o.rev) || 0;
+  const box = document.createElement("div"); box.className = "rcv-pick"; box.style.cssText = "flex-basis:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px";
+  box.innerHTML = `<button class="sm primary" data-rp="all">Całość · ${zl(full)}</button><span class="small muted">albo inna kwota:</span><input type="number" inputmode="decimal" min="0" data-rp-amt placeholder="ile dostałeś" aria-label="Otrzymana kwota" style="width:120px;height:36px;text-align:right"><button class="sm" data-rp="part">Zapisz</button>`;
+  grp.after(box); box.addEventListener("click", ev => ev.stopPropagation());
+  const done = async amt => { r.got = true; if (amt != null) r.amt = amt; await store.save("recv", RECV); toast("Otrzymane: " + zl(amt != null ? amt : full)); after(); };
+  const inp = box.querySelector("[data-rp-amt]"), part = () => { const a = Math.max(0, +inp.value || 0); if (!a) { inp.focus(); return; } done(a); };
+  box.querySelector('[data-rp="all"]').onclick = () => done(null);
+  box.querySelector('[data-rp="part"]').onclick = part; inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); part(); } };
+});
 
 /* this month's recurring incomes: mark received, adjust amount */
 function renderRecurring(el, cat) {
