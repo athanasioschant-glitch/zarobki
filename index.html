@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:28</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:30</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -2179,7 +2179,8 @@ function renderProducts() {
     const match = x => { const xt = toks(x.product); return xt[0] === nt[0] && xt.slice(1).some(w => nt.includes(w) && !STOP.has(w)); };
     const incItems = [...INC.filter(match), ...NEp.filter(match)];
     const buyVal = stock.reduce((a, s) => a + (s.cost || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0);
-    const estVal = stock.reduce((a, s) => a + (estSell(s) || 0), 0) + incItems.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
+    const incSell = x => x.sell || (x.items && x.items.length ? avg(x.items, i => estSell({...i, price: 0})) : estSell({product: x.product, order: x.order, price: 0})) || 0;
+    const estVal = stock.reduce((a, s) => a + (estSell(s) || 0), 0) + incItems.reduce((a, x) => a + x.qty * incSell(x), 0);
     return {buyVal, estVal, name, it, sold, pre, listed, stock, inc, rev, prof, costSold, days: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null, buy, fr, ship, cost,
       sell: avg(sold.filter(s => !isGift(s)), s => s.price), minS: sold.some(s => !isGift(s)) ? Math.min(...sold.filter(s => !isGift(s)).map(s => s.price)) : null, maxS: sold.some(s => !isGift(s)) ? Math.max(...sold.filter(s => !isGift(s)).map(s => s.price)) : null, noSell: avg(listed, s => s.price), colors: Object.values(colors)};
   }).sort((a, b) => b.prof - a.prof || b.it.length - a.it.length);
