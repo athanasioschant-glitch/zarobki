@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:01</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:12</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1250,7 +1250,9 @@ const STATUS = {sprzedane: "Sprzedane", presale: "Presale", chiny: "W drodze z C
 /* recurring entries (family support, pocket money, garage…) expand into one instance per month */
 let RECV = {}, LIVING = [], NW = {assets: [], debts: []}, TRANSFERS = {};
 const monthsFrom = (a, b) => { const out = []; if (!a) return out; let [y, m] = a.split("-").map(Number); const [by, bm] = b.split("-").map(Number); while ((y < by || (y === by && m <= bm)) && out.length < 240) { out.push(y + "-" + String(m).padStart(2, "0")); if (++m > 12) { m = 1; y++; } } return out; };
-const expand = L => L.flatMap(o => o.recurring ? monthsFrom(o.month, nowKey()).map(k => { const r = RECV[o.id + "|" + k] || {}; return {...o, month: k, inst: o.id + "|" + k, rev: r.amt != null ? r.amt : o.rev, got: !!r.got}; }) : [{...o, got: true}]);
+/* stały wpływ w danym miesiącu: exp = ile ma przyjść, paid = ile już przyszło (wpłaty w częściach) */
+const rcv = (o, k) => { const r = RECV[o.id + "|" + k] || {}, exp = r.amt != null ? +r.amt : +o.rev || 0, paid = r.got ? exp : Math.min(exp, +r.paid || 0); return {r, exp, paid, part: !r.got && paid > 0}; };
+const expand = L => L.flatMap(o => o.recurring ? monthsFrom(o.month, nowKey()).flatMap(k => { const {r, exp, paid, part} = rcv(o, k), b = {...o, month: k, inst: o.id + "|" + k}; return part ? [{...b, rev: paid, got: true, partial: exp}, {...b, rev: exp - paid, got: false, rest: 1}] : [{...b, rev: exp, got: !!r.got}]; }) : [{...o, got: true}]);
 const smonth = s => (s.sold || new Date().toISOString().slice(0, 10)).slice(0, 7);
 function derive() {
   saleKeys();
@@ -1625,29 +1627,28 @@ const tglHTML = (inst, got) => `<div class="tgl" role="group" aria-label="Czy ot
 const bindTgl = (root, after) => root.querySelectorAll("[data-tgl]").forEach(b => b.onclick = async e => {
   e.stopPropagation(); const inst = b.dataset.tgl, r = RECV[inst] ||= {}, v = b.dataset.v === "1", grp = b.closest(".tgl");
   grp.parentElement.querySelectorAll(".rcv-pick").forEach(x => x.remove());
-  if (!v) { if (!r.got) return; r.got = false; await store.save("recv", RECV); toast("Nieotrzymane"); after(); return; }
-  // „Otrzymane”: wybór – całość albo inna kwota
-  const o = OTHER.find(x => x.id === inst.split("|")[0]), full = r.amt != null ? +r.amt : +(o && o.rev) || 0;
+  if (!v) { if (!r.got && !r.paid) return; r.got = false; delete r.paid; await store.save("recv", RECV); toast("Nieotrzymane"); after(); return; }
+  const o = OTHER.find(x => x.id === inst.split("|")[0]), exp = r.amt != null ? +r.amt : +(o && o.rev) || 0, paid = r.got ? exp : +r.paid || 0, rest = Math.max(0, exp - paid);
   const box = document.createElement("div"); box.className = "rcv-pick"; box.style.cssText = "flex-basis:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px";
-  box.innerHTML = `<button class="sm primary" data-rp="all">Całość · ${zl(full)}</button><span class="small muted">albo inna kwota:</span><input type="number" inputmode="decimal" min="0" data-rp-amt placeholder="ile dostałeś" aria-label="Otrzymana kwota" style="width:120px;height:36px;text-align:right"><button class="sm" data-rp="part">Zapisz</button>`;
+  box.innerHTML = `${paid ? `<span class="small muted" style="flex-basis:100%">Otrzymane ${zl(paid)} z ${zl(exp)}</span>` : ""}<button class="sm primary" data-rp="all">${paid ? "Otrzymano resztę" : "Całość"} · ${zl(rest)}</button><span class="small muted">${paid ? "albo kolejna kwota:" : "albo część:"}</span><input type="number" inputmode="decimal" min="0" data-rp-amt placeholder="ile teraz przyszło" aria-label="Otrzymana kwota" style="width:130px;height:36px;text-align:right"><button class="sm" data-rp="part">Dodaj</button>`;
   grp.after(box); box.addEventListener("click", ev => ev.stopPropagation());
-  const done = async amt => { r.got = true; if (amt != null) r.amt = amt; await store.save("recv", RECV); toast("Otrzymane: " + zl(amt != null ? amt : full)); after(); };
-  const inp = box.querySelector("[data-rp-amt]"), part = () => { const a = Math.max(0, +inp.value || 0); if (!a) { inp.focus(); return; } done(a); };
-  box.querySelector('[data-rp="all"]').onclick = () => done(null);
+  const save = async msg => { await store.save("recv", RECV); toast(msg); after(); };
+  box.querySelector('[data-rp="all"]').onclick = () => { r.got = true; delete r.paid; save("Otrzymane w całości: " + zl(exp)); };
+  const inp = box.querySelector("[data-rp-amt]"), part = () => { const a = Math.max(0, +inp.value || 0); if (!a) { inp.focus(); return; } const np = paid + a; if (np >= exp) { r.got = true; delete r.paid; save("Otrzymane w całości: " + zl(exp)); } else { r.got = false; r.paid = np; save(`Otrzymane ${zl(np)} z ${zl(exp)}`); } };
   box.querySelector('[data-rp="part"]').onclick = part; inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); part(); } };
 });
 
 /* this month's recurring incomes: mark received, adjust amount */
 function renderRecurring(el, cat) {
   const k = period !== "all" && el.id === "recur" ? period : nowKey();
-  const L = expand(OTHER).filter(o => o.recurring && o.month === k && (!cat || catOf(o) === cat));
+  const LA = expand(OTHER).filter(o => o.recurring && o.month === k && (!cat || catOf(o) === cat)), L = LA.filter(o => !o.rest);
   if (!L.length) { el.hidden = true; return; } el.hidden = false;
-  const got = L.filter(o => o.got).reduce((a, o) => a + (+o.rev || 0), 0), all = L.reduce((a, o) => a + (+o.rev || 0), 0);
+  const got = LA.filter(o => o.got).reduce((a, o) => a + (+o.rev || 0), 0), all = LA.reduce((a, o) => a + (+o.rev || 0), 0);
   el.innerHTML = `<div class="ch"><div><h3>Stałe wpływy · ${esc(mLabel(k))}</h3><div class="sub">Otrzymane ${zl(got)} z ${zl(all)}</div></div>${ic("user", "")}</div>
     <div class="bar" style="margin-bottom:14px"><i style="width:${all ? got / all * 100 : 0}%"></i></div>
-    <div class="list">${L.map(o => `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 140px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.got ? '<span class="pos">otrzymane</span>' : "oczekiwane"}</div></div>
-      <input type="number" inputmode="decimal" value="${+o.rev || 0}" data-ramt="${esc(o.inst)}" aria-label="Kwota w tym miesiącu" style="width:104px;height:38px;text-align:right">
-      ${tglHTML(o.inst, o.got)}</div>`).join("")}</div>`;
+    <div class="list">${L.map(o => `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 140px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.partial ? `<span class="wrn">otrzymane ${zl(o.rev)} z ${zl(o.partial)}</span>` : o.got ? '<span class="pos">otrzymane</span>' : "oczekiwane"}</div></div>
+      <input type="number" inputmode="decimal" value="${+(o.partial || o.rev) || 0}" data-ramt="${esc(o.inst)}" aria-label="Kwota w tym miesiącu" style="width:104px;height:38px;text-align:right">
+      ${tglHTML(o.inst, o.got && !o.partial)}</div>`).join("")}</div>`;
   const save = async () => { await store.save("recv", RECV); rerender(); };
   bindTgl(el, rerender);
   el.querySelectorAll("[data-ramt]").forEach(i => i.onchange = () => { const r = RECV[i.dataset.ramt] ||= {}; r.amt = Math.max(0, +i.value || 0); toast("Kwota zapisana"); save(); });
@@ -2059,8 +2060,8 @@ function renderZrodlo(id) {
   const E = OTHER.filter(o => catOf(o) === s.id).sort((a, b) => (b.recurring - a.recurring) || b.month.localeCompare(a.month));
   const sel = srcMonth || nowKey(), first = E.reduce((a, o) => o.month < a ? o.month : a, nowKey()), last = addMonths(nowKey(), 12);
   // the selected month, computed directly so future months can be ticked in advance
-  const inMonth = E.filter(o => o.recurring ? o.month <= sel : o.month === sel).map(o => { const r = o.recurring ? RECV[o.id + "|" + sel] || {} : {}; return {o, rev: r.amt != null ? r.amt : +o.rev || 0, cost: +o.cost || 0, got: o.recurring ? !!r.got : true}; });
-  const mRev = inMonth.reduce((x, e) => x + e.rev, 0), mGot = inMonth.filter(e => e.got).reduce((x, e) => x + e.rev, 0);
+  const inMonth = E.filter(o => o.recurring ? o.month <= sel : o.month === sel).map(o => { if (!o.recurring) return {o, rev: +o.rev || 0, cost: +o.cost || 0, got: true, gotAmt: +o.rev || 0}; const {r, exp, paid} = rcv(o, sel); return {o, rev: exp, cost: +o.cost || 0, got: !!r.got, gotAmt: paid}; });
+  const mRev = inMonth.reduce((x, e) => x + e.rev, 0), mGot = inMonth.reduce((x, e) => x + e.gotAmt, 0);
   const m = {rev: mRev, got: mGot, wait: mRev - mGot};
   const a = srcTotals(s.id, "all", T);
   const st = (icon, cls, lab, v, foot, vc = "") => `<div class="stat ${s.id === "rodzina" || s.id === "premie" ? "s6" : "s3"}"><div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vc}">${v}</div><div class="foot"><span>${foot}</span></div></div>`;
@@ -2068,7 +2069,7 @@ function renderZrodlo(id) {
   const stepper = hasRec ? `<div class="card s12" style="padding:12px 16px;display:flex;align-items:center;gap:12px"><button class="iconbtn" id="sm-prev" aria-label="Poprzedni miesiąc" ${sel <= first ? "disabled" : ""}>‹</button><div style="flex:1;text-align:center"><div style="font-weight:700;font-size:16px">${esc(cap(mLabel(sel)))}</div><div class="small muted">${sel > nowKey() ? "zaznaczasz z wyprzedzeniem" : sel === nowKey() ? "bieżący miesiąc" : "miesiąc miniony"}</div></div><button class="iconbtn" id="sm-next" aria-label="Następny miesiąc" ${sel >= last ? "disabled" : ""}>›</button></div>` : "";
   $("#src-page").innerHTML = stepper + st("check", "a", "Otrzymane · " + mLabel(sel), zl(m.got), m.rev ? `z ${zl(m.rev)} (${pct(m.got / m.rev)})` : "brak wpisów", "pos") + st("wallet", "w", "Nieotrzymane", zl(m.wait), m.wait ? "czeka na przelew / gotówkę" : "wszystko dotarło") + (s.id === "rodzina" || s.id === "premie" ? "" : st("trend", "", "Zysk łącznie", zl(a.profit), `przychód ${zl(a.rev)}`) + st("pct", "b", "Marża", pct(a.rev ? a.profit / a.rev : null), "zysk ÷ przychód")) +
     `<div class="card s7"><div class="ch"><div><h3>Wpisy</h3></div><button class="sm primary" data-addentry>${svg("plus", 14)}Dodaj</button></div>${entryForm(s.id)}
-      <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}<span class="amt ${sgn(p)}">${zl(p, 2)}</span><button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
+      <div class="list">${E.map(o => { const inst = o.id + "|" + sel, rr = RECV[inst] || {}, got = !!rr.got, p = (rr.amt != null && o.recurring ? rr.amt : +o.rev || 0) - (+o.cost || 0); return `<div class="row" style="flex-wrap:wrap"><div class="main" style="flex:1 1 160px"><div class="t">${esc(o.desc || o.name)}</div><div class="s">${o.recurring ? "co miesiąc · stan za " + esc(mLabel(sel)) : esc(cap(mLabel(o.month)))} · ${o.recurring ? "zwykle" : "przychód"} ${zl(+o.rev || 0)}${+o.cost ? " · koszty " + zl(+o.cost) : ""}</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${o.recurring ? tglHTML(inst, got) : ""}${o.recurring && rcv(o, sel).part ? `<span class="amt wrn">${zl(rcv(o, sel).paid)} / ${zl(rcv(o, sel).exp)}</span>` : `<span class="amt ${sgn(p)}">${zl(p, 2)}</span>`}<button class="iconbtn flat" data-edit="${o.id}" aria-label="Edytuj wpis" title="Edytuj">${svg("pen", 15)}</button><button class="iconbtn flat" data-del="${o.id}" aria-label="Usuń wpis">${svg("x", 15)}</button></div>${editEntry === o.id ? editForm(o, inst, rr) : ""}</div>`; }).join("") || `<div class="empty">Brak wpisów. Dodaj pierwszy przychód z tego źródła.</div>`}</div></div>
     <div class="card s5 todo-box">${todoHTML(s.id)}</div>${s.id === "premie" ? bankPlanHTML() : ""}
     <div class="card s12">${histHTML(s.id)}</div>`;
   bindEntryForm($("#src-page"), () => keepView(() => renderZrodlo(id)));
