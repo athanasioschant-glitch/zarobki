@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:16</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:18</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1626,13 +1626,15 @@ function renderSources(T) {
 const tglHTML = (inst, got) => `<div class="tgl" role="group" aria-label="Czy otrzymane"><button data-tgl="${esc(inst)}" data-v="0" aria-pressed="${!got}">Nieotrzymane</button><button data-tgl="${esc(inst)}" data-v="1" aria-pressed="${!!got}">Otrzymane</button></div>`;
 const bindTgl = (root, after) => root.querySelectorAll("[data-tgl]").forEach(b => b.onclick = async e => {
   e.stopPropagation(); const inst = b.dataset.tgl, r = RECV[inst] ||= {}, v = b.dataset.v === "1", grp = b.closest(".tgl");
-  grp.parentElement.querySelectorAll(".rcv-pick").forEach(x => x.remove());
+  document.querySelectorAll(".rcv-pick").forEach(x => x.remove());
   if (!v) { if (!r.got && !r.paid) return; r.got = false; delete r.paid; await store.save("recv", RECV); toast("Nieotrzymane"); after(); return; }
   const o = OTHER.find(x => x.id === inst.split("|")[0]), exp = r.amt != null ? +r.amt : +(o && o.rev) || 0, paid = r.got ? exp : +r.paid || 0, rest = Math.max(0, exp - paid);
   const box = document.createElement("div"); box.className = "rcv-pick"; box.style.cssText = "flex-basis:100%;width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px";
-  box.innerHTML = `${paid ? `<span class="small muted" style="flex-basis:100%">Otrzymane ${zl(paid)} z ${zl(exp)}</span>` : ""}<button class="sm primary" data-rp="all">${paid ? "Otrzymano resztę" : "Całość"} · ${zl(rest)}</button><span class="small muted">${paid ? "albo kolejna kwota:" : "albo część:"}</span><input type="number" inputmode="decimal" min="0" data-rp-amt placeholder="ile teraz przyszło" aria-label="Otrzymana kwota" style="width:130px;height:36px;text-align:right"><button class="sm" data-rp="part">Dodaj</button>`;
-  grp.after(box); box.addEventListener("click", ev => ev.stopPropagation());
-  const save = async msg => { await store.save("recv", RECV); toast(msg); after(); };
+  box.innerHTML = `${paid ? `<span class="small muted" style="flex-basis:100%">Otrzymane ${zl(paid)} z ${zl(exp)}</span>` : ""}<button class="sm primary" data-rp="all">${paid ? "Otrzymano resztę" : "Całość"} · ${zl(rest)}</button><span class="small muted">${paid ? "albo kolejna kwota:" : "albo część:"}</span><input type="number" inputmode="decimal" min="0" data-rp-amt placeholder="ile teraz przyszło" aria-label="Otrzymana kwota" style="width:130px;height:36px;text-align:right"><button class="sm" data-rp="part">Dodaj</button><button class="sm ghost" data-rp="x">Anuluj</button>`;
+  (grp.closest(".row") || grp.parentElement).appendChild(box); box.addEventListener("click", ev => ev.stopPropagation());
+  const close = () => { box.remove(); document.removeEventListener("click", close); document.removeEventListener("keydown", esc); }, esc = ev => { if (ev.key === "Escape") close(); };
+  setTimeout(() => { document.addEventListener("click", close); document.addEventListener("keydown", esc); }); box.querySelector('[data-rp="x"]').onclick = close;
+  const save = async msg => { close(); await store.save("recv", RECV); toast(msg); after(); };
   box.querySelector('[data-rp="all"]').onclick = () => { r.got = true; delete r.paid; save("Otrzymane w całości: " + zl(exp)); };
   const inp = box.querySelector("[data-rp-amt]"), part = () => { const a = Math.max(0, +inp.value || 0); if (!a) { inp.focus(); return; } const np = paid + a; if (np >= exp) { r.got = true; delete r.paid; save("Otrzymane w całości: " + zl(exp)); } else { r.got = false; r.paid = np; save(`Otrzymane ${zl(np)} z ${zl(exp)}`); } };
   box.querySelector('[data-rp="part"]').onclick = part; inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); part(); } };
