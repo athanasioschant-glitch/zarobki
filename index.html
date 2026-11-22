@@ -549,7 +549,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 19.11 19:29</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 19:16</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1734,13 +1734,15 @@ function renderNetWorth(D, A_, incCost) {
 }
 
 /* profit split (budgeting) */
-let BUDGET = [{id: "b1", name: "Inwestycje w biznesy", acc: "konto firmowe / reklamy", pct: 50}, {id: "b2", name: "Fundusz awaryjny", acc: "konto oszczędnościowe", pct: 20}, {id: "b3", name: "Oszczędności", acc: "lokata / Revolut", pct: 20}, {id: "b4", name: "Codzienne wydatki", acc: "konto osobiste", pct: 10}], budgetEdit = false;
+const BUDGET_V2 = [{id: "c1", name: "Oszczędności", acc: "", pct: 30, start: 0}, {id: "c2", name: "Mieszkanie", acc: "", pct: 25, start: 0}, {id: "c3", name: "Codzienne wydatki", acc: "", pct: 20, start: 0}, {id: "c4", name: "Emergency fund", acc: "", pct: 10, start: 0}, {id: "c5", name: "Ubranie", acc: "", pct: 10, start: 0}, {id: "c6", name: "Bby", acc: "", pct: 5, start: 0}];
+let BUDGET = BUDGET_V2.map(b => ({...b})), budgetEdit = false;
 let budgetAmt = null;
 const trOf = (mk, id) => { const v = TRANSFERS[mk + "|" + id]; return v === true ? {amt: 0} : v || null; };
 function renderBudget(T) {
+  if (!budgetEdit) BUDGET.sort((x, y) => (+y.pct || 0) - (+x.pct || 0)); // hierarchicznie: największy procent na górze
   const mk = period === "all" ? nowKey() : period, Tm = period === "all" ? totals(derive(), mk) : T;
   const el = $("#budget"), base = Math.max(0, Math.round(Tm.profitIn - Tm.living)), sum = BUDGET.reduce((a, b) => a + (+b.pct || 0), 0);
-  const amt = budgetAmt != null ? budgetAmt : base;
+  const amt = budgetAmt != null ? budgetAmt : 0;
   const cols = [css("--accent"), css("--rev"), css("--warn"), css("--faint"), css("--muted")];
   const bal = b => (+b.start || 0) + Object.entries(TRANSFERS).filter(([k]) => k.endsWith("|" + b.id)).reduce((a, [, v]) => a + (v === true ? 0 : +v.amt || 0), 0);
   const months = [...new Set(Object.keys(TRANSFERS).map(k => k.split("|")[0]))].sort().reverse();
@@ -1752,7 +1754,7 @@ function renderBudget(T) {
         <button class="iconbtn flat" data-bdel="${i}" aria-label="Usuń konto">${svg("x", 15)}</button></div>`).join("")}</div>
       <div class="actions" style="margin-top:12px"><button class="sm" id="bud-add">${svg("plus", 14)}Dodaj konto</button><span class="small ${sum === 100 ? "muted" : "wrn"}">Suma: ${sum}%${sum === 100 ? "" : " – powinno być 100%"}</span></div>
       <p class="note">„Stan startowy” to ile już jest na tym koncie dziś. Każdy przelew zaznaczony „Przelane” dolicza się do stanu.</p>`
-    : `<div class="mline" style="padding-top:0;align-items:center;gap:12px"><span><b style="color:var(--fg)">Kwota do podziału</b></span><span style="display:flex;align-items:center;gap:8px"><input id="bud-amt" type="number" inputmode="decimal" value="${amt}" aria-label="Kwota do podziału" style="width:130px;height:40px;text-align:right">${budgetAmt != null ? `<button class="sm ghost" id="bud-reset" title="Wróć do kwoty z tego miesiąca">↺</button>` : ""}</span></div>
+    : `<div class="mline" style="padding-top:0;align-items:center;gap:12px"><span><b style="color:var(--fg)">Kwota do podziału</b></span><span style="display:flex;align-items:center;gap:8px"><input id="bud-amt" type="number" inputmode="decimal" value="${amt}" aria-label="Kwota do podziału" style="width:130px;height:40px;text-align:right">${budgetAmt != null ? `<button class="sm ghost" id="bud-reset" title="Wyzeruj kwotę">↺</button>` : ""}</span></div>
       <div class="stack" style="margin:12px 0 14px">${BUDGET.map((b, i) => `<i style="width:${(+b.pct || 0) / Math.max(1, sum) * 100}%;background:${cols[i % 5]}"></i>`).join("")}</div>
       <div class="list">${BUDGET.map((b, i) => { const tr = trOf(mk, b.id), part = Math.round(amt * (+b.pct || 0)) / 100; return `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${cols[i % 5]};flex:none"></span><div class="main"><div class="t">${esc(b.name)}</div><div class="s">${b.pct}%${b.acc ? " · " + esc(b.acc) : ""} · na koncie <b style="color:var(--fg)">${zl(bal(b))}</b></div></div>
         <div class="end"><span class="amt" data-part="${i}">${zl(part, 2)}</span>${tr ? `<span class="s pos">przelane ${tr.amt ? zl(tr.amt) : ""}</span>` : ""}</div>
