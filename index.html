@@ -459,7 +459,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     user: {id: async () => "me", isOwner: () => true, canEdit: () => true},
     db: {collection: () => ({doc: k => ({
       get: async () => { try { await data(); } catch {} return k in state ? {exists: true, data: () => ({items: state[k]})} : {exists: false, data: () => undefined}; },
-      set: async ({items}) => { state[k] = items; await call({a: "set", k, v: items}); }
+      set: async ({items}) => { state[k] = items; const j = await call({a: "set", k, v: items}); if (j && j.error) throw new Error(j.error); }
     })})},
     mcp: {
       watchTool(server, tool, input, handler, opts) {
@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:30</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:36</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -3080,7 +3080,12 @@ async function openMove() {
   q("[data-load]").onclick = async () => {
     let j; try { j = JSON.parse(q("[data-txt]").value); } catch { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
     if (!j || j.kd !== 1 || !j.data) { msg.textContent = "To nie wygląda na skopiowane dane."; return; }
-    if (j.onlyPhotos) { const idx = (await store.load("photos", null)) || {}; for (const [k, v] of Object.entries(j.data)) if (/^ph_/.test(k)) await store.save(k, v); await store.save("photos", {...idx, ...j.data.photos}); toast("Zdjęcia produktów wczytane"); setTimeout(() => location.reload(), 600); return; }
+    if (j.onlyPhotos) {
+      const idx = (await store.load("photos", null)) || {}, keys = Object.keys(j.data).filter(k => /^ph_/.test(k)), ok = {}; let bad = 0, i = 0;
+      for (const k of keys) { msg.textContent = `Zapisuję zdjęcie ${++i} z ${keys.length}…`; try { ls.set("kd_" + k, j.data[k]); await STORE_RAW.push(k, j.data[k]); ok[k] = 1; } catch (e) { bad++; console.warn("photo", k, e); } }
+      const add = Object.fromEntries(Object.entries(j.data.photos || {}).filter(([, slot]) => ok[slot]));
+      try { const nIdx = {...idx, ...add}; ls.set("kd_photos", nIdx); await STORE_RAW.push("photos", nIdx); } catch (e) { msg.textContent = "Nie udało się zapisać spisu zdjęć: " + (e.message || e); return; }
+      msg.textContent = `Wczytane: ${Object.keys(add).length} zdjęć${bad ? `, ${bad} się nie zapisało` : ""}. Odświeżam…`; setTimeout(() => location.reload(), 1500); return; }
     if (!confirm("Zastąpić dane w tej wersji danymi z " + String(j.at || "").slice(0, 10) + "?")) return;
     for (const [k, v] of Object.entries(j.data)) if (MOVE_KEYS.includes(k)) await store.save(k, v);
     toast("Dane wczytane"); setTimeout(() => location.reload(), 600);
