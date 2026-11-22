@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 20:58</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:01</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1757,8 +1757,13 @@ function renderBudget(T) {
   const amt = budgetAmt != null ? budgetAmt : 0;
   const cols = [css("--accent"), css("--rev"), css("--warn"), css("--faint"), css("--muted")];
   const bal = b => (+b.start || 0) + Object.entries(TRANSFERS).filter(([k]) => k.endsWith("|" + b.id)).reduce((a, [, v]) => a + (v === true ? 0 : +v.amt || 0), 0);
-  const months = [...new Set(Object.keys(TRANSFERS).map(k => k.split("|")[0]))].sort().reverse();
-  const sent = BUDGET.reduce((a, b) => a + ((trOf(mk, b.id) || {}).amt || 0), 0);
+  const months = [...new Set(Object.keys(TRANSFERS).map(k => k.split("|")[0]))].sort((a, b) => { const [ma, na] = a.split("#"), [mb, nb] = b.split("#"); return mb.localeCompare(ma) || (+nb || 1) - (+na || 1); });
+  // każdy pełny podział (wszystko „Przelane”) to osobna runda; potem startuje nowa, pusta
+  const rk = n => mk + (n > 1 ? "#" + n : ""), full = n => BUDGET.length > 0 && BUDGET.every(b => TRANSFERS[rk(n) + "|" + b.id]);
+  const maxN = Math.max(1, ...months.filter(x => x === mk || x.startsWith(mk + "#")).map(x => +(x.split("#")[1] || 1)));
+  const cur = full(maxN) ? maxN + 1 : maxN, ck = rk(cur);
+  const rLab = m => { const [mm, n] = m.split("#"); return cap(mLabel(mm)) + (n ? ` · ${n}. podział` : ""); };
+  const sent = BUDGET.reduce((a, b) => a + ((trOf(ck, b.id) || {}).amt || 0), 0);
   el.innerHTML = `<div class="ch"><div><h3>Podział pieniędzy na konta</h3><div class="sub">${cap(mLabel(mk))}: otrzymane ${zl(Tm.profitIn)} − koszty życia ${zl(Tm.living)} = ${zl(base)}</div></div><button class="sm" id="bud-edit">${budgetEdit ? "Gotowe" : "Ustaw konta"}</button></div>
     ${budgetEdit ? `<div class="list">${BUDGET.map((b, i) => `<div class="row" style="flex-wrap:wrap;gap:8px"><input data-bn="${i}" value="${esc(b.name)}" aria-label="Nazwa" style="flex:1 1 150px"><input data-ba="${i}" value="${esc(b.acc || "")}" placeholder="na które konto" aria-label="Konto docelowe" style="flex:1 1 150px">
         <label style="flex-direction:row;align-items:center;gap:6px;font-weight:500">%<input data-bp="${i}" type="number" inputmode="numeric" value="${b.pct}" aria-label="Procent" style="width:76px"></label>
@@ -1768,12 +1773,12 @@ function renderBudget(T) {
       <p class="note">„Stan startowy” to ile już jest na tym koncie dziś. Każdy przelew zaznaczony „Przelane” dolicza się do stanu.</p>`
     : `<div class="mline" style="padding-top:0;align-items:center;gap:12px"><span><b style="color:var(--fg)">Kwota do podziału</b></span><span style="display:flex;align-items:center;gap:8px"><input id="bud-amt" type="number" inputmode="decimal" value="${amt}" aria-label="Kwota do podziału" style="width:130px;height:40px;text-align:right">${budgetAmt != null ? `<button class="sm ghost" id="bud-reset" title="Wyzeruj kwotę">↺</button>` : ""}</span></div>
       <div class="stack" style="margin:12px 0 14px">${BUDGET.map((b, i) => `<i style="width:${(+b.pct || 0) / Math.max(1, sum) * 100}%;background:${cols[i % 5]}"></i>`).join("")}</div>
-      <div class="list">${BUDGET.map((b, i) => { const tr = trOf(mk, b.id), part = Math.round(amt * (+b.pct || 0)) / 100; return `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${cols[i % 5]};flex:none"></span><div class="main"><div class="t">${esc(b.name)}</div><div class="s">${b.pct}%${b.acc ? " · " + esc(b.acc) : ""} · na koncie <b style="color:var(--fg)">${zl(bal(b))}</b></div></div>
+      <div class="list">${BUDGET.map((b, i) => { const tr = trOf(ck, b.id), part = Math.round(amt * (+b.pct || 0)) / 100; return `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${cols[i % 5]};flex:none"></span><div class="main"><div class="t">${esc(b.name)}</div><div class="s">${b.pct}%${b.acc ? " · " + esc(b.acc) : ""} · na koncie <b style="color:var(--fg)">${zl(bal(b))}</b></div></div>
         <div class="end"><span class="amt" data-part="${i}">${zl(part, 2)}</span>${tr ? `<span class="s pos">przelane ${tr.amt ? zl(tr.amt) : ""}</span>` : ""}</div>
         <button class="sm ${tr ? "ghost" : "primary"}" data-tr="${b.id}" data-amt="${part}">${tr ? "Cofnij" : "Przelane"}</button></div>`; }).join("")}</div>
-      <div class="mline" style="margin-top:10px"><span>Przelane w ${esc(mLabel(mk))}</span><b>${zl(sent)} z ${zl(amt)}</b></div>
-      ${months.length ? `<details style="margin-top:10px"><summary class="link">Historia przelewów</summary><div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Miesiąc</th>${BUDGET.map(b => `<th>${esc(b.name)}</th>`).join("")}<th>Razem</th></tr></thead><tbody>
-        ${months.map(m => `<tr><td>${esc(cap(mLabel(m)))}</td>${BUDGET.map(b => { const v = trOf(m, b.id); return `<td>${v ? (v.amt ? zl(v.amt) : "✓") : "—"}</td>`; }).join("")}<td>${zl(BUDGET.reduce((a, b) => a + ((trOf(m, b.id) || {}).amt || 0), 0))}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+      <div class="mline" style="margin-top:10px"><span>Przelane w tym podziale${cur > 1 ? ` (${cur}. w ${esc(mLabel(mk))})` : ""}</span><b>${zl(sent)} z ${zl(amt)}</b></div>
+      ${months.length ? `<details style="margin-top:10px"><summary class="link">Historia przelewów</summary><div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Podział</th>${BUDGET.map(b => `<th>${esc(b.name)}</th>`).join("")}<th>Razem</th></tr></thead><tbody>
+        ${months.map(m => `<tr><td>${esc(rLab(m))}</td>${BUDGET.map(b => { const v = trOf(m, b.id); return `<td>${v ? (v.amt ? zl(v.amt) : "✓") : "—"}</td>`; }).join("")}<td>${zl(BUDGET.reduce((a, b) => a + ((trOf(m, b.id) || {}).amt || 0), 0))}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
       `}`;
   $("#bud-edit").onclick = async () => { if (budgetEdit) await store.save("budget", BUDGET); budgetEdit = !budgetEdit; renderBudget(T); };
   if (budgetEdit) {
@@ -1790,7 +1795,8 @@ function renderBudget(T) {
   inp.oninput = () => { const v = Math.max(0, +inp.value || 0); BUDGET.forEach((b, i) => { const p = Math.round(v * (+b.pct || 0)) / 100; const s = el.querySelector(`[data-part="${i}"]`); if (s) s.textContent = zl(p, 2); const btn = el.querySelector(`[data-tr="${b.id}"]`); if (btn) btn.dataset.amt = p; }); };
   inp.onchange = () => { budgetAmt = Math.max(0, +inp.value || 0); renderBudget(T); };
   const rs = $("#bud-reset"); if (rs) rs.onclick = () => { budgetAmt = null; renderBudget(T); };
-  el.querySelectorAll("[data-tr]").forEach(b => b.onclick = async () => { const k = mk + "|" + b.dataset.tr; if (TRANSFERS[k]) delete TRANSFERS[k]; else TRANSFERS[k] = {amt: +b.dataset.amt || 0, at: new Date().toISOString().slice(0, 10)}; await store.save("transfers", TRANSFERS); toast(TRANSFERS[k] ? "Zapisano przelew" : "Cofnięto"); renderBudget(T); });
+  el.querySelectorAll("[data-tr]").forEach(b => b.onclick = async () => { const k = ck + "|" + b.dataset.tr; if (TRANSFERS[k]) delete TRANSFERS[k]; else TRANSFERS[k] = {amt: +b.dataset.amt || 0, at: new Date().toISOString().slice(0, 10)}; await store.save("transfers", TRANSFERS);
+    if (full(cur)) { budgetAmt = null; toast("Wszystko przelane – podział zapisany w historii. Wpisz nową kwotę."); } else toast(TRANSFERS[k] ? "Zapisano przelew" : "Cofnięto"); renderBudget(T); });
 }
 /* to-do per source */
 let TODOS = {};
