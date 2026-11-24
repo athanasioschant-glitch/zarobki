@@ -1,0 +1,562 @@
+<title>Słówko dnia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* moj-wyglad · baza.css — wklejaj na początek <style> każdego projektu.
+   Wzór: Dashboard zarobków (grafit + mięta) i Atlas. Zmieniasz TYLKO --accent* (jeden kolor na projekt). */
+:root{
+  --bg:#0c0e12; --surface:#14171d; --surface2:#1c2029; --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.11);
+  --fg:#eceef2; --muted:#8b919c; --faint:#5b616c;
+  --accent:#9aa8ff; --accent-fg:#0b1030; --accent-soft:rgba(154,168,255,.14);
+  --good:#5fe0b5; --good-soft:rgba(95,224,181,.12); --bad:#ff7b7b; --bad-soft:rgba(255,123,123,.12); --warn:#f2c14e;
+  --shadow:0 0 0 1px var(--line);
+  --f:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:18px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f3f4f7; --surface:#ffffff; --surface2:#eef0f4; --line:rgba(16,24,40,.07); --line2:rgba(16,24,40,.13);
+  --fg:#111622; --muted:#667085; --faint:#a3a9b4;
+  --accent:#4457d6; --accent-fg:#ffffff; --accent-soft:rgba(68,87,214,.10);
+  --good:#0d9a72; --good-soft:rgba(13,154,114,.10); --bad:#d64545; --bad-soft:rgba(214,69,69,.10); --warn:#b47f06;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 0 0 1px var(--line);
+  color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f3f4f7; --surface:#ffffff; --surface2:#eef0f4; --line:rgba(16,24,40,.07); --line2:rgba(16,24,40,.13);
+  --fg:#111622; --muted:#667085; --faint:#a3a9b4;
+  --accent:#4457d6; --accent-fg:#ffffff; --accent-soft:rgba(68,87,214,.10);
+  --good:#0d9a72; --good-soft:rgba(13,154,114,.10); --bad:#d64545; --bad-soft:rgba(214,69,69,.10); --warn:#b47f06;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 0 0 1px var(--line);
+  color-scheme:light}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.5 var(--f);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px}
+.wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+/* Nagłówek strony: tytuł po lewej, mała plakietka po prawej */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{font:800 20px/1.2 var(--f);letter-spacing:-.02em;margin:0}
+.top .sub{font-size:12.5px;color:var(--muted)}
+
+/* Karta: tylko dla najważniejszego. Bez ramek – cień 1px */
+.card{background:var(--surface);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);min-width:0}
+/* Sekcja drugorzędna: wprost na tle, tylko linia u góry */
+.sec{border-top:1px solid var(--line);padding-top:16px}
+
+/* Typografia: rozmiar = ważność */
+.lbl{font-size:12.5px;font-weight:600;color:var(--muted)}            /* mały podpis, bez WERSALIKÓW */
+.big{font:800 40px/1.05 var(--f);letter-spacing:-.04em;margin-top:6px;word-break:break-word} /* główna liczba / słowo, kolor --fg */
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--muted)} /* JEDNA linia: a · b · c */
+.stats b{color:var(--fg);font-weight:700}
+.muted{color:var(--muted)} .faint{color:var(--faint);font-size:12.5px}
+h2{font:700 15px/1.3 var(--f);margin:0}
+
+/* Przyciski */
+button,.btn{font:600 13.5px var(--f);border:0;background:var(--surface2);color:var(--fg);border-radius:12px;padding:0 16px;height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover{filter:brightness(1.12)}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-fg)}   /* JEDEN na widok */
+button.ghost{background:transparent;color:var(--muted)}
+button.sm{height:32px;padding:0 12px;font-size:12.5px;border-radius:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Przełącznik (segmenty) – zamiast rzędu „pigułek” z ramkami */
+.seg{display:inline-flex;background:var(--surface);box-shadow:var(--shadow);border-radius:12px;padding:4px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button{background:transparent;color:var(--muted);height:32px;border-radius:9px;padding:0 12px;font-size:12.5px;flex:none}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+
+/* Lista rozwijana zamiast rzędów przycisków (ustawienia, kategorie) */
+select{font:500 13.5px var(--f);color:var(--fg);background:var(--surface2);border:0;border-radius:10px;height:36px;padding:0 12px;max-width:100%}
+
+/* Plakietka statusu */
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;background:var(--surface2);color:var(--muted)}
+.pill.ok{background:var(--good-soft);color:var(--good)}
+.pill.acc{background:var(--accent-soft);color:var(--accent)}
+
+/* Wiersze listy: etykieta | wartość | strzałka; szczegóły po dotknięciu */
+.rows{display:flex;flex-direction:column}
+.rows>*{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);min-width:0}
+.rows>*:first-child{border-top:0}
+
+/* Zwijane sekcje – domyślnie ZWINIĘTE */
+details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:13.5px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .2s;flex:none}
+details[open]>summary::after{transform:rotate(-135deg)}
+
+/* Telefon: przestronnie, nie ściśnięte */
+@media (max-width:480px){.card{padding:16px}.big{font-size:32px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+
+/* Symetria: wszystko wyśrodkowane, jak „Wyśrodkuj” w Wordzie */
+.wrap{text-align:center}
+.top{flex-direction:column;justify-content:center;align-items:center;gap:8px}
+.row,.stats,.head2{justify-content:center}
+.seg{align-self:center}
+details>summary{justify-content:center}
+.rows>*{text-align:left}            /* wiersz „nazwa | wartość” zostaje rozłożony na boki – też symetryczny */
+.opt{justify-content:center;text-align:center}
+.list li{text-align:left}
+.mini{align-items:center}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+@media (max-width:480px){.grid{grid-template-columns:repeat(2,1fr)}}
+/* Słówko dnia – klasy projektu, tylko na zmiennych bazy */
+.eyebrow{font-size:12.5px;font-weight:600;color:var(--muted)}
+.word{font:800 40px/1.05 var(--f);letter-spacing:-.04em;margin-top:6px;word-break:break-word}
+.pos{font-size:12.5px;color:var(--faint);margin-top:4px}
+.def{font-size:16px;margin:14px 0 0}
+.ex{margin:8px 0 0;color:var(--muted)}
+.swap{margin-top:14px;font-size:13px;color:var(--muted)} .swap b{color:var(--fg)}
+.row{margin-top:18px}
+.row button.on{background:var(--surface2);color:var(--muted)}
+.seg button.on{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.mini{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.mini p{margin:4px 0 0}
+.from{color:var(--faint);text-decoration:line-through}
+.opt{display:flex;width:100%;justify-content:flex-start;text-align:left;height:auto;min-height:44px;padding:11px 14px;margin-top:8px;font-weight:500;line-height:1.4}
+.opt.good{background:var(--good-soft);color:var(--good)}
+.opt.wrong{background:var(--bad-soft);color:var(--bad)}
+.score{font-size:12.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.head2{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.list{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-direction:column}
+.list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer;min-width:0}
+.list li:first-child{border-top:0}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;background:var(--surface2);color:var(--muted);flex:none}
+.chip.k{background:var(--good-soft);color:var(--good)}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+#panel>details{margin-top:20px}
+#panel .def{margin-top:10px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div><h1>Słówko dnia</h1><div class="sub" id="date"></div></div>
+    <span class="pill acc" id="streak"></span>
+  </header>
+
+  <section class="card fade" id="today" aria-live="polite"></section>
+
+  <nav class="seg">
+    <button id="t-losuj" class="on" data-tab="losuj">Losuj</button>
+    <button id="t-wiedza" data-tab="wiedza">Wiedza</button>
+    <button id="t-quiz" data-tab="quiz">Quiz</button>
+    <button id="t-moje" data-tab="moje">Moje słowa</button>
+  </nav>
+
+  <section class="sec" id="panel"></section>
+</div>
+
+<script>
+// ---------- DANE ----------
+// [słowo, część mowy, znaczenie, przykład, zamiast (prostsze słowo)]
+const W=[
+["efemeryczny","przymiotnik","Krótkotrwały, szybko przemijający.","Moda na ten taniec okazała się efemeryczna.","chwilowy"],
+["ambiwalentny","przymiotnik","Mający jednocześnie sprzeczne uczucia lub opinie.","Mam ambiwalentny stosunek do tej przeprowadzki.","mieszany"],
+["pragmatyczny","przymiotnik","Nastawiony na praktyczny skutek, a nie na teorię.","Wybrał pragmatyczne rozwiązanie zamiast idealnego.","praktyczny"],
+["adekwatny","przymiotnik","Odpowiedni, dopasowany do sytuacji.","Kara powinna być adekwatna do przewinienia.","odpowiedni"],
+["lakoniczny","przymiotnik","Bardzo zwięzły, ograniczony do kilku słów.","Dostałem lakoniczną odpowiedź: „Nie”.","krótki"],
+["elokwentny","przymiotnik","Umiejący mówić płynnie, ładnie i przekonująco.","Elokwentny prowadzący uratował nudną galę.","wygadany"],
+["eklektyczny","przymiotnik","Łączący elementy z różnych stylów lub źródeł.","Mieszkanie urządzono w eklektycznym stylu.","różnorodny"],
+["konsensus","rzeczownik","Porozumienie osiągnięte przez zgodę wszystkich stron.","Po godzinie dyskusji osiągnęliśmy konsensus.","zgoda"],
+["dychotomia","rzeczownik","Podział na dwie przeciwstawne części.","Dychotomia „pracy” i „życia” bywa sztuczna.","podział"],
+["paradygmat","rzeczownik","Przyjęty w danym czasie wzorzec myślenia.","Smartfony zmieniły paradygmat korzystania z internetu.","wzorzec"],
+["skrupulatny","przymiotnik","Bardzo dokładny i sumienny w szczegółach.","Skrupulatnie sprawdziła każdą fakturę.","dokładny"],
+["wnikliwy","przymiotnik","Dociekliwy, analizujący sprawę głęboko.","Napisał wnikliwą recenzję filmu.","dokładny"],
+["dobitny","przymiotnik","Wyraźny i stanowczy, niepozostawiający wątpliwości.","To dobitny dowód, że plan działa.","wyraźny"],
+["niebagatelny","przymiotnik","Znaczny, którego nie można zlekceważyć.","To niebagatelna kwota jak na pierwszy miesiąc.","duży"],
+["znamienny","przymiotnik","Charakterystyczny, wiele mówiący o czymś.","Znamienne, że nikt nie zadał pytań.","typowy"],
+["dogłębny","przymiotnik","Gruntowny, sięgający istoty sprawy.","Problem wymaga dogłębnej analizy.","dokładny"],
+["permanentny","przymiotnik","Stały, trwający bez przerwy.","Żyje w permanentnym pośpiechu.","ciągły"],
+["sporadyczny","przymiotnik","Zdarzający się rzadko i nieregularnie.","Sporadycznie gram w szachy.","rzadki"],
+["prowizoryczny","przymiotnik","Tymczasowy, zrobiony na szybko.","Zbudowali prowizoryczny most z desek.","tymczasowy"],
+["rzetelny","przymiotnik","Solidny, uczciwy i godny zaufania.","To rzetelne źródło informacji.","dobry"],
+["trywialny","przymiotnik","Banalny, zbyt prosty, żeby się nad nim rozwodzić.","Błąd okazał się trywialny – zabrakło przecinka.","banalny"],
+["arbitralny","przymiotnik","Oparty na czyjejś decyzji, a nie na regule.","Ocena wydawała się zupełnie arbitralna.","dowolny"],
+["inercja","rzeczownik","Bezwład; trwanie w bezczynności.","Z powodu inercji urzędu sprawa stoi od roku.","bezczynność"],
+["prokrastynacja","rzeczownik","Nawykowe odkładanie zadań na później.","Prokrastynacja kosztowała mnie nieprzespaną noc.","odkładanie"],
+["synergia","rzeczownik","Współdziałanie, które daje więcej niż suma części.","Między grafikiem a copywriterem jest świetna synergia.","współpraca"],
+["kuriozalny","przymiotnik","Dziwaczny do granic absurdu.","To kuriozalny przepis – nikt go nie rozumie.","dziwny"],
+["frapujący","przymiotnik","Intrygujący, przyciągający uwagę.","Postawiła frapujące pytanie.","ciekawy"],
+["wyrafinowany","przymiotnik","Subtelny, wyszukany, świadczący o dobrym guście.","Ma wyrafinowane poczucie humoru.","elegancki"],
+["pretensjonalny","przymiotnik","Sztucznie wydumany, robiony na pokaz.","Nazwa kawiarni brzmi trochę pretensjonalnie.","przesadzony"],
+["sugestywny","przymiotnik","Silnie działający na wyobraźnię, przekonujący.","Sugestywny opis od razu przeniósł mnie w góry.","przekonujący"],
+["konsekwentny","przymiotnik","Trzymający się raz przyjętych zasad.","Konsekwentnie odkłada 10% wypłaty.","wytrwały"],
+["ewidentny","przymiotnik","Oczywisty, widoczny gołym okiem.","To ewidentny błąd w obliczeniach.","oczywisty"],
+["bezsprzeczny","przymiotnik","Niepodważalny, którego nie da się zakwestionować.","To bezsprzecznie najlepszy wynik w sezonie.","pewny"],
+["implikacja","rzeczownik","Skutek lub wniosek, który z czegoś wynika.","Ta decyzja ma poważne implikacje finansowe.","skutek"],
+["niuans","rzeczownik","Subtelna, ledwo uchwytna różnica.","W tłumaczeniu zgubiono kilka niuansów.","szczegół"],
+["erudyta","rzeczownik","Człowiek o rozległej, wszechstronnej wiedzy.","Dziadek to erudyta – zna się na wszystkim.",""],
+["nostalgia","rzeczownik","Tęsknota za tym, co minęło.","Stare zdjęcia budzą we mnie nostalgię.","tęsknota"],
+["eufemizm","rzeczownik","Złagodzone określenie czegoś przykrego.","„Odszedł” to eufemizm słowa „umarł”.","złagodzenie"],
+["hiperbola","rzeczownik","Celowa przesada w wypowiedzi.","„Czekam wieki” to hiperbola.","przesada"],
+["truizm","rzeczownik","Oczywista prawda, którą nie warto się chwalić.","„Zdrowie jest ważne” to truizm.","oczywistość"],
+["dygresja","rzeczownik","Odejście od głównego wątku wypowiedzi.","Pozwólcie na krótką dygresję.","wtrącenie"],
+["meritum","rzeczownik","Sedno, istota sprawy.","Przejdźmy wreszcie do meritum.","sedno"],
+["ad hoc","wyrażenie","Doraźnie, na potrzeby chwili.","Zespół zebrał się ad hoc po awarii.","na szybko"],
+["status quo","wyrażenie","Obecny, niezmieniony stan rzeczy.","Zarząd woli utrzymać status quo.","obecny stan"],
+["notabene","wyrażenie","Nawiasem mówiąc.","Notabene, ta restauracja jest otwarta do północy.","przy okazji"],
+["per saldo","wyrażenie","W ostatecznym rozrachunku.","Per saldo wyszliśmy na tym dobrze.","w sumie"],
+["konsternacja","rzeczownik","Zakłopotanie połączone ze zdziwieniem.","Jego żart wywołał konsternację na sali.","zmieszanie"],
+["rezyliencja","rzeczownik","Odporność psychiczna, zdolność podnoszenia się po trudnościach.","Sport uczy rezyliencji.","odporność"],
+["asertywny","przymiotnik","Umiejący bronić swojego zdania bez agresji.","Asertywnie odmówiła nadgodzin.","stanowczy"],
+["pryncypialny","przymiotnik","Bezwzględnie trzymający się zasad.","W sprawach uczciwości jest pryncypialny.","zasadniczy"],
+["deprecjonować","czasownik","Umniejszać czyjąś wartość lub zasługi.","Nie deprecjonuj swoich osiągnięć.","umniejszać"],
+["bagatelizować","czasownik","Lekceważyć, traktować jako mało ważne.","Nie bagatelizuj bólu głowy.","lekceważyć"],
+["dywagować","czasownik","Snuć rozważania, często bez konkretów.","Zamiast dywagować, zróbmy test.","gadać"],
+["polemizować","czasownik","Spierać się z czyimś poglądem, podając argumenty.","Trudno polemizować z liczbami.","kłócić się"],
+["konfabulować","czasownik","Zmyślać, wypełniać luki w pamięci fikcją.","Świadek najwyraźniej konfabulował.","zmyślać"],
+["optymalny","przymiotnik","Najlepszy w danych warunkach.","To optymalna trasa w godzinach szczytu.","najlepszy"],
+["marginalny","przymiotnik","Mało ważny, poboczny.","To marginalny problem – zajmiemy się nim później.","mały"],
+["fundamentalny","przymiotnik","Podstawowy, na którym opiera się reszta.","To fundamentalna zasada fizyki.","podstawowy"],
+["spektakularny","przymiotnik","Bardzo efektowny, robiący wrażenie.","Odnieśli spektakularny sukces.","wielki"],
+["nieodzowny","przymiotnik","Konieczny, niezbędny.","Kask jest nieodzowny na rowerze.","potrzebny"],
+["dojmujący","przymiotnik","Przenikliwy, bardzo dotkliwy (o bólu, chłodzie, smutku).","Poczuł dojmujący chłód.","mocny"],
+["przenikliwy","przymiotnik","Bystry, szybko dostrzegający istotę rzeczy.","Ma przenikliwy umysł.","bystry"],
+["irracjonalny","przymiotnik","Pozbawiony logiki, nierozsądny.","Miał irracjonalny lęk przed windą.","nielogiczny"],
+["zawiły","przymiotnik","Skomplikowany, trudny do zrozumienia.","Instrukcja była bardzo zawiła.","trudny"],
+["klarowny","przymiotnik","Jasny, przejrzysty, łatwy do zrozumienia.","Przedstawił klarowny plan.","jasny"],
+["lapidarny","przymiotnik","Zwięzły, a przy tym trafny i treściwy.","Lapidarne hasło zapadło wszystkim w pamięć.","krótki"],
+["wymowny","przymiotnik","Wiele mówiący bez słów.","Zapadła wymowna cisza.","znaczący"],
+["pejoratywny","przymiotnik","Mający negatywne zabarwienie znaczeniowe.","„Babsko” to określenie pejoratywne.","negatywny"],
+["melioratywny","przymiotnik","Mający pozytywne zabarwienie znaczeniowe.","„Słoneczko” to określenie melioratywne.","pozytywny"],
+["malkontent","rzeczownik","Ktoś wiecznie niezadowolony.","Malkontenci narzekają nawet na słońce.","maruda"],
+["oportunista","rzeczownik","Ktoś kierujący się doraźną korzyścią, a nie zasadami.","Zmienia poglądy jak oportunista.","kombinator"],
+["filantrop","rzeczownik","Dobroczyńca wspierający innych z własnych pieniędzy.","Szpital wybudował miejscowy filantrop.","darczyńca"],
+["mizantrop","rzeczownik","Ktoś niechętny ludziom, unikający ich.","W święta zamienia się w mizantropa.","odludek"],
+["kunktator","rzeczownik","Ktoś, kto zwleka z decyzją i czeka na lepszy moment.","Nie bądź kunktatorem – kupuj bilety teraz.",""],
+["prekursor","rzeczownik","Ktoś, kto pierwszy zapoczątkował jakiś kierunek.","Był prekursorem polskiego hip-hopu.","pionier"],
+["fenomen","rzeczownik","Zjawisko niezwykłe, wyjątkowe.","Ten zespół to fenomen ostatnich lat.","zjawisko"],
+["tautologia","rzeczownik","Powtórzenie tej samej treści innymi słowami.","„Masło maślane” to klasyczna tautologia.","powtórzenie"],
+["oksymoron","rzeczownik","Połączenie słów o sprzecznych znaczeniach.","„Gorący lód” to oksymoron.","sprzeczność"],
+["anegdota","rzeczownik","Krótka, zabawna historia z życia.","Zaczął przemówienie od anegdoty.","historyjka"],
+["sarkazm","rzeczownik","Złośliwa, gorzka ironia.","Odpowiedział z wyraźnym sarkazmem.","złośliwość"],
+["euforia","rzeczownik","Stan ogromnej radości i podniecenia.","Po golu stadion ogarnęła euforia.","radość"],
+["determinacja","rzeczownik","Zdecydowanie i upór w dążeniu do celu.","Z determinacją trenowała codziennie.","upór"],
+["ignorancja","rzeczownik","Brak wiedzy w jakiejś dziedzinie.","Komentarz zdradzał ignorancję autora.","niewiedza"],
+["altruizm","rzeczownik","Bezinteresowna troska o dobro innych.","Wolontariat to czysty altruizm.","dobroć"],
+["hedonizm","rzeczownik","Uznawanie przyjemności za główny cel życia.","Wakacje upłynęły mu pod znakiem hedonizmu.","przyjemność"],
+["kontrowersyjny","przymiotnik","Budzący spory i sprzeczne opinie.","To kontrowersyjna decyzja sędziego.","sporny"],
+["nonszalancki","przymiotnik","Ostentacyjnie swobodny, lekceważący.","Nonszalancko oparł się o biurko szefa.","luzacki"],
+["zjawiskowy","przymiotnik","Zachwycający, niezwykle piękny.","Wyglądała zjawiskowo.","piękny"],
+["intrygować","czasownik","Wzbudzać ciekawość.","Intryguje mnie zakończenie tej książki.","ciekawić"],
+["wyartykułować","czasownik","Jasno wyrazić myśl słowami.","Wreszcie wyartykułował, czego oczekuje.","powiedzieć"],
+["eskalować","czasownik","Stopniowo narastać lub coś nasilać.","Konflikt zaczął eskalować.","rosnąć"],
+["zdyskredytować","czasownik","Pozbawić kogoś wiarygodności.","Jeden błąd zdyskredytował cały raport.","ośmieszyć"],
+["egzemplifikować","czasownik","Ilustrować przykładem.","Egzemplifikował tezę historią z pracy.","pokazać"],
+["ekwilibrystyka","rzeczownik","Popisowa zręczność, także słowna.","Jego tłumaczenie to słowna ekwilibrystyka.","kombinowanie"],
+["sedno","rzeczownik","Najważniejsza, istotna część sprawy.","Trafiłeś w sedno.","istota"],
+["clou","rzeczownik","Najważniejszy, kulminacyjny punkt czegoś.","Clou wieczoru był pokaz fajerwerków.","najważniejsza część"],
+["zniuansowany","przymiotnik","Uwzględniający subtelne różnice.","Przedstawił zniuansowany obraz sytuacji.","dokładny"],
+["kategoryczny","przymiotnik","Stanowczy, niedopuszczający sprzeciwu.","Usłyszałem kategoryczne „nie”.","stanowczy"],
+["wiarygodny","przymiotnik","Zasługujący na zaufanie.","Potrzebujemy wiarygodnych danych.","pewny"],
+["niezłomny","przymiotnik","Nieugięty, niepoddający się trudnościom.","Była niezłomna w walce o swoje.","twardy"]
+];
+// [zamiast, powiedz, dlaczego]
+const U=[
+["Wydaje mi się, że…","Skłaniam się ku temu, że…","Brzmi pewniej i dojrzalej."],
+["Nie wiem.","Nie mam jeszcze wyrobionego zdania.","Pokazuje, że myślisz, a nie uciekasz od tematu."],
+["To jest super.","To robi wrażenie.","Konkretniej i bez slangu."],
+["Bardzo ważne","Kluczowe / istotne","Jedno mocne słowo zamiast dwóch słabych."],
+["Generalnie…","Zasadniczo… / Na ogół…","„Generalnie” to najczęściej nadużywane słowo-zapychacz."],
+["W sumie…","W gruncie rzeczy…","Lepiej brzmi w dyskusji."],
+["Chodzi o to, że…","Sedno sprawy polega na tym, że…","Od razu kieruje uwagę na najważniejsze."],
+["Nie zgadzam się.","Widzę to inaczej, ponieważ…","Spór bez konfrontacji i od razu z argumentem."],
+["Masz rację.","Trafna uwaga.","Docenia rozmówcę konkretniej."],
+["Fajny pomysł.","Ciekawa propozycja.","Neutralne i profesjonalne."],
+["Jakby co…","W razie potrzeby…","Lepsze w mailu i rozmowie formalnej."],
+["Spoko.","W porządku. / Jasne.","Uniwersalne w każdej sytuacji."],
+["Mega dobre","Wyjątkowo dobre / znakomite","Przysłówek zamiast slangu."],
+["Nie ogarniam tego.","Jeszcze nie rozumiem, jak to działa.","Precyzyjnie mówi, czego brakuje."],
+["Dużo ludzi","Wiele osób / mnóstwo ludzi","„Dużo” przy policzalnych bywa nieeleganckie."],
+["Zrobić decyzję","Podjąć decyzję","„Zrobić decyzję” to kalka z angielskiego."],
+["Bynajmniej (= przynajmniej)","Przynajmniej","„Bynajmniej” znaczy „wcale nie”, np. „Bynajmniej nie jestem zły”."],
+["Poszłem","Poszedłem","Jedyna poprawna forma."],
+["Wziąść","Wziąć","Częsty błąd, łatwy do wyłapania przez rozmówcę."],
+["Włanczać","Włączać","Poprawnie: włączać, wyłączać."],
+["Tą książkę","Tę książkę","W bierniku: tę (kogo? co?), w narzędniku: tą (kim? czym?)."],
+["Cofnąć się do tyłu","Cofnąć się","Pleonazm – cofać można się tylko do tyłu."],
+["Okres czasu","Okres","Pleonazm – okres to już czas."],
+["W każdym bądź razie","W każdym razie / bądź co bądź","Zlepek dwóch różnych zwrotów."],
+["Na dzień dzisiejszy","Dziś / obecnie","Krócej i naturalniej."],
+["W temacie…","W sprawie… / na temat…","„W temacie” to niepoprawny skrót myślowy."],
+["Ubrać kurtkę","Włożyć kurtkę","Ubiera się kogoś, a ubranie się wkłada."],
+["Wychodzić na zewnątrz","Wychodzić","Pleonazm – wychodzi się zawsze na zewnątrz."],
+["Daj znać.","Proszę o informację.","Wersja na maila do szefa lub urzędu."],
+["Nie ma problemu.","Z przyjemnością. / Oczywiście.","Brzmi życzliwie, a nie jak łaska."],
+["Tak jakby…","Poniekąd… / (pomiń)","Zapychacz osłabia każdą wypowiedź."],
+["Ogólnie to…","Krótko mówiąc…","Zapowiada konkret, a nie lanie wody."]
+];
+const F=[
+"Ośmiornica ma trzy serca i niebieską krew.",
+"Banan botanicznie jest jagodą, a truskawka nie.",
+"Doba na Wenus trwa dłużej niż jej rok: obrót wokół osi zajmuje 243 ziemskie dni, a okrążenie Słońca 225.",
+"Kleopatra żyła bliżej lądowania na Księżycu niż budowy piramidy Cheopsa.",
+"Rekiny pływały w oceanach, zanim na Ziemi pojawiły się drzewa.",
+"Wombaty robią kupy w kształcie sześcianów.",
+"Wieża Eiffla latem bywa wyższa o kilkanaście centymetrów, bo stal rozszerza się w cieple.",
+"Najkrótsza wojna w historii, brytyjsko-zanzibarska z 1896 r., trwała mniej niż godzinę.",
+"Flamingi są różowe przez barwniki z pokarmu. Bez nich bieleją.",
+"Słowo „robot” wymyślił czeski malarz Josef Čapek. Rozsławił je jego brat Karel w sztuce „R.U.R.” (1920).",
+"„W Szczebrzeszynie chrząszcz brzmi w trzcinie” to wers z wiersza Jana Brzechwy „Chrząszcz”.",
+"Wydry morskie trzymają się za łapy podczas snu, żeby nie odpłynąć od siebie.",
+"Narodowym zwierzęciem Szkocji jest jednorożec.",
+"Światło ze Słońca leci do Ziemi około 8 minut i 20 sekund.",
+"Na Ziemi rośnie około 3 bilionów drzew, czyli więcej niż jest gwiazd w Drodze Mlecznej.",
+"Mózg waży ok. 2% masy ciała, a zużywa ok. 20% jego energii.",
+"Noworodek ma około 300 kości, dorosły 206. Część z nich zrasta się z wiekiem.",
+"Odciski palców koali są tak podobne do ludzkich, że trudno je odróżnić.",
+"Pierwszy SMS w historii (1992) brzmiał „Merry Christmas”.",
+"Maria Skłodowska-Curie jako jedyna osoba dostała Nobla w dwóch różnych naukach: fizyce (1903) i chemii (1911).",
+"Kostkę Rubika da się ułożyć na ponad 43 tryliony sposobów.",
+"Mrówki nie mają płuc. Oddychają przez małe otwory w ciele zwane przetchlinkami.",
+"Oko strusia jest większe od jego mózgu.",
+"Woda pokrywa około 71% powierzchni Ziemi.",
+"W Australii żyje kilka razy więcej owiec niż ludzi.",
+"Pluton od 2006 roku nie jest planetą, tylko planetą karłowatą.",
+"Luwr to najczęściej odwiedzane muzeum na świecie.",
+"Na kilogram miodu pszczoły muszą odwiedzić kilka milionów kwiatów.",
+"Bursztyn to skamieniała żywica drzew sprzed milionów lat.",
+"Ludzkie ciało składa się z około 37 bilionów komórek.",
+"Dziobak jest ssakiem, który składa jaja.",
+"Dźwięk w wodzie rozchodzi się ponad 4 razy szybciej niż w powietrzu.",
+"Księżyc oddala się od Ziemi o około 3,8 cm rocznie.",
+"Pierwszym człowiekiem w kosmosie był Jurij Gagarin – 12 kwietnia 1961 r.",
+"Drugim Polakiem w kosmosie był Sławosz Uznański-Wiśniewski (2025), 47 lat po Mirosławie Hermaszewskim (1978).",
+"Pierwszy komputerowy „bug” był prawdziwą ćmą, znalezioną w 1947 r. w komputerze Mark II.",
+"Kanał wyładowania pioruna nagrzewa się do ok. 30 000 °C – kilka razy więcej niż powierzchnia Słońca.",
+"Diament i grafit z ołówka to ten sam pierwiastek – węgiel – tylko inaczej ułożony.",
+"Sól kuchenna to połączenie trującego metalu (sodu) i trującego gazu (chloru).",
+"Watykan, najmniejsze państwo świata, ma ok. 0,44 km² – mniej niż wiele parków miejskich.",
+"Powietrze to w ok. 78% azot, a tlenu jest w nim tylko ok. 21%.",
+"Ludzie i szympansy mają ok. 98–99% wspólnego DNA.",
+"Miód prawie się nie psuje – w egipskich grobowcach znajdowano miód sprzed tysięcy lat.",
+"Rysy mają trzy wierzchołki. Najwyższy, 2503 m, leży po słowackiej stronie; polski ma 2499 m.",
+"Na Marsie jest najwyższy znany wulkan Układu Słonecznego – Olympus Mons, ok. 22 km wysokości.",
+"Serce płetwala błękitnego waży około 180 kg.",
+"Rok na Merkurym trwa tylko 88 ziemskich dni.",
+"Szkło to ciało stałe o nieuporządkowanej budowie – stare witraże są grubsze u dołu przez sposób produkcji, a nie dlatego, że szkło „spływa”.",
+"Jedna łyżeczka gwiazdy neutronowej ważyłaby na Ziemi miliardy ton."
+];
+
+// [kategoria, pytanie, odpowiedź]
+const K=[
+["Historia Polski","Co wydarzyło się w 966 roku?","Chrzest Polski. Mieszko I przyjął chrześcijaństwo – umowny początek państwa polskiego."],
+["Historia Polski","Kto był pierwszym koronowanym królem Polski?","Bolesław Chrobry, w 1025 roku."],
+["Historia Polski","Bitwa pod Grunwaldem – kiedy i z kim?","15 lipca 1410. Wojska polsko-litewskie Władysława Jagiełły pokonały Krzyżaków."],
+["Historia Polski","Czym była unia lubelska (1569)?","Połączeniem Polski i Litwy w jedno państwo – Rzeczpospolitą Obojga Narodów."],
+["Historia Polski","Czym była konfederacja warszawska (1573)?","Aktem gwarantującym pokój między wyznaniami – jednym z pierwszych takich w Europie."],
+["Historia Polski","Odsiecz wiedeńska – kiedy i kto?","12 września 1683. Jan III Sobieski rozbił Turków pod Wiedniem."],
+["Historia Polski","Co wyjątkowego jest w Konstytucji 3 maja (1791)?","Była pierwszą nowoczesną konstytucją w Europie i drugą na świecie, po amerykańskiej."],
+["Historia Polski","Kiedy były rozbiory Polski?","1772, 1793 i 1795. Rosja, Prusy i Austria podzieliły kraj – Polska zniknęła z mapy na 123 lata."],
+["Historia Polski","Kiedy wybuchły powstania listopadowe i styczniowe?","Listopadowe w 1830, styczniowe w 1863. Oba przeciw Rosji, oba przegrane."],
+["Historia Polski","Co się stało 11 listopada 1918?","Polska odzyskała niepodległość. Józef Piłsudski przejął władzę wojskową w Warszawie."],
+["Historia Polski","Co to był „Cud nad Wisłą”?","Bitwa Warszawska, 15 sierpnia 1920 – Polacy zatrzymali Armię Czerwoną."],
+["Historia Polski","Jak zaczęła się II wojna światowa dla Polski?","1 września 1939 zaatakowały Niemcy, a 17 września – ZSRR."],
+["Historia Polski","Powstanie w getcie warszawskim – kiedy?","19 kwietnia 1943. Zbrojny zryw Żydów przeciw Niemcom."],
+["Historia Polski","Powstanie Warszawskie – kiedy i jak długo?","Wybuchło 1 sierpnia 1944, trwało 63 dni. Godzina „W” to 17:00."],
+["Historia Polski","Kiedy Karol Wojtyła został papieżem?","16 października 1978 – jako Jan Paweł II, pierwszy papież Polak."],
+["Historia Polski","Co to jest Sierpień 1980?","Strajki, po których powstała „Solidarność” – pierwszy niezależny związek zawodowy w bloku wschodnim."],
+["Historia Polski","Co się stało 13 grudnia 1981?","Gen. Wojciech Jaruzelski wprowadził stan wojenny."],
+["Historia Polski","Dlaczego 4 czerwca 1989 jest ważny?","Częściowo wolne wybory – początek końca komunizmu w Polsce."],
+["Historia Polski","Kiedy Polska weszła do NATO i UE?","Do NATO 12 marca 1999, do Unii Europejskiej 1 maja 2004."],
+["Święta","Które dni są w Polsce ustawowo wolne?","1 i 6 stycznia, Wielkanoc i Poniedziałek Wielkanocny, 1 i 3 maja, Zielone Świątki, Boże Ciało, 15 sierpnia, 1 i 11 listopada, 24, 25 i 26 grudnia."],
+["Święta","Od kiedy Wigilia jest dniem wolnym?","Od 2025 roku."],
+["Święta","Jak wyznacza się datę Wielkanocy?","Pierwsza niedziela po pierwszej wiosennej pełni Księżyca – dlatego wypada między 22 marca a 25 kwietnia."],
+["Święta","Kiedy wypada Boże Ciało?","W czwartek, 60 dni po Wielkanocy."],
+["Święta","Co świętujemy 3 maja?","Uchwalenie Konstytucji 3 maja z 1791 roku."],
+["Święta","Co świętujemy 15 sierpnia?","Wniebowzięcie NMP i Święto Wojska Polskiego – w rocznicę Bitwy Warszawskiej."],
+["Święta","Czym różni się 1 listopada od 2 listopada?","1 listopada to Wszystkich Świętych (wolne), 2 listopada to Zaduszki – dzień modlitwy za zmarłych (pracujący)."],
+["Święta","Kiedy jest Dzień Flagi?","2 maja."],
+["Święta","Co to jest tłusty czwartek?","Ostatni czwartek przed Wielkim Postem – dzień pączków i faworków."],
+["Święta","Kiedy są andrzejki?","Wieczorem 29 listopada, w wigilię św. Andrzeja – z wróżbami, np. laniem wosku."],
+["Polska","Kto napisał słowa hymnu Polski?","Józef Wybicki, w 1797 roku we Włoszech. „Mazurek Dąbrowskiego” jest hymnem od 1927 roku."],
+["Polska","Jak wygląda godło Polski?","Biały orzeł w złotej koronie na czerwonej tarczy."],
+["Polska","Ilu posłów i senatorów ma Polska?","460 posłów w Sejmie i 100 senatorów w Senacie."],
+["Polska","Jak długie są kadencje prezydenta i Sejmu?","Prezydent – 5 lat (najwyżej dwie kadencje), Sejm i Senat – 4 lata."],
+["Polska","Z którego roku jest obecna konstytucja?","Z 1997 roku."],
+["Polska","Ile Polska ma województw i mieszkańców?","16 województw i ok. 37,5 mln mieszkańców; powierzchnia ok. 312 tys. km²."],
+["Polska","Z kim graniczy Polska?","Z 7 państwami: Niemcy, Czechy, Słowacja, Ukraina, Białoruś, Litwa i Rosja (obwód królewiecki)."],
+["Polska","Którzy Polacy dostali literackiego Nobla?","Henryk Sienkiewicz (1905), Władysław Reymont (1924), Czesław Miłosz (1980), Wisława Szymborska (1996), Olga Tokarczuk (za 2018)."],
+["Polska","Co odkrył Mikołaj Kopernik?","Że to Ziemia krąży wokół Słońca (heliocentryzm). Dzieło „O obrotach sfer niebieskich” wydano w 1543."],
+["Polska","Co warto wiedzieć o Fryderyku Chopinie?","Urodził się w 1810 r. w Żelazowej Woli, zmarł w Paryżu. Jego serce jest w kościele św. Krzyża w Warszawie."],
+["Polska","Czym jest „Pan Tadeusz”?","Epopeja narodowa Adama Mickiewicza z 1834 roku. Zaczyna się od słów „Litwo! Ojczyzno moja!”."],
+["Polska","Kto ustala stopy procentowe w Polsce?","Rada Polityki Pieniężnej przy Narodowym Banku Polskim."],
+["Polska","Kiedy stolicę przeniesiono z Krakowa do Warszawy?","Pod koniec XVI wieku, za Zygmunta III Wazy (ok. 1596)."],
+["Historia świata","Kiedy upadło zachodnie Cesarstwo Rzymskie?","W 476 roku – umowny koniec starożytności."],
+["Historia świata","Co zmienił Gutenberg?","Ok. 1450 r. wynalazł druk ruchomą czcionką – książki stały się tanie i powszechne."],
+["Historia świata","Kiedy Kolumb dotarł do Ameryki?","W 1492 roku – umowny początek nowożytności."],
+["Historia świata","Co zapoczątkował Marcin Luter w 1517?","Reformację – ogłosił 95 tez krytykujących Kościół."],
+["Historia świata","Co się stało 4 lipca 1776?","USA ogłosiły Deklarację Niepodległości."],
+["Historia świata","Kiedy była rewolucja francuska?","Od 1789. Symbol: zdobycie Bastylii 14 lipca. Hasło: wolność, równość, braterstwo."],
+["Historia świata","Czym była rewolucja przemysłowa?","Przejściem od pracy ręcznej do maszyn (m.in. maszyna parowa) – od XVIII w. w Anglii."],
+["Historia świata","Kiedy trwały wojny światowe?","I wojna: 1914–1918. II wojna: 1939–1945."],
+["Historia świata","Co się wydarzyło w 1945?","Koniec II wojny, bomby atomowe na Hiroszimę i Nagasaki, powstanie ONZ."],
+["Historia świata","Kiedy człowiek stanął na Księżycu?","20 lipca 1969. Pierwszy był Neil Armstrong (Apollo 11)."],
+["Historia świata","Kiedy upadł mur berliński?","9 listopada 1989. Dwa lata później, w 1991, rozpadł się ZSRR."],
+["Historia świata","Co się stało 11 września 2001?","Zamachy terrorystyczne Al-Kaidy w USA, m.in. na World Trade Center."],
+["Świat","Ilu ludzi żyje na Ziemi i gdzie najwięcej?","Ok. 8,2 mld. Najludniejsze są Indie (od 2023), potem Chiny."],
+["Świat","Jaki kraj jest największy, a jaki ocean?","Największy kraj – Rosja. Największy ocean – Spokojny."],
+["Świat","Jak wysoki jest Mount Everest?","8849 m n.p.m. – najwyższy szczyt Ziemi."],
+["Świat","Która rzeka jest najdłuższa?","Nil albo Amazonka – zależy od sposobu pomiaru; obie mają ok. 6,5–7 tys. km."],
+["Świat","Ile państw liczy Unia Europejska?","27 (od wyjścia Wielkiej Brytanii w 2020)."],
+["Świat","Kto ma stałe miejsce w Radzie Bezpieczeństwa ONZ?","USA, Rosja, Chiny, Wielka Brytania i Francja – każde z prawem weta."],
+["Świat","Jakie są największe religie świata?","Chrześcijaństwo, potem islam, potem hinduizm."],
+["Nauka","Jakie planety są w Układzie Słonecznym?","Merkury, Wenus, Ziemia, Mars, Jowisz, Saturn, Uran, Neptun. Największy jest Jowisz."],
+["Nauka","Jak szybkie jest światło?","Ok. 300 000 km/s – nic nie porusza się szybciej."],
+["Nauka","Z czego słynie Isaac Newton?","Z praw ruchu i prawa powszechnego ciążenia (XVII w.)."],
+["Nauka","Co oznacza E = mc² Einsteina?","Masa i energia są sobie równoważne – mała masa to ogromna energia (stąd energia jądrowa)."],
+["Nauka","Co ogłosił Karol Darwin?","Teorię ewolucji przez dobór naturalny – „O powstawaniu gatunków”, 1859."],
+["Nauka","Kto odkrył budowę DNA?","Watson i Crick w 1953, w oparciu o zdjęcia rentgenowskie Rosalind Franklin. To podwójna helisa."],
+["Nauka","Ile lat ma Wszechświat i Ziemia?","Wszechświat ok. 13,8 mld lat, Ziemia ok. 4,5 mld lat."],
+["Kultura","Kto namalował „Mona Lisę” i gdzie ją zobaczyć?","Leonardo da Vinci. Wisi w Luwrze w Paryżu."],
+["Kultura","Kto namalował sklepienie Kaplicy Sykstyńskiej?","Michał Anioł, w latach 1508–1512."],
+["Kultura","Najważniejsze dzieła Szekspira?","M.in. „Hamlet”, „Romeo i Julia”, „Makbet”, „Król Lear”."],
+["Kultura","Co to jest „Oda do radości”?","Finał IX Symfonii Beethovena – dziś hymn Unii Europejskiej."],
+["Kultura","Trzej najważniejsi filozofowie greccy?","Sokrates, jego uczeń Platon i uczeń Platona – Arystoteles."],
+["Kultura","Co to jest trójpodział władzy?","Rozdzielenie władzy na ustawodawczą, wykonawczą i sądowniczą (Monteskiusz, XVIII w.)."],
+["Pieniądze","Co to jest inflacja?","Wzrost cen – za te same pieniądze kupujesz mniej."],
+["Pieniądze","Co to jest PKB?","Wartość wszystkich towarów i usług wytworzonych w kraju w ciągu roku."],
+["Pieniądze","Co to jest procent składany?","Odsetki naliczane także od wcześniejszych odsetek – dlatego długie oszczędzanie rośnie coraz szybciej."],
+["Pieniądze","Po co bank centralny podnosi stopy procentowe?","Żeby kredyty podrożały, ludzie mniej wydawali i inflacja spadła."]
+];
+// tematy do dalszej nauki
+const T=["Mitologia grecka (Zeus, Odyseja, puszka Pandory)","Biblia jako źródło frazeologii (hiob, judaszowe srebrniki)","Łacińskie sentencje (carpe diem, memento mori)","Wielcy malarze i style (barok, impresjonizm)","Muzyka klasyczna (Bach, Mozart, Beethoven, Chopin)","Kanon lektur (Kochanowski, Mickiewicz, Sienkiewicz, Prus)","Ustrój Polski i UE w praktyce","Podstawy ekonomii i finansów osobistych","Mapa świata: stolice i państwa","Najważniejsze wynalazki (prąd, penicylina, internet)","Błędy logiczne w dyskusji (ad hominem, chochoł)","Związki frazeologiczne (syzyfowa praca, pięta achillesowa)"];
+
+// ---------- STAN ----------
+const KEY="slowko-v1";
+let S={seen:{},known:{},kn:{},days:[],quiz:{ok:0,all:0}};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+
+// ---------- DZIEŃ ----------
+const now=new Date();
+const dayNo=Math.floor((Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()))/864e5);
+function rng(seed){return()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}}
+function order(n,seed){const a=[...Array(n).keys()],r=rng(seed);for(let i=n-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const oW=order(W.length,7),oU=order(U.length,11),oF=order(F.length,13),oK=order(K.length,17);
+const pick=(o,k)=>o[((k%o.length)+o.length)%o.length];
+const wi=pick(oW,dayNo),ui=pick(oU,dayNo),fi=pick(oF,dayNo),ki=pick(oK,dayNo);
+
+// streak
+if(!S.days.includes(dayNo)){S.days.push(dayNo);S.days=S.days.slice(-400)}
+S.seen[W[wi][0]]=S.seen[W[wi][0]]||dayNo;save();
+function streak(){let s=0,d=dayNo;const set=new Set(S.days);while(set.has(d)){s++;d--}return s}
+
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+$("date").textContent=now.toLocaleDateString("pl-PL",{weekday:"long",day:"numeric",month:"long"});
+function head(){const s=streak(),n=Object.keys(S.seen).length;
+  $("streak").textContent=`${s} ${s===1?"dzień":"dni"} z rzędu · ${n} ${n===1?"słowo":"słów"}`}
+head();
+
+function wordHTML(i,big){const w=W[i];return `
+  <div class="eyebrow">${big?"Słowo dnia":"Słowo"}</div>
+  <div class="word">${esc(w[0])}</div>
+  <div class="pos">${esc(w[1])}</div>
+  <p class="def">${esc(w[2])}</p>
+  <p class="ex">${esc(w[3])}</p>
+  ${w[4]?`<div class="swap">Zamiast „${esc(w[4])}” powiedz <b>${esc(w[0])}</b>.</div>`:""}`}
+
+function renderToday(){
+  const k=S.known[W[wi][0]];
+  $("today").innerHTML=wordHTML(wi,true)+`
+  <div class="row">
+    <button class="${k?"on":""}" id="b-know">${k?"Umiem":"Umiem to słowo"}</button>
+  </div>
+  <details><summary>Na dziś: wiedza, zwrot, ciekawostka</summary>
+    <div class="mini">
+      <div><div class="eyebrow">Warto wiedzieć · ${esc(K[ki][0])}</div>
+        <p style="margin-top:6px"><b>${esc(K[ki][1])}</b></p><p class="muted">${esc(K[ki][2])}</p></div>
+      <div><div class="eyebrow">Upgrade wypowiedzi</div>
+        <p style="margin-top:6px"><span class="from">${esc(U[ui][0])}</span> → <b>${esc(U[ui][1])}</b></p>
+        <p class="muted">${esc(U[ui][2])}</p></div>
+      <div><div class="eyebrow">Ciekawostka</div><p style="margin-top:6px">${esc(F[fi])}</p></div>
+    </div>
+  </details>`;
+  $("b-know").onclick=()=>{const n=W[wi][0];if(S.known[n])delete S.known[n];else S.known[n]=dayNo;save();renderToday();if(tab==="moje")renderPanel()};
+}
+renderToday();
+
+// ---------- ZAKŁADKI ----------
+let tab="losuj",roll={kind:"know",i:ki},Q=null,kc="Wszystko",kq={i:-1,show:false};
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  if(tab==="quiz"&&!Q)newQ();renderPanel()});
+
+const rnd=n=>Math.floor(Math.random()*n);
+function doRoll(kind){
+  if(kind==="any")kind=["word","fact","upgrade","know"][rnd(4)];
+  const len={word:W.length,fact:F.length,upgrade:U.length,know:K.length}[kind];
+  let i=rnd(len);if(roll.kind===kind&&len>1&&i===roll.i)i=(i+1)%len;
+  roll={kind,i};if(kind==="word"){S.seen[W[i][0]]=S.seen[W[i][0]]||dayNo;save();head()}renderPanel()}
+
+function newQ(){
+  const pool=Object.keys(S.seen).map(n=>W.findIndex(w=>w[0]===n)).filter(i=>i>=0);
+  const src=pool.length>=4&&Math.random()<.6?pool:[...W.keys()];
+  const a=src[rnd(src.length)];const opts=new Set([a]);
+  while(opts.size<4)opts.add(rnd(W.length));
+  Q={a,opts:[...opts].sort(()=>Math.random()-.5),picked:null}}
+
+function renderPanel(){
+  const p=$("panel");
+  if(tab==="losuj"){
+    let body="";
+    if(roll.kind==="word")body=wordHTML(roll.i,false);
+    else if(roll.kind==="know")body=`<div class="eyebrow">Warto wiedzieć · ${esc(K[roll.i][0])}</div><p class="def"><b>${esc(K[roll.i][1])}</b></p><p class="ex">${esc(K[roll.i][2])}</p>`;
+    else if(roll.kind==="fact")body=`<div class="eyebrow">Ciekawostka</div><p class="def">${esc(F[roll.i])}</p>`;
+    else{const u=U[roll.i];body=`<div class="eyebrow">Upgrade wypowiedzi</div>
+      <p class="def"><span class="from">${esc(u[0])}</span><br>→ <b>${esc(u[1])}</b></p><p class="muted">${esc(u[2])}</p>`}
+    p.innerHTML=body+`<div class="row"><button class="primary" id="r-any">Losuj coś</button></div>
+      <div class="grid">
+      <button id="r-word">Słowo</button><button id="r-know">Wiedza</button><button id="r-upgrade">Zwrot</button><button id="r-fact">Ciekawostka</button></div>`;
+    $("r-any").onclick=()=>doRoll("any");$("r-word").onclick=()=>doRoll("word");
+    $("r-upgrade").onclick=()=>doRoll("upgrade");$("r-know").onclick=()=>doRoll("know");$("r-fact").onclick=()=>doRoll("fact");
+  }
+  if(tab==="wiedza"){
+    const cats=["Wszystko",...new Set(K.map(k=>k[0]))];
+    const pool=K.map((k,i)=>i).filter(i=>kc==="Wszystko"||K[i][0]===kc);
+    if(!pool.includes(kq.i))kq={i:pool[rnd(pool.length)],show:false};
+    const k=K[kq.i],done=Object.keys(S.kn).length;
+    p.innerHTML=`<div class="head2"><select id="kc" aria-label="Kategoria">${cats.map(c=>`<option ${c===kc?"selected":""}>${esc(c)}</option>`).join("")}</select><span class="score">umiem ${done}/${K.length}</span></div>
+      <div class="eyebrow" style="margin-top:16px">${esc(k[0])}</div>
+      <p class="def"><b>${esc(k[1])}</b></p>
+      ${kq.show?`<p class="ex">${esc(k[2])}</p>`:""}
+      <div class="row">${kq.show?`<button class="primary" id="k-ok">Wiedziałem</button><button id="k-no">Nie wiedziałem</button>`:`<button class="primary" id="k-show">Pokaż odpowiedź</button><button id="k-skip">Pomiń</button>`}</div>
+      <details><summary>Co jeszcze warto poznać</summary><ul class="list">${T.map(t=>`<li style="cursor:default">${esc(t)}</li>`).join("")}</ul></details>`;
+    $("kc").onchange=e=>{kc=e.target.value;kq={i:-1};renderPanel()};
+    const next=()=>{const others=pool.filter(i=>i!==kq.i&&!S.kn[i]);const src=others.length?others:pool;kq={i:src[rnd(src.length)],show:false};renderPanel()};
+    if($("k-show"))$("k-show").onclick=()=>{kq.show=true;renderPanel()};
+    if($("k-skip"))$("k-skip").onclick=next;
+    if($("k-ok"))$("k-ok").onclick=()=>{S.kn[kq.i]=dayNo;save();next()};
+    if($("k-no"))$("k-no").onclick=()=>{delete S.kn[kq.i];save();next()};
+  }
+  if(tab==="quiz"){
+    const q=Q,pct=S.quiz.all?Math.round(100*S.quiz.ok/S.quiz.all):0;
+    p.innerHTML=`<div class="head2">
+      <span class="eyebrow">Co znaczy to słowo?</span><span class="score">${S.quiz.ok}/${S.quiz.all} · ${pct}%</span></div>
+      <div class="word" style="font-size:clamp(28px,7vw,38px)">${esc(W[q.a][0])}</div>
+      ${q.opts.map((o,k)=>`<button class="opt ${q.picked===null?"":o===q.a?"good":o===q.picked?"wrong":""}" data-o="${o}" id="q-${k}">${esc(W[o][2])}</button>`).join("")}
+      ${q.picked!==null?`<p class="ex">${esc(W[q.a][3])}</p><div class="row"><button class="primary" id="q-next">Następne</button></div>`:""}`;
+    p.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{if(Q.picked!==null)return;Q.picked=+b.dataset.o;
+      S.quiz.all++;if(Q.picked===Q.a){S.quiz.ok++;S.seen[W[Q.a][0]]=S.seen[W[Q.a][0]]||dayNo}save();head();renderPanel()});
+    if($("q-next"))$("q-next").onclick=()=>{newQ();renderPanel()};
+  }
+  if(tab==="moje"){
+    const names=Object.keys(S.seen).sort((a,b)=>S.seen[b]-S.seen[a]);
+    const known=names.filter(n=>S.known[n]).length;
+    p.innerHTML=`<div class="head2">
+      <span class="eyebrow">Poznane słowa</span><span class="score">${known} umiem · ${names.length-known} do powtórki</span></div>
+      <ul class="list">${names.map(n=>{const i=W.findIndex(w=>w[0]===n);return `<li data-i="${i}"><span><span style="min-width:0"><b>${esc(n)}</b><br><span class="faint">${esc(W[i][2])}</span></span></span><span class="chip ${S.known[n]?"k":""}">${S.known[n]?"umiem":"powtórz"}</span></li>`}).join("")}</ul>
+      <p class="faint" style="margin-top:12px">Kliknij słowo, żeby oznaczyć je jako opanowane. Postęp zapisuje się na tym urządzeniu.</p>`;
+    p.querySelectorAll("li").forEach(li=>li.onclick=()=>{const n=W[+li.dataset.i][0];
+      if(S.known[n])delete S.known[n];else S.known[n]=dayNo;save();renderPanel();renderToday()});
+  }
+}
+renderPanel();
+</script>

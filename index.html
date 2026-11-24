@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 22.11 21:36</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 21:54</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -900,7 +900,8 @@ function parseKako(XLSX, wb) {
       const stRaw = c.st >= 0 && r[c.st] != null ? String(r[c.st]).trim() : '', stl = stRaw.toLowerCase();
       let sheetPay = null;
       if (stl && stl !== '-') {
-        if (/chin/.test(stl)) status = 'chiny';  // „W drodze z Chin” = jeszcze nie dotarło, NIE sprzedane
+        if (/pre-?\s?sale|przedsprzeda/.test(stl)) { presale = true; status = price > 0 ? 'sprzedane' : 'presale'; sheetPay = 'pending'; }
+        else if (/chin/.test(stl)) status = 'chiny';  // „W drodze z Chin” = jeszcze nie dotarło, NIE sprzedane
         else if (/zakończon|zakonczon/.test(stl)) { status = 'sprzedane'; sheetPay = 'in'; }
         else if (/portfel/.test(stl)) { status = 'sprzedane'; sheetPay = 'wallet'; }
         else if (/wysłan|wyslan|w drodze|sprzedan/.test(stl)) { status = 'sprzedane'; sheetPay = 'pending'; }
@@ -944,7 +945,7 @@ function parseKako(XLSX, wb) {
       const account = accRaw && accRaw !== '-' ? accRaw.toLowerCase() : null;
       const pprice = cc >= 0 ? num(r[cc]) : null;
       const words = base.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-      const match = model.sales.find(s => s.status === 'magazyn' && !s.presaleSheet && String(s.size) === String(size) &&
+      const match = model.sales.find(s => ['magazyn', 'presale'].includes(s.status) && !s.future && !s.presaleSheet && String(s.size) === String(size) &&
         (!color || (s.color || '').toLowerCase().includes(color.toLowerCase())) && words.every(w => s.product.toLowerCase().includes(w)));
       if (match) Object.assign(match, {status: 'presale', price: pprice > 0 ? pprice : match.price, profit: null, presale: true, presaleSheet: true, platform, account, buyer, note: where.replace(/\+?\d[\d\s-]{5,}\d/g, '').trim()});
       else {
@@ -1012,6 +1013,9 @@ function parseKako(XLSX, wb) {
       const dv = r[c.d], dt = typeof dv === 'number' ? new Date(Math.round((dv - 25569) * 864e5)).toISOString().slice(0, 16).replace('T', ' ') : (dv == null ? '' : String(dv).trim());
       model.messages.push({row: i + 1, date: dt, platform: c.p >= 0 && r[c.p] != null ? String(r[c.p]).trim() : 'Inne', listing: c.o >= 0 && r[c.o] != null ? String(r[c.o]).trim() : '', from: c.f >= 0 && r[c.f] != null ? String(r[c.f]).trim() : '', text: tx, link: c.l >= 0 && r[c.l] != null ? String(r[c.l]).trim() : '', type: c.y >= 0 && r[c.y] != null ? String(r[c.y]).trim() : 'wiadomość'}); }
   }
+  // presale z paczki, która jeszcze nie doszła (brak daty odbioru w Statystykach) = jeszcze nie sprzedaż: nie liczy się do zysku, przychodu ani pieniędzy w drodze
+  const recvd = n => { const o = model.orders.find(x => x.n === n); return !!o && /\d{1,2}[.\/-]\d{1,2}|^\d{5}$/.test(String(o.received || '').trim()); };
+  model.sales.forEach(s => { if (s.presale && s.order != null && !recvd(s.order) && s.status === 'sprzedane') { s.status = 'presale'; s.sheetPay = null; } });
   return model;
 }
 
@@ -1458,7 +1462,7 @@ function renderStartInner() {
   const stat = (el, icon, cls, lab, val, foot, vcls = "") => $(el).innerHTML = `<div class="top">${ic(icon, cls)}<div class="lab">${lab}</div></div><div class="v ${vcls}">${val}</div><div class="foot">${foot}</div>`;
   const A_ = totals(D, "all");
   const spentAll = M.orders.reduce((a, o) => a + (o.spent || 0), 0) + expand(OTHER).reduce((a, o) => a + (+o.cost || 0), 0);
-  const recCost = M.sales.filter(s => ["sprzedane", "oddane", "presale"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
+  const recCost = M.sales.filter(s => ["sprzedane", "oddane"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
   const INC = incoming(), incCost = INC.reduce((a, x) => a + x.qty * (x.unitCost || 0), 0), incN = INC.reduce((a, x) => a + x.qty, 0);
   const active = Math.max(0, spentAll - recCost), enroute = incCost || Math.max(0, active - inv), payback = spentAll ? A_.revIn / spentAll : 0;
   const pBar = (a, b, ca, cb) => { const s = Math.max(1, Math.max(0, a) + Math.max(0, b)); return `<div class="stack" style="margin:0 0 8px">${a > 0 ? `<i style="width:${a / s * 100}%;background:${ca}"></i>` : ""}${b > 0 ? `<i style="width:${b / s * 100}%;background:${cb}"></i>` : ""}</div>`; };
@@ -3001,7 +3005,7 @@ const chatHist = [];
 function summary() {
   const D = derive(), A_ = totals(D, "all"), now = nowKey(), Tm = totals(D, now);
   const spentAll = M.orders.reduce((a, o) => a + (o.spent || 0), 0) + expand(OTHER).reduce((a, o) => a + (+o.cost || 0), 0);
-  const recCost = M.sales.filter(s => ["sprzedane", "oddane", "presale"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
+  const recCost = M.sales.filter(s => ["sprzedane", "oddane"].includes(s.status)).reduce((a, s) => a + (s.cost || 0), 0);
   const inv = D.unsold.reduce((a, x) => a + (x.cost || 0), 0) + notEnteredCost();
   const r = v => v == null ? null : Math.round(v);
   const prods = {}; M.sales.forEach(s => { const p = prods[s.product] ||= {sprzedane: 0, na_stanie: 0, przychod: 0, zysk: 0, ceny_sprzedazy: [], koszt_szt: []}; if (s.status === "sprzedane") { p.sprzedane++; p.przychod += s.price; p.zysk += s.profit; p.ceny_sprzedazy.push(r(s.price)); } else if (["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status)) p.na_stanie++; if (s.cost) p.koszt_szt.push(r(s.cost)); });
