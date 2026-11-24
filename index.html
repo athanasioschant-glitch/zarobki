@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 21:54</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 21:58</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -569,6 +569,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <div class="dash">
       <div class="card hero s12" id="hero"></div>
       <div class="card s12" id="networth"></div>
+      <div class="card s12" id="kmaj"></div>
       <div class="card s12" id="money"></div>
       <div class="stat s3" id="st-rev"></div>
       <div class="stat s3" id="st-roi"></div>
@@ -1410,7 +1411,7 @@ function renderStart() {
   const kakoMode = location.hash.slice(1) === "start-kako";
   $("#srcs").parentElement.hidden = kakoMode;
   $("#kn-start").hidden = !kakoMode; if (kakoMode) renderKakoNav("start", "dash");
-  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat", "st-rev", "st-roi", "st-spent", "st-stock"], allOnly = ["life", "networth", "sources", "debts", "recur"];
+  const kakoOnly = ["kmaj", "transit", "checks-mini", "recent", "limits-mini", "top", "plat", "st-rev", "st-roi", "st-spent", "st-stock"], allOnly = ["life", "networth", "sources", "debts", "recur"];
   // „Wszystkie źródła” = same finanse; magazyn, sprzedaże, limity i produkty tylko w Kako
   kakoOnly.forEach(id => { if (SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
@@ -1471,6 +1472,18 @@ function renderStartInner() {
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap"><div class="mv" style="font:800 30px/1.1 var(--f);letter-spacing:-.03em">${zl(spentAll)}</div><div class="small muted">zwrot inwestycji <b class="${payback >= 1 ? "pos" : ""}" style="font-size:15px">${pct(payback)}</b></div></div>
     <div class="bar ${payback >= 1 ? "" : "w"}" style="margin-top:10px"><i style="width:${Math.min(100, payback * 100)}%"></i></div>
     <div class="mdet" style="margin-top:12px"><div class="mline"><span><i style="background:var(--warn)"></i>Aktywnie zainwestowane</span><b>${zl(active)}</b></div><div class="mline"><span style="padding-left:16px">w magazynie · w drodze z Chin (${incN} szt.)</span><b>${zl(inv)} · ${zl(enroute)}</b></div><div class="mline"><span><i style="background:var(--faint)"></i>Już sprzedane (koszt)</span><b>${zl(recCost)}</b></div><div class="note" style="margin-top:8px">${payback >= 1 ? "Włożone pieniądze już wróciły." : `Do pełnego zwrotu brakuje ${zl(spentAll - A_.revIn)}.`}</div></div>`;
+  { const ev = (q, x) => q * (x.sell || x.unitCost || 0), pen = A_.revPen, wal = A_.revWal;
+    const invE = D.unsold.reduce((a, x) => a + (estSell(x) || x.cost || 0), 0) + notEntered().reduce((a, x) => a + ev(x.qty, x), 0), incE = INC.reduce((a, x) => a + ev(x.qty, x), 0);
+    const cur = inv + incCost + pen + wal, pot = invE + incE + pen + wal;
+    const ln = (l, a, b) => `<div class="mline"><span>${l}</span><b>${zl(a)}${b != null ? ` <span class="small muted" style="font-weight:500">→ ${zl(b)}</span>` : ""}</b></div>`;
+    $("#kmaj").innerHTML = `<div class="ch" style="margin-bottom:10px"><div><h3>Majątek</h3></div></div>
+      <div class="kv" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+        <div><div class="l">Aktualny · towar po koszcie</div><div class="bigv" style="font-size:30px">${zl(cur)}</div></div>
+        <div><div class="l">Potencjalny · gdy sprzedasz wszystko</div><div class="bigv" style="font-size:30px;color:var(--accent)">${zl(pot)}</div><div class="small muted">+${zl(pot - cur)} do zarobienia na towarze</div></div>
+      </div>
+      <details class="grp" style="margin-top:12px"><summary><span class="gt"><span class="small muted">Z czego się składa (koszt → cena sprzedaży)</span></span><span></span>${svg("arrow", 14)}</summary><div class="mdet" style="margin-top:8px">
+        ${ln("Towar w magazynie (z wysyłką)", inv, invE)}${ln(`Towar w drodze z Chin (${incN} szt.)`, incCost, incE)}${ln("Pieniądze w drodze", pen)}${ln("Zamrożone (portfel Vinted)", wal)}
+      </div></details>`; }
   $("#hero").querySelectorAll("[data-ra]").forEach(b => b.onclick = () => { const a = b.dataset.ra; if (a === "in") { heroIn = !heroIn; heroPen = false; keepView(renderStart); } else if (a === "pen") { heroPen = !heroPen; heroIn = false; keepView(renderStart); } else location.hash = a === "mag" ? "magazyn" : "podzial"; });
   bindPay($("#hero"));
   const gi = $("#go-in"); if (gi) gi.onclick = () => { heroIn = !heroIn; heroPen = false; keepView(renderStart); };
