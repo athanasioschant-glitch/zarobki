@@ -551,7 +551,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:11</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:16</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -1025,6 +1025,10 @@ function parseKako(XLSX, wb) {
 
 
 const SNAPSHOT = (() => { try { const m = JSON.parse(localStorage.getItem("kd_model")); if (m && m.sales) return m; } catch {} return {errors: [], orders: [], orderItems: {}, wishlist: [], sales: [], summaries: {}, group: [], sellers: [], snapshotAt: "—"}; })();
+const KD_VER = "24.11 22:16";
+// aplikacja (nie artefakt): jeśli na serwerze jest nowsza wersja niż ta z pamięci przeglądarki – przeładuj od razu
+const kdUpd = () => { if (!window.KD_CFG || !/^https?:/.test(location.protocol)) return; fetch(location.pathname + "?nc=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.text() : "").then(h => { const m = h.match(new RegExp("KD_" + "VER = \"([^\"]+)\"")); if (!m || m[1] === KD_VER) return; let tried = ""; try { tried = sessionStorage.getItem("kd_upd") || ""; } catch {} if (tried === m[1]) return; try { sessionStorage.setItem("kd_upd", m[1]); } catch {} location.replace(location.pathname + "?v=" + encodeURIComponent(m[1]) + location.hash); }).catch(() => {}); };
+kdUpd(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") kdUpd(); });
 const FILE_ID = "";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const MONTHS = ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"];
