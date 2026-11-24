@@ -51,6 +51,9 @@
   color-scheme:light}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+:root:not(.ready) .inner>:not(header):not(#boot),:root:not(.ready) #side-nav,:root:not(.ready) #menu-btn,:root:not(.ready) #refresh,:root:not(.ready) .top .status{display:none!important}
+#boot{display:none}:root:not(.ready) #boot{display:flex;flex-direction:column;align-items:center;gap:12px;padding:80px 16px;text-align:center;color:var(--muted)}
+#boot .spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line,rgba(127,127,127,.25));border-top-color:var(--accent);animation:bootspin .9s linear infinite}@keyframes bootspin{to{transform:rotate(360deg)}}
 body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.5 var(--f);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--bg)}
 a{color:inherit}
@@ -548,7 +551,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:03</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:11</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -560,6 +563,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <div class="ttl"><h1 id="hdr">Pulpit</h1><div class="status"><span class="dot" id="sdot"></span><span id="stext">Migawka</span></div></div>
     <button class="iconbtn" id="refresh" aria-label="Pobierz najnowsze dane z arkusza" title="Pobierz najnowsze dane"><svg class="i"><use href="#i-refresh"/></svg></button>
   </header>
+  <div id="boot" role="status" aria-live="polite"><div class="spin" id="boot-spin"></div><div id="boot-t">Łączę z arkuszem…</div><button class="sm" id="boot-show" hidden>Pokaż ostatnie dane</button></div>
 
   <!-- PULPIT -->
   <section class="view" id="v-start">
@@ -3166,7 +3170,12 @@ function setStatus(kind, text) { $("#sdot").className = "dot " + kind; $("#stext
 const fmtTime = t => new Date(t).toLocaleString("pl-PL", {day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit"});
 const snapText = () => "Migawka z " + SNAPSHOT.snapshotAt.split("-").reverse().join(".");
 setStatus("", snapText());
-let mcp = null;
+let mcp = null, bootSheet = false, bootStore = false;
+const bootEnd = () => { document.documentElement.classList.add("ready"); };
+const bootCheck = () => { if (bootSheet && bootStore) bootEnd(); };
+const bootFail = t => { if (document.documentElement.classList.contains("ready")) return; $("#boot-t").textContent = t; $("#boot-spin").hidden = true; $("#boot-show").hidden = false; };
+$("#boot-show").onclick = bootEnd;
+setTimeout(() => bootFail("Arkusz długo się nie wczytuje. Poczekaj albo pokaż ostatnie zapisane dane."), 30000);
 function onSheet(ev) {
   if (ev.type === "data") {
     try {
@@ -3178,11 +3187,13 @@ function onSheet(ev) {
       const t = ev.result.cache ? ev.result.cache.storedAt : Date.now();
       setStatus(ev.result.cache && ev.result.cache.revalidating ? "load" : "live", "Na żywo z arkusza · " + fmtTime(t));
       renderAll();
-    } catch (e) { console.warn(e); setStatus("err", "Nie umiem odczytać arkusza · " + snapText().toLowerCase()); }
+      if (!(ev.result.cache && ev.result.cache.revalidating)) { bootSheet = true; bootCheck(); }
+    } catch (e) { console.warn(e); setStatus("err", "Nie umiem odczytać arkusza · " + snapText().toLowerCase()); bootFail("Nie umiem odczytać arkusza."); }
   } else {
     const c = ev.error && ev.error.code;
     const T = {needs_reauth: "Połącz ponownie Google Drive", server_not_connected: "Dodaj Google Drive w Ustawieniach", not_in_manifest: "Brak zgody na Google Drive", approval_required: "Zatwierdź dostęp do Drive", server_unavailable: "Drive chwilowo nie odpowiada"};
     setStatus("err", (T[c] || "Brak połączenia z arkuszem") + " · " + snapText().toLowerCase());
+    bootFail((T[c] || "Brak połączenia z arkuszem") + ".");
     if (["needs_reauth", "server_not_connected", "not_in_manifest", "blocked_by_policy", "approval_required"].includes(c)) { M = SNAPSHOT; renderAll(); }
   }
 }
@@ -3205,7 +3216,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => rout
 renderAll();
 (async () => {
   try { [mcp, sample, assetsNS] = await Promise.all([claude.use("mcp"), claude.use("sample"), claude.use("assets")]); } catch {}
-  if (mcp) connect();
+  if (mcp) connect(); else bootFail("Dane na żywo działają po otwarciu na claude.ai albo w aplikacji.");
   const [o, s, g, goal, tx, accs, ideas, paid, arrived, budget, todos, channels, recv, living, networth, transfers, seeded, srcOrder, profiles] = await Promise.all([store.load("income", []), store.load("searches", []), store.load("groups", []), store.load("goal_10k", [GOAL]), store.load("tx", []), store.load("accounts", {}), store.load("ideas", null), store.load("paid", {}), store.load("arrived", {}), store.load("budget", null), store.load("todos", {}), store.load("channels", null), store.load("recv", {}), store.load("living", []), store.load("networth", null), store.load("transfers", {}), store.load("seed_v1", null), store.load("src_order", null), store.load("profiles", [])]);
   CHKNOTE = (await store.load("chknotes", {})) || {};
   try { await loadGenPhotos(); } catch (e) { console.warn(e); }
@@ -3226,6 +3237,7 @@ renderAll();
   if (!window.KD_CFG && !ls.get("kd_moved", false)) { const b = document.createElement("div"); b.className = "card"; b.style.cssText = "margin:0 0 14px;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:inset 0 0 0 1px var(--warn)"; b.innerHTML = `<span class="small" style="flex:1 1 220px">Ta wersja <b>nie synchronizuje się</b> z telefonem. Przenieś dane do aplikacji i używaj jej na obu urządzeniach.</span><button class="sm primary" data-move2>Przenieś dane</button><button class="sm" data-moved>Już przeniesione</button>`; const first = document.querySelector("section.view"); first.parentElement.insertBefore(b, first); b.querySelector("[data-move2]").onclick = () => openMove(); b.querySelector("[data-moved]").onclick = () => { ls.set("kd_moved", true); b.remove(); }; }
   { const sk = await store.load("skin", null); if (sk && sk[0] != null && sk[0] !== ls.get("kd_skin", "")) { ls.set("kd_skin", sk[0]); applySkin(sk[0]); } }
   renderAll();
+  bootStore = true; bootCheck();
 })();
 </script>
 
