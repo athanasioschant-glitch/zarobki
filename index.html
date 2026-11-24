@@ -548,7 +548,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 21:58</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:03</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -568,7 +568,6 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <div class="toolbar"><div class="pills" id="periods" role="group" aria-label="Okres"></div></div>
     <div class="dash">
       <div class="card hero s12" id="hero"></div>
-      <div class="card s12" id="networth"></div>
       <div class="card s12" id="kmaj"></div>
       <div class="card s12" id="money"></div>
       <div class="stat s3" id="st-rev"></div>
@@ -1411,10 +1410,11 @@ function renderStart() {
   const kakoMode = location.hash.slice(1) === "start-kako";
   $("#srcs").parentElement.hidden = kakoMode;
   $("#kn-start").hidden = !kakoMode; if (kakoMode) renderKakoNav("start", "dash");
-  const kakoOnly = ["kmaj", "transit", "checks-mini", "recent", "limits-mini", "top", "plat", "st-rev", "st-roi", "st-spent", "st-stock"], allOnly = ["life", "networth", "sources", "debts", "recur"];
+  const kakoOnly = ["transit", "checks-mini", "recent", "limits-mini", "top", "plat", "st-rev", "st-roi", "st-spent", "st-stock"], allOnly = ["life", "sources", "debts", "recur"];
   // „Wszystkie źródła” = same finanse; magazyn, sprzedaże, limity i produkty tylko w Kako
   kakoOnly.forEach(id => { if (SRC !== "kako") $("#" + id).hidden = true; else if (id !== "checks-mini") $("#" + id).hidden = false; });
   allOnly.forEach(id => $("#" + id).hidden = SRC !== "all");
+  $("#kmaj").hidden = !["all", "kako"].includes(SRC);
   $("#hdr").textContent = kakoMode ? "Kako" : "Dashboard";
 }
 let moneyOpen = false, stockOpen = false;
@@ -1490,7 +1490,7 @@ function renderStartInner() {
   const gt = $("#go-transit"); if (gt) gt.onclick = () => { heroPen = !heroPen; heroIn = false; keepView(renderStart); };
   renderTransit(D);
   $("#hist").innerHTML = histHTML(SRC);
-  if (SRC === "all") { renderLife(T); renderDebts(); renderNetWorth(D, A_, incCost); renderRecurring($("#recur")); }
+  if (SRC === "all") { renderLife(T); renderDebts(); renderRecurring($("#recur")); }
   const avgSell = {}; D.sold.forEach(s => { if (isGift(s)) return; const k = s.product; (avgSell[k] ||= []).push(s.price); });
   let potInc = INC.reduce((a, x) => a + x.qty * (x.sell || 0), 0);
   let pot = 0, potEst = 0; D.unsold.forEach(s => { if (s.status === "wystawione") pot += s.price; else if (avgSell[s.product]) { pot += avgSell[s.product].reduce((a, b) => a + b, 0) / avgSell[s.product].length; potEst++; } });
