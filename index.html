@@ -551,7 +551,7 @@ input.out:focus,textarea.out:focus{border-color:var(--accent)}
     <a href="#" data-skinbtn><svg class="i"><use href="#i-spark"/></svg>Wygląd: <span id="skin-lab">klasyczny</span></a>
     <a href="#" data-move><svg class="i"><use href="#i-shield"/></svg>Przenieś dane</a>
   </div>
-  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 24.11 22:16</span></div>
+  <div class="foot"><b style="color:var(--fg);display:block;margin-bottom:2px">Dane na żywo</b>z arkusza Google, odświeżane co 5 minut<span style="display:block;margin-top:6px;opacity:.7">Wersja 25.11 19:25</span></div>
 </nav>
 <div class="scrim" id="scrim"></div>
 <nav hidden>
@@ -892,7 +892,7 @@ function parseKako(XLSX, wb) {
       }
       let status;
       if ((note && /wycofan/i.test(note)) || /wycofan/i.test(plRaw)) status = 'wycofane';
-      else if (presale) status = price > 0 ? 'sprzedane' : 'presale';
+      else if (presale) status = 'presale';
       else if (note && /negocj/i.test(note)) status = 'negocjacje';
       else if (note) status = 'rezerwacja';
       else if (price === 0 && platform) status = 'oddane';
@@ -904,7 +904,7 @@ function parseKako(XLSX, wb) {
       const stRaw = c.st >= 0 && r[c.st] != null ? String(r[c.st]).trim() : '', stl = stRaw.toLowerCase();
       let sheetPay = null;
       if (stl && stl !== '-') {
-        if (/pre-?\s?sale|przedsprzeda/.test(stl)) { presale = true; status = price > 0 ? 'sprzedane' : 'presale'; sheetPay = 'pending'; }
+        if (/pre-?\s?sale|przedsprzeda/.test(stl)) { presale = true; status = 'presale'; }
         else if (/chin/.test(stl)) status = 'chiny';  // „W drodze z Chin” = jeszcze nie dotarło, NIE sprzedane
         else if (/zakończon|zakonczon/.test(stl)) { status = 'sprzedane'; sheetPay = 'in'; }
         else if (/portfel/.test(stl)) { status = 'sprzedane'; sheetPay = 'wallet'; }
@@ -1017,15 +1017,12 @@ function parseKako(XLSX, wb) {
       const dv = r[c.d], dt = typeof dv === 'number' ? new Date(Math.round((dv - 25569) * 864e5)).toISOString().slice(0, 16).replace('T', ' ') : (dv == null ? '' : String(dv).trim());
       model.messages.push({row: i + 1, date: dt, platform: c.p >= 0 && r[c.p] != null ? String(r[c.p]).trim() : 'Inne', listing: c.o >= 0 && r[c.o] != null ? String(r[c.o]).trim() : '', from: c.f >= 0 && r[c.f] != null ? String(r[c.f]).trim() : '', text: tx, link: c.l >= 0 && r[c.l] != null ? String(r[c.l]).trim() : '', type: c.y >= 0 && r[c.y] != null ? String(r[c.y]).trim() : 'wiadomość'}); }
   }
-  // presale z paczki, która jeszcze nie doszła (brak daty odbioru w Statystykach) = jeszcze nie sprzedaż: nie liczy się do zysku, przychodu ani pieniędzy w drodze
-  const recvd = n => { const o = model.orders.find(x => x.n === n); return !!o && /\d{1,2}[.\/-]\d{1,2}|^\d{5}$/.test(String(o.received || '').trim()); };
-  model.sales.forEach(s => { if (s.presale && s.order != null && !recvd(s.order) && s.status === 'sprzedane') { s.status = 'presale'; s.sheetPay = null; } });
   return model;
 }
 
 
 const SNAPSHOT = (() => { try { const m = JSON.parse(localStorage.getItem("kd_model")); if (m && m.sales) return m; } catch {} return {errors: [], orders: [], orderItems: {}, wishlist: [], sales: [], summaries: {}, group: [], sellers: [], snapshotAt: "—"}; })();
-const KD_VER = "24.11 22:16";
+const KD_VER = "25.11 19:25";
 // aplikacja (nie artefakt): jeśli na serwerze jest nowsza wersja niż ta z pamięci przeglądarki – przeładuj od razu
 const kdUpd = () => { if (!window.KD_CFG || !/^https?:/.test(location.protocol)) return; fetch(location.pathname + "?nc=" + Date.now(), {cache: "no-store"}).then(r => r.ok ? r.text() : "").then(h => { const m = h.match(new RegExp("KD_" + "VER = \"([^\"]+)\"")); if (!m || m[1] === KD_VER) return; let tried = ""; try { tried = sessionStorage.getItem("kd_upd") || ""; } catch {} if (tried === m[1]) return; try { sessionStorage.setItem("kd_upd", m[1]); } catch {} location.replace(location.pathname + "?v=" + encodeURIComponent(m[1]) + location.hash); }).catch(() => {}); };
 kdUpd(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") kdUpd(); });
@@ -1273,7 +1270,7 @@ function derive() {
   const est = M.sales.filter(s => s.status === "presale").map(s => { const a = avgP[s.product]; if (!a) return null; const price = Math.round(a.reduce((x, y) => x + y, 0) / a.length), cost = s.cost ?? s.estCost ?? 0; return {...s, price, cost, profit: Math.round((price - cost) * 100) / 100, est: true}; }).filter(Boolean);
   const sold = real.map(s => s.partner ? {...s, profit: Math.round(s.profit * 50) / 100, fullProfit: s.profit} : s);
   const gone = M.sales.filter(s => s.status === "oddane");
-  const unsold = M.sales.filter(s => ["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status) && !isTransit(s));
+  const unsold = M.sales.filter(s => (["wystawione", "magazyn", "rezerwacja", "wycofane", "negocjacje"].includes(s.status) || (s.status === "presale" && !s.future && !(s.order && !orderRecvd(s.order)))) && !isTransit(s));
   const months = {};
   const bump = (k, f, v) => { if (!k) return; (months[k] ||= {rev: 0, profit: 0, spent: 0})[f] += v; };
   sold.forEach(s => { const k = smonth(s); bump(k, "rev", s.price); bump(k, "profit", s.profit); });
@@ -1349,7 +1346,7 @@ function checks(D) {
     if (x.expCost != null && x.cost != null && x.expCost > x.cost + 0.5) add("warn", `${nm}: cena kupna nie pasuje do kosztu`, `${where}. Kupno + fracht + wysyłka = ${zl(x.expCost, 2)}, a łączny koszt to ${zl(x.cost, 2)}. Wygląda na cenę skopiowaną z innego produktu.`);
     if (x.status === "sprzedane" && x.price > 0 && x.price < x.cost) add("info", `${nm}: sprzedane poniżej kosztu`, `${where}. Strata ${zl(x.cost - x.price, 2)}.`);
     if (x.platform === "Prywatnie") add("info", `${nm}: „${x.recipient}” w kolumnie platformy`, `${where}. Liczę to jako rzecz oddaną (strata ${zl(x.cost, 2)}). Jeśli to sprzedaż, wpisz platformę i cenę.`);
-    if (x.status === "presale" && !(x.price > 0)) add("warn", `${nm}: presale bez ceny`, `${where}: „${x.note}”. Liczę jako sprzedane, ale bez ceny nie wejdzie do przychodu ani zysku. Wpisz cenę liczbą, np. „${x.buyer || "imię"} - 520(${x.platform || "Vinted"})”.`);
+    if (x.status === "presale" && !(x.price > 0)) add("warn", `${nm}: presale bez ceny`, `${where}: „${x.note}”. Presale nie wchodzi do zysku, dopóki w STATUS nie wpiszesz sprzedaży. Wpisz cenę liczbą, np. „${x.buyer || "imię"} - 520(${x.platform || "Vinted"})”.`);
     if (x.status === "rezerwacja") add("info", `${nm}: tekst w kolumnie ceny`, `${where}: „${x.note}”. Liczę jako rezerwację. Wpisz cenę liczbą, a notatkę w osobnej kolumnie, wtedy znikną błędy #VALUE!.`);
   });
   // pytania od pulpitu: rzeczy, które pewnie zmieniły stan, a status stoi
